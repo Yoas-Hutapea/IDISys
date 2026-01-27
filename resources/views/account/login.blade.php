@@ -16,7 +16,7 @@
                     </div>
 
                     <!-- Login Form -->
-                    <form id="loginForm" method="post" action="{{ url('/login') }}" class="needs-validation" novalidate>
+                    <form id="loginForm" method="post" action="{{ route('api.auth.login.submit') }}" class="needs-validation" novalidate>
                         @csrf
 
                         <!-- Alert Messages -->
