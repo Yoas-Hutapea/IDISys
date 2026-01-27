@@ -1,0 +1,12 @@
+<svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .step-circle { fill: #696cff; }
+      .step-number { fill: white; font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; text-anchor: middle; dominant-baseline: central; }
+    </style>
+  </defs>
+  <g id="wizardStep2Active">
+    <circle cx="27" cy="27" r="25" class="step-circle"/>
+    <text x="27" y="27" class="step-number">2</text>
+  </g>
+</svg>

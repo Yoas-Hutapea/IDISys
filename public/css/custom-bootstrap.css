@@ -1,0 +1,1101 @@
+/* Application Background Styling */
+body {
+    background-image: url('/assets/media/bg2.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-attachment: fixed;
+    min-height: 100vh;
+}
+
+/* Dark mode background */
+[data-bs-theme="dark"] body,
+body[data-bs-theme="dark"] {
+    background-image: url('/assets/media/bg2-dark.png');
+}
+
+/* Ensure layout-page has proper background for content areas */
+.layout-page {
+    background-color: transparent;
+}
+
+/* Ensure content containers have proper background */
+.container-xxl,
+.container-fluid {
+    background-color: transparent;
+}
+
+/* Navbar Styling - White background for better contrast with new background */
+.navbar,
+.layout-navbar,
+#layout-navbar,
+.bg-navbar-theme {
+    background-color: #ffffff !important;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode navbar */
+[data-bs-theme="dark"] .navbar,
+[data-bs-theme="dark"] .layout-navbar,
+[data-bs-theme="dark"] #layout-navbar,
+[data-bs-theme="dark"] .bg-navbar-theme {
+    background-color: #2b2b2b !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure cards and sections have proper background for readability */
+.card,
+.list-section,
+.filter-section {
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .list-section,
+[data-bs-theme="dark"] .filter-section {
+    background-color: rgba(43, 43, 43, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+/* Sidebar Search Styling */
+.sidebar-search-container {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+    display: block; /* Default: visible when expanded */
+}
+
+/* Hide search when sidebar is collapsed - Base state */
+#layout-menu.layout-menu-collapsed .sidebar-search-container,
+.layout-menu.layout-menu-collapsed .sidebar-search-container,
+body.layout-menu-collapsed #layout-menu .sidebar-search-container,
+body.layout-menu-collapsed .layout-menu .sidebar-search-container,
+html.layout-menu-collapsed .sidebar-search-container {
+    display: none !important;
+}
+
+/* Show search when sidebar is collapsed but hovered (extended on hover) - Higher specificity */
+#layout-menu.layout-menu-collapsed:hover .sidebar-search-container,
+.layout-menu.layout-menu-collapsed:hover .sidebar-search-container,
+body.layout-menu-collapsed #layout-menu:hover .sidebar-search-container,
+body.layout-menu-collapsed .layout-menu:hover .sidebar-search-container,
+html.layout-menu-collapsed #layout-menu:hover .sidebar-search-container {
+    display: block !important;
+}
+
+/* Show search when sidebar is expanded (not collapsed) */
+#layout-menu:not(.layout-menu-collapsed) .sidebar-search-container,
+.layout-menu:not(.layout-menu-collapsed) .sidebar-search-container,
+body:not(.layout-menu-collapsed) #layout-menu .sidebar-search-container,
+body:not(.layout-menu-collapsed) .layout-menu .sidebar-search-container {
+    display: block !important;
+}
+
+[data-bs-theme="dark"] .sidebar-search-container {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-search-container .input-group-text {
+    border-color: rgba(0, 0, 0, 0.15);
+    background-color: transparent;
+}
+
+[data-bs-theme="dark"] .sidebar-search-container .input-group-text {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.sidebar-search-container .form-control {
+    border-color: rgba(0, 0, 0, 0.15);
+    background-color: transparent;
+    color: inherit;
+}
+
+.sidebar-search-container .form-control:focus {
+    border-color: #2352a1;
+    box-shadow: 0 0 0 0.2rem rgba(35, 82, 161, 0.25);
+    background-color: transparent;
+}
+
+[data-bs-theme="dark"] .sidebar-search-container .form-control {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-bs-theme="dark"] .sidebar-search-container .form-control:focus {
+    border-color: #2352a1;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar-search-container .btn {
+    border-color: rgba(0, 0, 0, 0.15);
+    background-color: transparent;
+    color: inherit;
+}
+
+[data-bs-theme="dark"] .sidebar-search-container .btn {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.sidebar-search-container .btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-bs-theme="dark"] .sidebar-search-container .btn:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Hide menu items when searching */
+.menu-item-hidden {
+    display: none !important;
+}
+
+/* Transparent Scrollbar for Sidebar */
+.layout-menu,
+.menu-inner,
+#menuInner {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.layout-menu::-webkit-scrollbar,
+.menu-inner::-webkit-scrollbar,
+#menuInner::-webkit-scrollbar {
+    width: 6px;
+}
+
+.layout-menu::-webkit-scrollbar-track,
+.menu-inner::-webkit-scrollbar-track,
+#menuInner::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.layout-menu::-webkit-scrollbar-thumb,
+.menu-inner::-webkit-scrollbar-thumb,
+#menuInner::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+}
+
+/* Show scrollbar on hover (optional - subtle) */
+.layout-menu:hover::-webkit-scrollbar-thumb,
+.menu-inner:hover::-webkit-scrollbar-thumb,
+#menuInner:hover::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+[data-bs-theme="dark"] .layout-menu:hover::-webkit-scrollbar-thumb,
+[data-bs-theme="dark"] .menu-inner:hover::-webkit-scrollbar-thumb,
+[data-bs-theme="dark"] #menuInner:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Sidebar Logo Styling */
+#sidebar-logo {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+/* Logo size when sidebar is expanded - match app-brand height */
+.layout-menu:not(.layout-menu-collapsed) #sidebar-logo,
+body:not(.layout-menu-collapsed) #sidebar-logo {
+    max-height: 64px;
+    width: auto;
+}
+
+/* Logo size when sidebar is collapsed */
+.layout-menu.layout-menu-collapsed #sidebar-logo,
+body.layout-menu-collapsed #sidebar-logo {
+    max-height: 40px;
+    max-width: 40px;
+    width: auto;
+    height: auto;
+}
+
+/* App brand container adjustments - match demo.css height */
+.app-brand.demo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    height: 64px;
+    margin-top: 12px;
+}
+
+.app-brand-logo.demo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Custom Bootstrap Button Primary Override */
+/* This file overrides Bootstrap's btn-primary color to #2352a1 */
+
+.btn-primary {
+    background-color: #2352a1 !important;
+    border-color: #2352a1 !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: #1d4281 !important;
+    border-color: #1d4281 !important;
+}
+
+.btn-primary:active,
+.btn-primary.active,
+.btn-primary.show {
+    background-color: #18356b !important;
+    border-color: #18356b !important;
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-color: #2352a1 !important;
+    border-color: #2352a1 !important;
+    opacity: 0.65;
+}
+
+/* Background utilities */
+.bg-primary {
+    background-color: #2352a1 !important;
+}
+
+.bg-primary-subtle {
+    background-color: rgba(35, 82, 161, 0.1) !important;
+}
+
+/* Border utilities */
+.border-primary {
+    border-color: #2352a1 !important;
+}
+
+/* Text utilities */
+.text-primary {
+    color: #2352a1 !important;
+}
+
+/* Link overrides */
+a.text-primary:hover,
+a.text-primary:focus {
+    color: #1d4281 !important;
+}
+
+/* DataTables Fixed Columns Fix - Prevent header columns from being cut off */
+/* Ensure scroll head inner container has proper width calculation */
+.dataTables_wrapper .dataTables_scrollHeadInner {
+    width: auto !important;
+    min-width: 100% !important;
+}
+
+/* Ensure last column header is fully visible with proper padding */
+.dataTables_wrapper .dataTables_scrollHeadInner table thead th:last-child {
+    padding-right: 20px !important;
+}
+
+/* Ensure scroll head width matches scroll body width */
+.dataTables_wrapper .dataTables_scrollHead {
+    overflow: hidden !important;
+}
+
+.dataTables_wrapper .dataTables_scrollBody {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+}
+
+/* Fix for fixed columns header alignment */
+.DTFC_LeftHeadWrapper table,
+.DTFC_RightHeadWrapper table {
+    table-layout: auto !important;
+}
+
+/* Ensure DataTables scroll container has proper width calculation */
+.dataTables_scroll {
+    position: relative;
+    clear: both;
+}
+
+/* Fix for fixed columns with scrollX */
+/* Ensure fixed columns are above scrollable content */
+.dataTables_scrollBody {
+    position: relative;
+    z-index: 1;
+}
+
+.DTFC_LeftWrapper,
+.DTFC_RightWrapper {
+    position: relative;
+    z-index: 10;
+}
+
+.DTFC_LeftHeadWrapper,
+.DTFC_RightHeadWrapper {
+    position: relative;
+    z-index: 11;
+}
+
+/* Ensure fixed column cells are above scrollable body content */
+table.dataTable thead tr > .dtfc-fixed-start,
+table.dataTable thead tr > .dtfc-fixed-end,
+table.dataTable tfoot tr > .dtfc-fixed-start,
+table.dataTable tfoot tr > .dtfc-fixed-end {
+    z-index: 12 !important;
+    position: relative;
+}
+
+table.dataTable tbody tr > .dtfc-fixed-start,
+table.dataTable tbody tr > .dtfc-fixed-end {
+    z-index: 10 !important;
+    position: relative;
+}
+
+/* Ensure fixed column body wrapper is above scrollable content */
+.DTFC_LeftBodyLiner,
+.DTFC_RightBodyLiner {
+    position: relative;
+    z-index: 10;
+}
+
+/* Ensure fixed columns have solid background to cover scrolling content */
+.DTFC_LeftWrapper,
+.DTFC_RightWrapper,
+.DTFC_LeftHeadWrapper,
+.DTFC_RightHeadWrapper,
+.DTFC_LeftBodyLiner,
+.DTFC_RightBodyLiner {
+    background-color: var(--bs-body-bg, #ffffff) !important;
+    opacity: 1 !important;
+}
+
+/* Ensure all fixed column table cells have solid background */
+.DTFC_LeftBodyLiner table tbody td,
+.DTFC_RightBodyLiner table tbody td,
+.DTFC_LeftBodyLiner table tbody th,
+.DTFC_RightBodyLiner table tbody th {
+    background-color: inherit !important;
+    opacity: 1 !important;
+}
+
+/* Ensure fixed column cells have solid background and full opacity */
+table.dataTable thead tr > .dtfc-fixed-start,
+table.dataTable thead tr > .dtfc-fixed-end,
+table.dataTable tfoot tr > .dtfc-fixed-start,
+table.dataTable tfoot tr > .dtfc-fixed-end,
+table.dataTable thead tr th.dtfc-fixed-start,
+table.dataTable thead tr th.dtfc-fixed-end {
+    background-color: #2352a1 !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Fixed column body cells - default solid background (white/body bg for odd rows) */
+table.dataTable tbody tr > .dtfc-fixed-start,
+table.dataTable tbody tr > .dtfc-fixed-end,
+table.dataTable tbody tr td.dtfc-fixed-start,
+table.dataTable tbody tr td.dtfc-fixed-end,
+table.dataTable tbody tr th.dtfc-fixed-start,
+table.dataTable tbody tr th.dtfc-fixed-end {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Fixed column body cells - striped background for even rows (solid color, not transparent) */
+table.dataTable.table-striped tbody tr.even > .dtfc-fixed-start,
+table.dataTable.table-striped tbody tr.even > .dtfc-fixed-end,
+table.dataTable tbody tr.even > .dtfc-fixed-start,
+table.dataTable tbody tr.even > .dtfc-fixed-end,
+table.dataTable.table-striped tbody tr.even td.dtfc-fixed-start,
+table.dataTable.table-striped tbody tr.even td.dtfc-fixed-end,
+table.dataTable tbody tr.even td.dtfc-fixed-start,
+table.dataTable tbody tr.even td.dtfc-fixed-end {
+    background-color: #f4f6fa !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Fixed column body cells - solid white/body bg for odd rows (not transparent) */
+table.dataTable.table-striped tbody tr.odd > .dtfc-fixed-start,
+table.dataTable.table-striped tbody tr.odd > .dtfc-fixed-end,
+table.dataTable tbody tr.odd > .dtfc-fixed-start,
+table.dataTable tbody tr.odd > .dtfc-fixed-end,
+table.dataTable.table-striped tbody tr.odd td.dtfc-fixed-start,
+table.dataTable.table-striped tbody tr.odd td.dtfc-fixed-end,
+table.dataTable tbody tr.odd td.dtfc-fixed-start,
+table.dataTable tbody tr.odd td.dtfc-fixed-end {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Fixed column hover effect - solid color, not transparent */
+table.dataTable.table-hover tbody tr:hover > .dtfc-fixed-start,
+table.dataTable.table-hover tbody tr:hover > .dtfc-fixed-end,
+table.dataTable tbody tr:hover > .dtfc-fixed-start,
+table.dataTable tbody tr:hover > .dtfc-fixed-end,
+table.dataTable.table-hover tbody tr:hover td.dtfc-fixed-start,
+table.dataTable.table-hover tbody tr:hover td.dtfc-fixed-end,
+table.dataTable tbody tr:hover td.dtfc-fixed-start,
+table.dataTable tbody tr:hover td.dtfc-fixed-end {
+    background-color: #e8ecf5 !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Dark mode support for fixed columns */
+[data-bs-theme="dark"] .DTFC_LeftWrapper,
+[data-bs-theme="dark"] .DTFC_RightWrapper,
+[data-bs-theme="dark"] .DTFC_LeftHeadWrapper,
+[data-bs-theme="dark"] .DTFC_RightHeadWrapper,
+[data-bs-theme="dark"] .DTFC_LeftBodyLiner,
+[data-bs-theme="dark"] .DTFC_RightBodyLiner {
+    background-color: var(--bs-body-bg, #2b2b2b) !important;
+}
+
+[data-bs-theme="dark"] table.dataTable tbody tr > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr td.dtfc-fixed-end {
+    background-color: #2b2b2b !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.even > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.even > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr.even > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr.even > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.even td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.even td.dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr.even td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr.even td.dtfc-fixed-end {
+    background-color: #2d3d4f !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.odd > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.odd > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr.odd > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr.odd > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.odd td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-striped tbody tr.odd td.dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr.odd td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr.odd td.dtfc-fixed-end {
+    background-color: #2b2b2b !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+[data-bs-theme="dark"] table.dataTable.table-hover tbody tr:hover > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-hover tbody tr:hover > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr:hover > .dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr:hover > .dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable.table-hover tbody tr:hover td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable.table-hover tbody tr:hover td.dtfc-fixed-end,
+[data-bs-theme="dark"] table.dataTable tbody tr:hover td.dtfc-fixed-start,
+[data-bs-theme="dark"] table.dataTable tbody tr:hover td.dtfc-fixed-end {
+    background-color: #354a5f !important;
+    opacity: 1 !important;
+    background-image: none !important;
+}
+
+/* Table Header Styling - Custom Color #2352a1 for ALL tables */
+/* Override Bootstrap table-light class with high specificity */
+.table thead th,
+table thead th,
+.table thead.table-light th,
+table thead th.table-light,
+.table-light th,
+thead.table-light th,
+.table.table-striped thead th,
+.table.table-hover thead th,
+.table.table-striped.table-hover thead th,
+#itemDetailTable thead th,
+#chooseItemTable thead th,
+#approvalTable thead th,
+#prTable thead th,
+#poTable thead th,
+#confirmPOTable thead th,
+#releaseTable thead th,
+#receiveTable thead th,
+#bulkyReleaseTable thead th,
+#updateBulkyPricePOTable thead th,
+#updateBulkyPriceItemTable thead th,
+#documentTable thead th,
+#confirm-items-table thead th,
+#confirm-documents-table thead th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+    font-weight: 600;
+}
+
+.table thead th:hover,
+table thead th:hover,
+.table thead.table-light th:hover,
+table thead th.table-light:hover,
+.table-light th:hover,
+thead.table-light th:hover,
+.table.table-striped thead th:hover,
+.table.table-hover thead th:hover,
+.table.table-striped.table-hover thead th:hover,
+#itemDetailTable thead th:hover,
+#chooseItemTable thead th:hover,
+#approvalTable thead th:hover,
+#prTable thead th:hover,
+#poTable thead th:hover,
+#confirmPOTable thead th:hover,
+#releaseTable thead th:hover,
+#receiveTable thead th:hover,
+#bulkyReleaseTable thead th:hover,
+#updateBulkyPricePOTable thead th:hover,
+#updateBulkyPriceItemTable thead th:hover,
+#documentTable thead th:hover,
+#confirm-items-table thead th:hover,
+#confirm-documents-table thead th:hover {
+    background-color: #1d4281 !important;
+}
+
+/* DataTables Header Styling - Custom Color #2352a1 */
+.dataTables_wrapper table thead th,
+.dataTables_wrapper table.dataTable thead th,
+table.dataTable thead th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+    font-weight: 600;
+}
+
+.dataTables_wrapper table thead th:hover,
+.dataTables_wrapper table.dataTable thead th:hover,
+table.dataTable thead th:hover {
+    background-color: #1d4281 !important;
+}
+
+/* Fixed columns header styling */
+.DTFC_LeftHeadWrapper table thead th,
+.DTFC_RightHeadWrapper table thead th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+}
+
+/* Dark mode support for table header */
+[data-bs-theme="dark"] .table thead th,
+[data-bs-theme="dark"] table thead th,
+[data-bs-theme="dark"] .table-light th,
+[data-bs-theme="dark"] thead.table-light th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+}
+
+/* Dark mode support for DataTables header */
+[data-bs-theme="dark"] .dataTables_wrapper table thead th,
+[data-bs-theme="dark"] .dataTables_wrapper table.dataTable thead th,
+[data-bs-theme="dark"] table.dataTable thead th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+}
+
+[data-bs-theme="dark"] .DTFC_LeftHeadWrapper table thead th,
+[data-bs-theme="dark"] .DTFC_RightHeadWrapper table thead th {
+    background-color: #2352a1 !important;
+    color: white !important;
+    border-color: #1d4281 !important;
+}
+
+/* Remove grey backgrounds from table rows - ALL tables */
+/* BUT: Keep solid background for fixed columns */
+.table tbody tr,
+table tbody tr,
+.dataTables_wrapper table tbody tr,
+table.dataTable tbody tr {
+    background-color: transparent !important;
+}
+
+/* Override: Fixed columns must have solid background */
+table.dataTable tbody tr > .dtfc-fixed-start,
+table.dataTable tbody tr > .dtfc-fixed-end,
+table.dataTable tbody tr td.dtfc-fixed-start,
+table.dataTable tbody tr td.dtfc-fixed-end,
+table.dataTable tbody tr th.dtfc-fixed-start,
+table.dataTable tbody tr th.dtfc-fixed-end {
+    background-color: var(--bs-body-bg, #ffffff) !important;
+    opacity: 1 !important;
+}
+
+/* Striped rows with custom color */
+.table-striped tbody tr:nth-of-type(even),
+.table-striped > tbody > tr:nth-of-type(even),
+.dataTables_wrapper table tbody tr.even,
+table.dataTable tbody tr.even {
+    background-color: rgba(35, 82, 161, 0.05) !important;
+}
+
+.table-striped tbody tr:nth-of-type(odd),
+.table-striped > tbody > tr:nth-of-type(odd),
+.dataTables_wrapper table tbody tr.odd,
+table.dataTable tbody tr.odd {
+    background-color: transparent !important;
+}
+
+/* Hover effect with custom color - ALL tables */
+.table-hover tbody tr:hover,
+.table tbody tr:hover,
+table tbody tr:hover,
+.dataTables_wrapper table tbody tr:hover,
+table.dataTable tbody tr:hover {
+    background-color: rgba(35, 82, 161, 0.1) !important;
+}
+
+/* Dark mode table row styling */
+[data-bs-theme="dark"] .table-striped tbody tr:nth-of-type(even),
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(even),
+[data-bs-theme="dark"] .dataTables_wrapper table tbody tr.even,
+[data-bs-theme="dark"] table.dataTable tbody tr.even {
+    background-color: rgba(35, 82, 161, 0.15) !important;
+}
+
+[data-bs-theme="dark"] .table-hover tbody tr:hover,
+[data-bs-theme="dark"] .table tbody tr:hover,
+[data-bs-theme="dark"] table tbody tr:hover,
+[data-bs-theme="dark"] .dataTables_wrapper table tbody tr:hover,
+[data-bs-theme="dark"] table.dataTable tbody tr:hover {
+    background-color: rgba(35, 82, 161, 0.2) !important;
+}
+
+/* Action Button Icon Hover Styling */
+/* Set button text color to white on hover so SVG currentColor works */
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active,
+.action-select-btn:hover,
+.action-select-btn:focus,
+.action-select-btn:active {
+    color: white !important;
+}
+
+/* Make icon white when button is hovered using CSS filter */
+/* This works by making the icon black first (brightness(0)), then inverting to white (invert(1)) */
+.btn-outline-primary:hover svg,
+.btn-outline-primary:focus svg,
+.btn-outline-primary:active svg,
+.action-select-btn:hover svg,
+.action-select-btn:focus svg,
+.action-select-btn:active svg,
+.action-select-btn:hover .action-icon-svg,
+.action-select-btn:focus .action-icon-svg,
+.action-select-btn:active .action-icon-svg,
+.btn-outline-primary:hover .action-icon-svg,
+.btn-outline-primary:focus .action-icon-svg,
+.btn-outline-primary:active .action-icon-svg {
+    filter: brightness(0) invert(1) !important;
+    -webkit-filter: brightness(0) invert(1) !important;
+    transition: filter 0.15s ease-in-out;
+}
+
+/* Ensure SVG container has proper display */
+.action-icon-svg {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Alternative approach: Force fill on all SVG elements */
+.btn-outline-primary:hover svg use,
+.btn-outline-primary:focus svg use,
+.btn-outline-primary:active svg use,
+.action-select-btn:hover svg use,
+.action-select-btn:focus svg use,
+.action-select-btn:active svg use {
+    fill: white !important;
+    color: white !important;
+}
+
+/* For SVG paths and groups */
+.btn-outline-primary:hover svg path,
+.btn-outline-primary:focus svg path,
+.btn-outline-primary:active svg path,
+.btn-outline-primary:hover svg g,
+.btn-outline-primary:focus svg g,
+.btn-outline-primary:active svg g,
+.action-select-btn:hover svg path,
+.action-select-btn:focus svg path,
+.action-select-btn:active svg path,
+.action-select-btn:hover svg g,
+.action-select-btn:focus svg g,
+.action-select-btn:active svg g {
+    fill: white !important;
+    stroke: white !important;
+}
+
+/* Ensure SVG inherits color on hover */
+.btn-outline-primary:hover svg,
+.action-select-btn:hover svg {
+    color: white !important;
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .btn-outline-primary:hover svg,
+[data-bs-theme="dark"] .btn-outline-primary:focus svg,
+[data-bs-theme="dark"] .btn-outline-primary:active svg,
+[data-bs-theme="dark"] .action-select-btn:hover svg,
+[data-bs-theme="dark"] .action-select-btn:focus svg,
+[data-bs-theme="dark"] .action-select-btn:active svg {
+    filter: brightness(0) invert(1) !important;
+    -webkit-filter: brightness(0) invert(1) !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary:hover svg use,
+[data-bs-theme="dark"] .btn-outline-primary:focus svg use,
+[data-bs-theme="dark"] .btn-outline-primary:active svg use,
+[data-bs-theme="dark"] .action-select-btn:hover svg use,
+[data-bs-theme="dark"] .action-select-btn:focus svg use,
+[data-bs-theme="dark"] .action-select-btn:active svg use {
+    fill: white !important;
+    color: white !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary:hover svg path,
+[data-bs-theme="dark"] .btn-outline-primary:focus svg path,
+[data-bs-theme="dark"] .btn-outline-primary:active svg path,
+[data-bs-theme="dark"] .btn-outline-primary:hover svg g,
+[data-bs-theme="dark"] .btn-outline-primary:focus svg g,
+[data-bs-theme="dark"] .btn-outline-primary:active svg g,
+[data-bs-theme="dark"] .action-select-btn:hover svg path,
+[data-bs-theme="dark"] .action-select-btn:focus svg path,
+[data-bs-theme="dark"] .action-select-btn:active svg path,
+[data-bs-theme="dark"] .action-select-btn:hover svg g,
+[data-bs-theme="dark"] .action-select-btn:focus svg g,
+[data-bs-theme="dark"] .action-select-btn:active svg g {
+    fill: white !important;
+    stroke: white !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary:hover svg,
+[data-bs-theme="dark"] .action-select-btn:hover svg {
+    color: white !important;
+}
+
+/* SweetAlert2 Custom Styling */
+/* Make font smaller and text center aligned */
+.swal2-popup {
+    font-size: 0.75rem !important;
+    text-align: center !important;
+    padding: 1.25rem !important;
+    width: 90% !important;
+    max-width: 450px !important;
+}
+
+.swal2-title {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    justify-content: center !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0 !important;
+    line-height: 1.4 !important;
+}
+
+.swal2-content {
+    font-size: 0.75rem !important;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 0.5rem 0 !important;
+    line-height: 1.5 !important;
+}
+
+.swal2-html-container {
+    text-align: center !important;
+    justify-content: center !important;
+    font-size: 0.75rem !important;
+    line-height: 1.5 !important;
+}
+
+.swal2-html-container * {
+    text-align: center !important;
+}
+
+.swal2-icon {
+    margin: 0 auto 1rem !important;
+    width: 5em !important;
+    height: 5em !important;
+}
+
+.swal2-icon.swal2-success {
+    border-color: #a5dc86 !important;
+}
+
+.swal2-icon.swal2-success [class^=swal2-success-line] {
+    background-color: #a5dc86 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+    border: 4px solid rgba(165, 220, 134, 0.3) !important;
+}
+
+.swal2-actions {
+    margin-top: 1rem !important;
+    gap: 0.5rem !important;
+    justify-content: center !important;
+}
+
+.swal2-confirm,
+.swal2-cancel {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 1rem !important;
+    min-width: 80px !important;
+}
+
+/* Ensure backdrop covers entire page including navbar and sidebar */
+.swal2-container {
+    z-index: 99999 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* Backdrop overlay - covers everything */
+.swal2-backdrop-show {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99998 !important;
+}
+
+/* Ensure backdrop covers layout-wrapper (includes sidebar and navbar) */
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) {
+    overflow: hidden !important;
+}
+
+/* Lower z-index for navbar and sidebar when SweetAlert is shown */
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-wrapper,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-container,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-page,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-menu,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .navbar,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-navbar,
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .layout-menu-toggle {
+    z-index: 1 !important;
+}
+
+/* Make sure backdrop container is above everything including navbar and sidebar */
+.swal2-container.swal2-backdrop-show {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999 !important;
+}
+
+/* Ensure popup is centered and above backdrop */
+.swal2-popup {
+    z-index: 100000 !important;
+    position: relative !important;
+}
+
+/* SweetAlert2 Toast Validation Styling */
+/* Custom styling for validation toast messages */
+.swal2-toast-validation {
+    max-width: 500px !important;
+    width: auto !important;
+    min-width: 300px !important;
+    padding: 1rem 1.25rem !important;
+    font-size: 0.875rem !important;
+    text-align: left !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    position: relative !important;
+}
+
+.swal2-toast-validation .swal2-title {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    margin-bottom: 0.75rem !important;
+    color: #dc3545 !important;
+}
+
+.swal2-toast-validation .swal2-html-container {
+    text-align: left !important;
+    font-size: 0.875rem !important;
+    line-height: 1.6 !important;
+    color: #495057 !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    padding-right: 2rem !important; /* Add padding to prevent overlap with close button */
+    margin-right: 0 !important;
+}
+
+.swal2-toast-validation .swal2-html-container * {
+    text-align: left !important;
+}
+
+.swal2-toast-validation .swal2-html-container strong {
+    font-weight: 600 !important;
+    color: #212529 !important;
+}
+
+.swal2-toast-validation .swal2-html-container ul {
+    margin-left: 1.5rem !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.swal2-toast-validation .swal2-html-container li {
+    margin-bottom: 0.25rem !important;
+}
+
+/* Scrollbar styling for toast content */
+.swal2-toast-validation .swal2-html-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.swal2-toast-validation .swal2-html-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.swal2-toast-validation .swal2-html-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.swal2-toast-validation .swal2-html-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Custom Dropdown with Search Styling - Applied to all custom dropdowns */
+[id$="DropdownContainer"] .dropdown-menu {
+    padding: 0 !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu [id$="SearchInput"] {
+    border: none !important;
+    border-bottom: 1px solid #dee2e6 !important;
+    border-radius: 0 !important;
+    padding: 0.5rem 0.75rem !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu [id$="SearchInput"]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border-bottom-color: #696cff !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu .dropdown-item {
+    padding: 0.5rem 0.75rem !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu .dropdown-item:hover {
+    background-color: #f8f9fa !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu .dropdown-item:active {
+    background-color: #e9ecef !important;
+}
+
+[id$="DropdownContainer"] .dropdown-menu .dropdown-divider {
+    margin: 0 !important;
+}
+
+[id$="DropdownContainer"] [id$="DropdownBtn"] {
+    position: relative !important;
+}
+
+[id$="DropdownContainer"] [id$="DropdownBtn"]:invalid {
+    border-color: #dc3545 !important;
+}
+
+[id$="DropdownContainer"] [id$="DropdownBtn"]:invalid:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Position close button at top right corner */
+.swal2-toast-validation .swal2-close {
+    position: absolute !important;
+    top: 0.5rem !important;
+    right: 0.5rem !important;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    line-height: 1.5rem !important;
+    font-size: 1.25rem !important;
+    color: #6c757d !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s ease !important;
+    z-index: 10 !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+}
+
+.swal2-toast-validation .swal2-close:hover {
+    opacity: 1 !important;
+    color: #495057 !important;
+}
+
+/* Disabled Form Controls - Better Text Readability */
+/* Make disabled fields have better contrast for text readability */
+.form-control:disabled,
+.form-control[disabled],
+.form-select:disabled,
+.form-select[disabled],
+textarea.form-control:disabled,
+textarea.form-control[disabled],
+input.form-control:disabled,
+input.form-control[disabled] {
+    background-color: #f5f5f5 !important;
+    color: #495057 !important;
+    opacity: 1 !important;
+    border-color: #dee2e6 !important;
+    cursor: not-allowed !important;
+}
+
+/* Dark mode support for disabled fields */
+[data-bs-theme="dark"] .form-control:disabled,
+[data-bs-theme="dark"] .form-control[disabled],
+[data-bs-theme="dark"] .form-select:disabled,
+[data-bs-theme="dark"] .form-select[disabled],
+[data-bs-theme="dark"] textarea.form-control:disabled,
+[data-bs-theme="dark"] textarea.form-control[disabled],
+[data-bs-theme="dark"] input.form-control:disabled,
+[data-bs-theme="dark"] input.form-control[disabled] {
+    background-color: #3a3f44 !important;
+    color: #e9ecef !important;
+    opacity: 1 !important;
+    border-color: #495057 !important;
+}
+
+/* Ensure disabled select options are also readable */
+.form-select:disabled,
+.form-select[disabled] {
+    background-color: #f5f5f5 !important;
+    color: #495057 !important;
+    opacity: 1 !important;
+}
+
+[data-bs-theme="dark"] .form-select:disabled,
+[data-bs-theme="dark"] .form-select[disabled] {
+    background-color: #3a3f44 !important;
+    color: #e9ecef !important;
+}
+
