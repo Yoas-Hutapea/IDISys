@@ -41,10 +41,14 @@ Route::middleware(['web', 'auth'])
 
         Route::post('/PurchaseRequest/PurchaseRequests/Grid', [PurchaseRequestsController::class, 'grid']);
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestsController::class, 'index']);
-        Route::get('/PurchaseRequest/PurchaseRequests/{prNumber}', [PurchaseRequestsController::class, 'show']);
-        Route::get('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items', [PurchaseRequestsController::class, 'items']);
-        Route::get('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents', [PurchaseRequestsController::class, 'documents']);
-        Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional']);
+        Route::get('/PurchaseRequest/PurchaseRequests/{prNumber}', [PurchaseRequestsController::class, 'show'])
+            ->where('prNumber', '.*');
+        Route::get('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items', [PurchaseRequestsController::class, 'items'])
+            ->where('prNumber', '.*');
+        Route::get('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents', [PurchaseRequestsController::class, 'documents'])
+            ->where('prNumber', '.*');
+        Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional'])
+            ->where('prNumber', '.*');
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
     });

@@ -62,8 +62,9 @@ class PurchaseRequestsController extends Controller
 
     public function show(string $prNumber)
     {
+        $decodedNumber = urldecode($prNumber);
         $row = $this->baseQuery()
-            ->where('pr.PurchaseRequestNumber', $prNumber)
+            ->where('pr.PurchaseRequestNumber', $decodedNumber)
             ->first();
 
         if (!$row) {
@@ -83,8 +84,9 @@ class PurchaseRequestsController extends Controller
 
     public function items(string $prNumber)
     {
+        $decodedNumber = urldecode($prNumber);
         $items = DB::table('trxPROPurchaseRequestItem')
-            ->where('trxPROPurchaseRequestNumber', $prNumber)
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('IsActive', true)
             ->select([
                 'mstPROPurchaseItemInventoryItemID as ItemID',
@@ -103,8 +105,9 @@ class PurchaseRequestsController extends Controller
 
     public function documents(string $prNumber)
     {
+        $decodedNumber = urldecode($prNumber);
         $documents = DB::table('trxPROPurchaseRequestDocument')
-            ->where('trxPROPurchaseRequestNumber', $prNumber)
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('IsActive', true)
             ->select([
                 'ID',
@@ -119,9 +122,10 @@ class PurchaseRequestsController extends Controller
 
     public function additional(string $prNumber)
     {
+        $decodedNumber = urldecode($prNumber);
         $additional = DB::table('trxPROPurchaseRequestAdditional as add')
             ->leftJoin('mstPROPurchaseRequestBillingType as billing', 'add.BillingTypeID', '=', 'billing.ID')
-            ->where('add.trxPROPurchaseRequestNumber', $prNumber)
+            ->where('add.trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('add.IsActive', true)
             ->select([
                 'add.Sonumb as Sonumb',
