@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Modules\Procurement\Controllers\PurchaseOrderController;
+use App\Modules\Procurement\Controllers\PurchaseRequestController;
+use App\Modules\Procurement\Controllers\Master\ApplicantsController;
+use App\Modules\Procurement\Controllers\Master\BillingTypesController;
+use App\Modules\Procurement\Controllers\Master\CompaniesController;
+use App\Modules\Procurement\Controllers\Master\CurrenciesController;
+use App\Modules\Procurement\Controllers\Master\EmployeesController;
+use App\Modules\Procurement\Controllers\Master\InventoriesController;
+use App\Modules\Procurement\Controllers\Master\PurchaseTypesController;
+use App\Modules\Procurement\Controllers\Master\STIPSitesController;
+use App\Modules\Procurement\Controllers\Master\UnitsController;
+
+Route::middleware(['web', 'auth'])
+    ->prefix('Procurement')
+    ->group(function () {
+        Route::prefix('Master')->group(function () {
+            Route::get('/Applicants', [ApplicantsController::class, 'index']);
+            Route::get('/Employees', [EmployeesController::class, 'index']);
+            Route::get('/Companies', [CompaniesController::class, 'index']);
+            Route::get('/PurchaseTypes/List', [PurchaseTypesController::class, 'list']);
+            Route::get('/PurchaseTypes/SubTypes', [PurchaseTypesController::class, 'subTypes']);
+            Route::get('/Units', [UnitsController::class, 'index']);
+            Route::get('/Currencies', [CurrenciesController::class, 'index']);
+            Route::get('/BillingTypes', [BillingTypesController::class, 'index']);
+            Route::get('/Inventories', [InventoriesController::class, 'index']);
+            Route::get('/STIPSites', [STIPSitesController::class, 'index']);
+        });
+
+        Route::get('/PurchaseRequest/PurchaseRequestApprovals', [PurchaseRequestController::class, 'approvals']);
+        Route::get('/PurchaseRequest/PurchaseRequestReceives', [PurchaseRequestController::class, 'receives']);
+        Route::get('/PurchaseRequest/PurchaseRequestReleases', [PurchaseRequestController::class, 'releases']);
+        Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestController::class, 'index']);
+
+        Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
+    });

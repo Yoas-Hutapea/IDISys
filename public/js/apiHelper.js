@@ -72,7 +72,7 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
 
     // Create request key for cancellation tracking
     const requestKey = createRequestKey(apiType, endpoint, method);
-    
+
     // Cancel previous request with same key if cancelPrevious option is true (default: true for GET requests)
     // But only if the previous request is still pending (not completed)
     const shouldCancelPrevious = options.cancelPrevious !== false && (method.toUpperCase() === 'GET' || options.cancelPrevious === true);
@@ -117,7 +117,12 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
             if (tokenInput) {
                 headers['RequestVerificationToken'] = tokenInput.value;
             } else {
-                console.warn('Anti-Forgery Token not found. Non-GET request may be rejected by the server.');
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                if (csrfMeta && csrfMeta.getAttribute('content')) {
+                    headers['X-CSRF-TOKEN'] = csrfMeta.getAttribute('content');
+                } else {
+                    console.warn('CSRF token not found. Non-GET request may be rejected by the server.');
+                }
             }
 
             // Jika data bukan FormData, lakukan JSON.stringify
@@ -127,7 +132,7 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
 
     try {
         const response = await fetch(fullUrl, config);
-        
+
         // Handle 401 Unauthorized - Session expired, redirect to login
         if (response.status === 401) {
             const currentPath = window.location.pathname;
@@ -136,7 +141,7 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
             window.location.href = loginUrl;
             return; // Exit early, don't try to parse response
         }
-        
+
         const responseData = await response.json();
 
         // Handle ApiResponse<T> wrapper format from StandardResponseFilter
@@ -147,7 +152,7 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
                 // Error response
                 const errorMessage = responseData.message || responseData.Message || 'An error occurred';
                 const errorDetails = responseData.errors || responseData.Errors || [];
-                
+
                 if (errorDetails.length > 0) {
                     throw new Error(`${errorMessage}: ${errorDetails.join(', ')}`);
                 }
@@ -206,7 +211,7 @@ function apiStorage(apiType,filePath) { //disini
 /**
  * Helper function untuk logout menggunakan endpoint Account/Logout dari AccountController.
  * Fungsi ini akan membuat form POST dengan Anti-Forgery Token dan submit secara dinamis.
- * 
+ *
  * Menggunakan fungsi Logout yang sudah ada di AccountController.cs yang menangani:
  * - Logout via WCF service
  * - Menghapus cache Redis
@@ -214,13 +219,13 @@ function apiStorage(apiType,filePath) { //disini
  * - Menghapus cookie IDEANET.AuthCookie
  * - Menghapus TempData
  * - Redirect ke Home
- * 
+ *
  * @returns {void}
  */
 function logout() {
     // Cari Anti-Forgery Token dari form yang ada di halaman
     const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-    
+
     if (!tokenInput) {
         console.error('Anti-Forgery Token not found. Cannot perform logout.');
         // Fallback: redirect to login page if token is not found
@@ -232,14 +237,14 @@ function logout() {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/Account/Logout';
-    
+
     // Tambahkan Anti-Forgery Token
     const tokenField = document.createElement('input');
     tokenField.type = 'hidden';
     tokenField.name = '__RequestVerificationToken';
     tokenField.value = tokenInput.value;
     form.appendChild(tokenField);
-    
+
     // Tambahkan form ke body dan submit
     document.body.appendChild(form);
     form.submit();
