@@ -225,6 +225,10 @@ function CreateTable({
             xhrFields: {
                 withCredentials: true 
             },
+            headers: (function () {
+                const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+                return tokenMeta ? { 'X-CSRF-TOKEN': tokenMeta.getAttribute('content') } : {};
+            })(),
             data: function (d) {
                 const filterData = (typeof filter === 'function') ? filter() : {};
                 return JSON.stringify({

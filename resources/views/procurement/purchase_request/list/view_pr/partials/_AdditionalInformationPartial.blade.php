@@ -1,0 +1,11 @@
+{{-- Additional Information Partial for View PR --}}
+<div class="col-12" id="view-pr-additional-section" style="display: none;">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+            <h6 class="card-title mb-0">Additional Information</h6>
+        </div>
+        <div class="card-body" id="view-pr-additional-body">
+            <!-- Content will be dynamically populated based on active Additional section -->
+        </div>
+    </div>
+</div>

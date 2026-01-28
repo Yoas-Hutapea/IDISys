@@ -4,14 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\Procurement\Controllers\PurchaseOrderController;
 use App\Modules\Procurement\Controllers\PurchaseRequestController;
 use App\Modules\Procurement\Controllers\Master\ApplicantsController;
+use App\Modules\Procurement\Controllers\Master\ApprovalStatusesController;
 use App\Modules\Procurement\Controllers\Master\BillingTypesController;
 use App\Modules\Procurement\Controllers\Master\CompaniesController;
 use App\Modules\Procurement\Controllers\Master\CurrenciesController;
 use App\Modules\Procurement\Controllers\Master\EmployeesController;
 use App\Modules\Procurement\Controllers\Master\InventoriesController;
 use App\Modules\Procurement\Controllers\Master\PurchaseTypesController;
+use App\Modules\Procurement\Controllers\Master\RegionsController;
 use App\Modules\Procurement\Controllers\Master\STIPSitesController;
 use App\Modules\Procurement\Controllers\Master\UnitsController;
+use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestsController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('Procurement')
@@ -20,6 +23,8 @@ Route::middleware(['web', 'auth'])
             Route::get('/Applicants', [ApplicantsController::class, 'index']);
             Route::get('/Employees', [EmployeesController::class, 'index']);
             Route::get('/Companies', [CompaniesController::class, 'index']);
+            Route::get('/ApprovalStatuses', [ApprovalStatusesController::class, 'index']);
+            Route::get('/Regions', [RegionsController::class, 'index']);
             Route::get('/PurchaseTypes/List', [PurchaseTypesController::class, 'list']);
             Route::get('/PurchaseTypes/SubTypes', [PurchaseTypesController::class, 'subTypes']);
             Route::get('/Units', [UnitsController::class, 'index']);
@@ -33,6 +38,13 @@ Route::middleware(['web', 'auth'])
         Route::get('/PurchaseRequest/PurchaseRequestReceives', [PurchaseRequestController::class, 'receives']);
         Route::get('/PurchaseRequest/PurchaseRequestReleases', [PurchaseRequestController::class, 'releases']);
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestController::class, 'index']);
+
+        Route::post('/PurchaseRequest/PurchaseRequests/Grid', [PurchaseRequestsController::class, 'grid']);
+        Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestsController::class, 'index']);
+        Route::get('/PurchaseRequest/PurchaseRequests/{prNumber}', [PurchaseRequestsController::class, 'show']);
+        Route::get('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items', [PurchaseRequestsController::class, 'items']);
+        Route::get('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents', [PurchaseRequestsController::class, 'documents']);
+        Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional']);
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
     });

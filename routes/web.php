@@ -17,3 +17,11 @@ Route::get('/procurement/purchase-request/create', function () {
 Route::get('/Procurement/PurchaseRequest/Create', function () {
     return view('procurement.purchase_request.create.index');
 })->middleware('auth')->name('procurement.purchase_request.create.legacy');
+
+Route::get('/procurement/purchase-request/list', function () {
+    return view('procurement.purchase_request.list.index');
+})->middleware('auth')->name('procurement.purchase_request.list');
+
+Route::get('/Procurement/PurchaseRequest/List', function () {
+    return view('procurement.purchase_request.list.index');
+})->middleware('auth')->name('procurement.purchase_request.list.legacy');

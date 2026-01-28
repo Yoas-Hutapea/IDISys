@@ -7,45 +7,68 @@ use App\Models\IdxProPurchaseItemPool;
 use App\Models\MstCompany;
 use App\Models\MstCurrency;
 use App\Models\MstEmployee;
+use App\Models\MstApprovalStatus;
 use App\Models\MstProPurchaseItemInventory;
 use App\Models\MstProPurchaseItemPool;
 use App\Models\MstProPurchaseItemUnit;
 use App\Models\MstProPurchaseRequestBillingType;
 use App\Models\MstProPurchaseSubType;
 use App\Models\MstProPurchaseType;
+use App\Models\MstRegion;
 use App\Models\TrxProPurchaseRequestStip;
+use App\Services\BaseService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 class MasterDataService
 {
+    protected function baseFor(Model $model): BaseService
+    {
+        return new BaseService($model);
+    }
+
     public function getApplicants(?string $userId = null): Collection
     {
-        return MstEmployee::query()
-            ->selectRaw('Employ_Id as OnBehalfID, name as Name, nick_name as NickName')
-            ->when($userId, function ($query, $userId) {
-                $query->where('Employ_Id', $userId);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) use ($userId) {
+                $query->selectRaw('Employ_Id as OnBehalfID, name as Name, nick_name as NickName');
+                if ($userId) {
+                    $query->where('Employ_Id', $userId);
+                }
+            },
+        ];
+
+        return $this->baseFor(new MstEmployee())->getList($filters);
     }
 
     public function getCompanies(?bool $isActive = true): Collection
     {
-        return MstCompany::query()
-            ->select(['CompanyID', 'Company', 'IsActive'])
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['CompanyID', 'Company', 'IsActive']);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstCompany())->getList($filters);
     }
 
     public function getPurchaseTypes(?bool $isActive = true): Collection
     {
-        return MstProPurchaseType::query()
-            ->select(['ID', 'PurchaseRequestType', 'Category', 'IsActive'])
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['ID', 'PurchaseRequestType', 'Category', 'IsActive']);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstProPurchaseType())->getList($filters);
     }
 
     public function getPurchaseSubTypes(?int $purchaseTypeId, ?bool $isActive = true): Collection
@@ -66,43 +89,70 @@ class MasterDataService
             return collect();
         }
 
-        return MstProPurchaseSubType::query()
-            ->select(['ID', 'PurchaseRequestSubType', 'IsActive'])
-            ->whereIn('ID', $subTypeIds)
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['ID', 'PurchaseRequestSubType', 'IsActive']);
+            },
+            'ID' => $subTypeIds,
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstProPurchaseSubType())->getList($filters);
     }
 
     public function getUnits(?bool $isActive = true): Collection
     {
-        return MstProPurchaseItemUnit::query()
-            ->select(['ID', 'UnitId', 'Unit', 'IsActive', 'UnitDecimals', 'UnitSystem'])
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['ID', 'UnitId', 'Unit', 'IsActive', 'UnitDecimals', 'UnitSystem']);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstProPurchaseItemUnit())->getList($filters);
     }
 
     public function getCurrencies(?bool $isActive = true): Collection
     {
-        return MstCurrency::query()
-            ->select(['ID', 'CurrencyCode', 'Currency', 'IsActive'])
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['ID', 'CurrencyCode', 'Currency', 'IsActive']);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstCurrency())->getList($filters);
     }
 
     public function getBillingTypes(?bool $isActive = true): Collection
     {
-        return MstProPurchaseRequestBillingType::query()
-            ->select(['ID', 'Name', 'Description', 'TotalMonthPeriod', 'IsActive', 'mstPROPurchaseItemUnitID'])
-            ->when($isActive !== null, function ($query) use ($isActive) {
-                $query->where('IsActive', $isActive);
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) {
+                $query->select([
+                    'ID',
+                    'Name',
+                    'Description',
+                    'TotalMonthPeriod',
+                    'IsActive',
+                    'mstPROPurchaseItemUnitID',
+                ]);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstProPurchaseRequestBillingType())->getList($filters);
     }
 
     public function getInventories(
@@ -112,32 +162,7 @@ class MasterDataService
         ?string $purchaseTypeCategory = null,
         ?int $purchaseSubTypeId = null
     ): Collection {
-        $query = MstProPurchaseItemInventory::query()
-            ->from('mstPROPurchaseItemInventory as inv')
-            ->leftJoin('mstPROPurchaseItemPool as pool', 'inv.mstPROPurchaseItemPoolId', '=', 'pool.Id')
-            ->select([
-                'inv.ID',
-                'inv.ItemID',
-                'inv.ItemName',
-                'inv.mstPROItemCOAId',
-                'inv.mstPROPurchaseItemPoolId',
-                'inv.mstPROPurchaseItemUnitId',
-                'inv.Category',
-                'pool.PoolName',
-            ]);
-
-        if ($isActive !== null) {
-            $query->where('inv.IsActive', $isActive);
-        }
-
-        if ($itemName) {
-            $query->where('inv.ItemName', 'like', '%' . $itemName . '%');
-        }
-
-        if ($purchaseTypeCategory) {
-            $query->where('inv.Category', $purchaseTypeCategory);
-        }
-
+        $poolIds = null;
         if ($purchaseTypeId || $purchaseSubTypeId) {
             $poolIds = IdxProPurchaseItemPool::query()
                 ->when($purchaseTypeId, function ($q) use ($purchaseTypeId) {
@@ -153,11 +178,39 @@ class MasterDataService
             if (empty($poolIds)) {
                 return collect();
             }
-
-            $query->whereIn('inv.mstPROPurchaseItemPoolId', $poolIds);
         }
 
-        return $query->get();
+        $filters = [
+            '__query' => function ($query) use ($isActive, $itemName, $purchaseTypeCategory, $poolIds) {
+                $query->from('mstPROPurchaseItemInventory as inv')
+                    ->leftJoin('mstPROPurchaseItemPool as pool', 'inv.mstPROPurchaseItemPoolId', '=', 'pool.Id')
+                    ->select([
+                        'inv.ID',
+                        'inv.ItemID',
+                        'inv.ItemName',
+                        'inv.mstPROItemCOAId',
+                        'inv.mstPROPurchaseItemPoolId',
+                        'inv.mstPROPurchaseItemUnitId',
+                        'inv.Category',
+                        'pool.PoolName',
+                    ]);
+
+                if ($isActive !== null) {
+                    $query->where('inv.IsActive', $isActive);
+                }
+                if ($itemName) {
+                    $query->where('inv.ItemName', 'like', '%' . $itemName . '%');
+                }
+                if ($purchaseTypeCategory) {
+                    $query->where('inv.Category', $purchaseTypeCategory);
+                }
+                if (is_array($poolIds)) {
+                    $query->whereIn('inv.mstPROPurchaseItemPoolId', $poolIds);
+                }
+            },
+        ];
+
+        return $this->baseFor(new MstProPurchaseItemInventory())->getList($filters);
     }
 
     public function getStipSites(
@@ -166,50 +219,88 @@ class MasterDataService
         ?string $siteName = null,
         ?string $operatorName = null
     ): Collection {
-        $query = TrxProPurchaseRequestStip::query()
-            ->from('trxPROPurchaseRequestSTIP as stip')
-            ->select([
-                'stip.SONumber as Sonumb',
-                'stip.SiteID',
-                'stip.SiteName',
-                'stip.CustomerName as OperatorName',
-                'stip.ID',
-            ]);
+        $filters = [
+            '__query' => function ($query) use ($sonumb, $siteId, $siteName, $operatorName) {
+                $query->from('trxPROPurchaseRequestSTIP as stip')
+                    ->select([
+                        'stip.SONumber as Sonumb',
+                        'stip.SiteID',
+                        'stip.SiteName',
+                        'stip.CustomerName as OperatorName',
+                        'stip.ID',
+                    ]);
 
-        if ($sonumb) {
-            $query->where('stip.SONumber', 'like', '%' . $sonumb . '%');
-        }
-        if ($siteId) {
-            $query->where('stip.SiteID', 'like', '%' . $siteId . '%');
-        }
-        if ($siteName) {
-            $query->where('stip.SiteName', 'like', '%' . $siteName . '%');
-        }
-        if ($operatorName) {
-            $query->where('stip.CustomerName', 'like', '%' . $operatorName . '%');
-        }
+                if ($sonumb) {
+                    $query->where('stip.SONumber', 'like', '%' . $sonumb . '%');
+                }
+                if ($siteId) {
+                    $query->where('stip.SiteID', 'like', '%' . $siteId . '%');
+                }
+                if ($siteName) {
+                    $query->where('stip.SiteName', 'like', '%' . $siteName . '%');
+                }
+                if ($operatorName) {
+                    $query->where('stip.CustomerName', 'like', '%' . $operatorName . '%');
+                }
+            },
+        ];
 
-        return $query->get();
+        return $this->baseFor(new TrxProPurchaseRequestStip())->getList($filters);
     }
 
     public function getEmployees(?string $searchTerm = null): Collection
     {
-        return MstEmployee::query()
-            ->select([
-                'Employ_Id',
-                'name',
-                'nick_name',
-                'PositionName',
-                'JobTitleName',
-                'DepartmentName',
-            ])
-            ->when($searchTerm, function ($query, $searchTerm) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('Employ_Id', 'like', '%' . $searchTerm . '%')
-                        ->orWhere('name', 'like', '%' . $searchTerm . '%')
-                        ->orWhere('nick_name', 'like', '%' . $searchTerm . '%');
-                });
-            })
-            ->get();
+        $filters = [
+            '__query' => function ($query) use ($searchTerm) {
+                $query->select([
+                    'Employ_Id',
+                    'name',
+                    'nick_name',
+                    'PositionName',
+                    'JobTitleName',
+                    'DepartmentName',
+                ]);
+
+                if ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('Employ_Id', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('name', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('nick_name', 'like', '%' . $searchTerm . '%');
+                    });
+                }
+            },
+        ];
+
+        return $this->baseFor(new MstEmployee())->getList($filters);
+    }
+
+    public function getApprovalStatuses(?bool $isActive = true): Collection
+    {
+        $filters = [
+            '__query' => function ($query) {
+                $query->select(['ID', 'ApprovalStatus', 'IsActive']);
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstApprovalStatus())->getList($filters);
+    }
+
+    public function getRegions(?bool $isActive = true): Collection
+    {
+        $filters = [
+            '__query' => function ($query) {
+                $query->selectRaw('RegionId as RegionID, RegionName, IsActive');
+            },
+        ];
+
+        if ($isActive !== null) {
+            $filters['IsActive'] = $isActive;
+        }
+
+        return $this->baseFor(new MstRegion())->getList($filters);
     }
 }
