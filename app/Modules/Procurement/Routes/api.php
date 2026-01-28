@@ -40,8 +40,15 @@ Route::middleware(['web', 'auth'])
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestController::class, 'index']);
 
         Route::post('/PurchaseRequest/PurchaseRequests/Grid', [PurchaseRequestsController::class, 'grid']);
+        Route::post('/PurchaseRequest/PurchaseRequests', [PurchaseRequestsController::class, 'store']);
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestsController::class, 'index']);
+        Route::put('/PurchaseRequest/PurchaseRequests/{prNumber}/approval', [PurchaseRequestsController::class, 'updateApproval'])
+            ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequests/{prNumber}/approval', [PurchaseRequestsController::class, 'updateApproval'])
+            ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequests/{prNumber}', [PurchaseRequestsController::class, 'show'])
+            ->where('prNumber', '.*');
+        Route::put('/PurchaseRequest/PurchaseRequests/{prNumber}', [PurchaseRequestsController::class, 'update'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items', [PurchaseRequestsController::class, 'items'])
             ->where('prNumber', '.*');
@@ -49,6 +56,13 @@ Route::middleware(['web', 'auth'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional'])
             ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items/bulk', [PurchaseRequestsController::class, 'saveItemsBulk'])
+            ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents/bulk', [PurchaseRequestsController::class, 'saveDocumentsBulk'])
+            ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents/upload', [PurchaseRequestsController::class, 'uploadDocument'])
+            ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequestAdditional', [PurchaseRequestsController::class, 'saveAdditional']);
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
     });

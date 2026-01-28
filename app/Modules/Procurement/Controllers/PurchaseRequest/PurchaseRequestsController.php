@@ -5,9 +5,106 @@ namespace App\Modules\Procurement\Controllers\PurchaseRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use App\Services\DocumentCounterService;
+use Illuminate\Support\Facades\Auth;
 
 class PurchaseRequestsController extends Controller
 {
+    public function __construct(private readonly DocumentCounterService $documentCounter)
+    {
+    }
+
+    public function store(Request $request)
+    {
+        $payload = $this->normalizePayload($request->all());
+
+        $prNumber = $this->generatePurchaseRequestNumber($payload['Company']);
+        $now = now();
+        $createdBy = $payload['Requestor'] ?: (string) optional(Auth::user())->Username ?: 'System';
+
+        DB::table('trxPROPurchaseRequest')->insert([
+            'PurchaseRequestNumber' => $prNumber,
+            'Requestor' => $payload['Requestor'],
+            'Applicant' => $payload['Applicant'],
+            'Company' => $payload['Company'],
+            'mstPurchaseTypeID' => $payload['PurchReqType'],
+            'mstPurchaseSubTypeID' => $payload['PurchReqSubType'],
+            'PurchaseRequestName' => $payload['PurchReqName'],
+            'Remark' => $payload['Remark'],
+            'mstApprovalStatusID' => $payload['mstApprovalStatusID'],
+            'CreatedBy' => $createdBy,
+            'CreatedDate' => $now,
+            'UpdatedBy' => $createdBy,
+            'UpdatedDate' => $now,
+            'IsActive' => true,
+        ]);
+
+        return response()->json([
+            'purchReqNumber' => $prNumber,
+            'PurchReqNumber' => $prNumber,
+            'createdDate' => $now,
+            'CreatedDate' => $now,
+            'company' => $payload['Company'],
+            'Company' => $payload['Company'],
+        ]);
+    }
+
+    public function update(string $prNumber, Request $request)
+    {
+        $decodedNumber = urldecode($prNumber);
+        $payload = $this->normalizePayload($request->all());
+        $now = now();
+        $updatedBy = $payload['Requestor'] ?: (string) optional(Auth::user())->Username ?: 'System';
+
+        $updated = DB::table('trxPROPurchaseRequest')
+            ->where('PurchaseRequestNumber', $decodedNumber)
+            ->update([
+                'Requestor' => $payload['Requestor'],
+                'Applicant' => $payload['Applicant'],
+                'Company' => $payload['Company'],
+                'mstPurchaseTypeID' => $payload['PurchReqType'],
+                'mstPurchaseSubTypeID' => $payload['PurchReqSubType'],
+                'PurchaseRequestName' => $payload['PurchReqName'],
+                'Remark' => $payload['Remark'],
+                'mstApprovalStatusID' => $payload['mstApprovalStatusID'],
+                'UpdatedBy' => $updatedBy,
+                'UpdatedDate' => $now,
+            ]);
+
+        if (!$updated) {
+            return response()->json(['message' => 'Purchase Request not found'], 404);
+        }
+
+        return response()->json([
+            'purchReqNumber' => $decodedNumber,
+            'PurchReqNumber' => $decodedNumber,
+        ]);
+    }
+
+    public function updateApproval(string $prNumber, Request $request)
+    {
+        $decodedNumber = urldecode($prNumber);
+        $now = now();
+        $updatedBy = (string) optional(Auth::user())->Username ?: 'System';
+
+        $updated = DB::table('trxPROPurchaseRequest')
+            ->where('PurchaseRequestNumber', $decodedNumber)
+            ->update([
+                'ReviewedBy' => $request->input('ReviewedBy'),
+                'ApprovedBy' => $request->input('ApprovedBy'),
+                'ConfirmedBy' => $request->input('ConfirmedBy'),
+                'UpdatedBy' => $updatedBy,
+                'UpdatedDate' => $now,
+            ]);
+
+        if (!$updated) {
+            return response()->json(['message' => 'Purchase Request not found'], 404);
+        }
+
+        return response()->json(['message' => 'Approval updated']);
+    }
+
     public function grid(Request $request)
     {
         $draw = (int) $request->input('draw', 0);
@@ -155,6 +252,146 @@ class PurchaseRequestsController extends Controller
         ]);
     }
 
+    public function saveItemsBulk(string $prNumber, Request $request)
+    {
+        $decodedNumber = urldecode($prNumber);
+        $items = $request->input('Items', []);
+        $now = now();
+        $userId = (string) optional(Auth::user())->Username ?: 'System';
+
+        foreach ($items as $item) {
+            $id = $item['ID'] ?? $item['id'] ?? null;
+            $data = [
+                'trxPROPurchaseRequestNumber' => $decodedNumber,
+                'mstPROPurchaseItemInventoryItemID' => (string) ($item['mstPROPurchaseItemInventoryItemID'] ?? $item['mstPROInventoryItemID'] ?? ''),
+                'ItemName' => $item['ItemName'] ?? null,
+                'ItemDescription' => $item['ItemDescription'] ?? null,
+                'ItemUnit' => $item['ItemUnit'] ?? null,
+                'ItemQty' => $item['ItemQty'] ?? 0,
+                'CurrencyCode' => $item['CurrencyCode'] ?? 'IDR',
+                'UnitPrice' => $item['UnitPrice'] ?? 0,
+                'Amount' => $item['Amount'] ?? 0,
+                'UpdatedBy' => $userId,
+                'UpdatedDate' => $now,
+                'IsActive' => true,
+            ];
+
+            if ($id) {
+                DB::table('trxPROPurchaseRequestItem')->where('ID', $id)->update($data);
+            } else {
+                $data['CreatedBy'] = $userId;
+                $data['CreatedDate'] = $now;
+                DB::table('trxPROPurchaseRequestItem')->insert($data);
+            }
+        }
+
+        return response()->json(['message' => 'Items saved']);
+    }
+
+    public function saveDocumentsBulk(string $prNumber, Request $request)
+    {
+        $decodedNumber = urldecode($prNumber);
+        $documents = $request->input('Documents', []);
+        $now = now();
+        $userId = (string) optional(Auth::user())->Username ?: 'System';
+
+        foreach ($documents as $doc) {
+            $id = $doc['ID'] ?? $doc['id'] ?? null;
+            $data = [
+                'trxPROPurchaseRequestNumber' => $decodedNumber,
+                'FileName' => $doc['FileName'] ?? null,
+                'FileSize' => $doc['FileSize'] ?? null,
+                'UpdatedBy' => $userId,
+                'UpdatedDate' => $now,
+                'IsActive' => true,
+            ];
+
+            if ($id) {
+                DB::table('trxPROPurchaseRequestDocument')->where('ID', $id)->update($data);
+            } else {
+                $data['CreatedBy'] = $userId;
+                $data['CreatedDate'] = $now;
+                DB::table('trxPROPurchaseRequestDocument')->insert($data);
+            }
+        }
+
+        return response()->json(['message' => 'Documents saved']);
+    }
+
+    public function uploadDocument(string $prNumber, Request $request)
+    {
+        $decodedNumber = urldecode($prNumber);
+        if (!$request->hasFile('file')) {
+            return response()->json(['message' => 'File not found'], 400);
+        }
+
+        $file = $request->file('file');
+        $timestamp = now()->format('YmdHis');
+        $filename = $timestamp . '_' . $file->getClientOriginalName();
+        $path = "Procurement/PurchaseRequest/{$decodedNumber}/{$filename}";
+
+        Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+
+        $now = now();
+        $userId = (string) optional(Auth::user())->Username ?: 'System';
+
+        $id = DB::table('trxPROPurchaseRequestDocument')->insertGetId([
+            'trxPROPurchaseRequestNumber' => $decodedNumber,
+            'FileName' => $file->getClientOriginalName(),
+            'FileSize' => (string) round($file->getSize() / 1024),
+            'FilePath' => '/' . $path,
+            'CreatedBy' => $userId,
+            'CreatedDate' => $now,
+            'UpdatedBy' => $userId,
+            'UpdatedDate' => $now,
+            'IsActive' => true,
+        ]);
+
+        return response()->json(['id' => $id, 'filePath' => '/' . $path]);
+    }
+
+    public function saveAdditional(Request $request)
+    {
+        $prNumber = $request->input('PurchaseRequestNumber');
+        if (!$prNumber) {
+            return response()->json(['message' => 'PurchaseRequestNumber is required'], 400);
+        }
+
+        $now = now();
+        $userId = (string) optional(Auth::user())->Username ?: 'System';
+
+        $payload = [
+            'trxPROPurchaseRequestNumber' => $prNumber,
+            'BillingTypeID' => $request->input('BillingTypeID'),
+            'StartPeriod' => $request->input('StartPeriod'),
+            'Period' => $request->input('Period'),
+            'EndPeriod' => $request->input('EndPeriod'),
+            'Sonumb' => $request->input('Sonumb'),
+            'SonumbId' => $request->input('SonumbId'),
+            'SiteName' => $request->input('SiteName'),
+            'SiteID' => $request->input('SiteID'),
+            'UpdatedBy' => $userId,
+            'UpdatedDate' => $now,
+            'IsActive' => true,
+        ];
+
+        $existing = DB::table('trxPROPurchaseRequestAdditional')
+            ->where('trxPROPurchaseRequestNumber', $prNumber)
+            ->first();
+
+        if ($existing) {
+            DB::table('trxPROPurchaseRequestAdditional')
+                ->where('ID', $existing->ID)
+                ->update($payload);
+        } else {
+            $payload['CreatedBy'] = $userId;
+            $payload['CreatedDate'] = $now;
+            DB::table('trxPROPurchaseRequestAdditional')->insert($payload);
+        }
+
+        return response()->json(['message' => 'Additional data saved']);
+    }
+
     private function baseQuery()
     {
         $itemTotals = DB::table('trxPROPurchaseRequestItem')
@@ -280,5 +517,26 @@ class PurchaseRequestsController extends Controller
             'createdDate' => 'pr.CreatedDate',
             default => null,
         };
+    }
+
+    private function normalizePayload(array $data): array
+    {
+        return [
+            'Requestor' => (string) ($data['Requestor'] ?? ''),
+            'Applicant' => (string) ($data['Applicant'] ?? ''),
+            'Company' => (string) ($data['Company'] ?? ''),
+            'PurchReqType' => (string) ($data['PurchReqType'] ?? ''),
+            'PurchReqSubType' => (string) ($data['PurchReqSubType'] ?? ''),
+            'PurchReqName' => (string) ($data['PurchReqName'] ?? ''),
+            'Remark' => (string) ($data['Remark'] ?? ''),
+            'mstApprovalStatusID' => (int) ($data['mstApprovalStatusID'] ?? 6),
+        ];
+    }
+
+    private function generatePurchaseRequestNumber(string $companyCode): string
+    {
+        return $this->documentCounter->generateNumber('PR', [
+            'COMPANY' => $companyCode,
+        ]);
     }
 }
