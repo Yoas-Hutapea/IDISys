@@ -15,7 +15,6 @@ class AuthService
             ->where('Username', $username)
             ->where('IsActive', true)
             ->first();
-
         if (!$account) {
             return null;
         }

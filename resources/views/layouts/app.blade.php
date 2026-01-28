@@ -50,7 +50,7 @@
     <script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
-<body>
+<body class="layout-navbar-fixed layout-menu-fixed layout-compact">
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">

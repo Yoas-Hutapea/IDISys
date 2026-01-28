@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/page-profile.css') }}">
 @endsection
 
+@section('content')
 <!-- Content wrapper -->
 <div class="content-wrapper">
     <!-- Content -->
@@ -218,3 +219,4 @@
     <!-- / Content -->
 </div>
 <!-- Content wrapper -->
+@endsection

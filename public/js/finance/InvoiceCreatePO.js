@@ -1,0 +1,1293 @@
+/**
+ * InvoiceCreatePO Module
+ * Handles PO selection, loading, and data population
+ */
+class InvoiceCreatePO {
+    constructor(managerInstance) {
+        this.manager = managerInstance;
+        this.utils = null;
+        this.choosePOTable = null;
+        this.selectedPO = null;
+        this.poDetailItems = [];
+        this.purchaseRequestAdditional = null;
+        this.currentTermValue = null;
+        
+        if (window.InvoiceCreateUtils) {
+            this.utils = new InvoiceCreateUtils();
+        }
+    }
+
+    /**
+     * Initialize Choose PO DataTable
+     */
+    initializeChoosePOTable() {
+        this.choosePOTable = $('#tblChoosePO').DataTable({
+            processing: true,
+            serverSide: false,
+            responsive: true,
+            data: [],
+            order: [[1, 'desc']],
+            paging: true,
+            lengthMenu: [[10, 25, 50], [10, 25, 50]],
+            columns: [
+                { 
+                    data: 'poNumber',
+                    name: 'PO Number',
+                    className: 'text-center'
+                },
+                { 
+                    data: 'poDate',
+                    name: 'PO Date',
+                    className: 'text-center',
+                    render: (data) => {
+                        if (!data) return '';
+                        return new Date(data).toLocaleDateString('en-GB');
+                    }
+                },
+                { 
+                    data: 'vendorName',
+                    name: 'Vendor',
+                    className: 'text-center'
+                },
+                { 
+                    data: 'amount',
+                    name: 'Amount',
+                    className: 'text-center',
+                    render: (data) => {
+                        const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+                        return formatCurrency(data || 0);
+                    }
+                },
+                { 
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: (data, type, row) => {
+                        const poNumber = row.poNumber || row.poID;
+                        return `<button class="btn btn-sm btn-primary" onclick="window.invoiceCreateManager?.poModule?.selectPO('${poNumber}')">Select</button>`;
+                    }
+                }
+            ]
+        });
+    }
+
+    /**
+     * Open Choose PO Modal
+     */
+    async openChoosePOModal() {
+        await this.loadPOList();
+        new bootstrap.Modal(document.getElementById('modalChoosePO')).show();
+    }
+
+    /**
+     * Load PO List
+     */
+    async loadPOList() {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                throw new Error('API module not available');
+            }
+            
+            const rawData = await this.manager.apiModule.getPOList();
+            
+            if (!this.choosePOTable) {
+                this.initializeChoosePOTable();
+            }
+            
+            this.choosePOTable.clear();
+            if (rawData.length > 0) {
+                const mappedData = rawData.map(item => ({
+                    poNumber: item.purchOrderID || item.PurchOrderID || '',
+                    poID: item.id || item.ID || '',
+                    poDate: item.poDate || item.PODate || null,
+                    vendorName: item.mstVendorVendorName || item.MstVendorVendorName || '',
+                    amount: item.poAmount || item.POAmount || 0,
+                    poName: item.purchOrderName || item.PurchOrderName || '',
+                    purchaseType: item.purchType || item.PurchType || '',
+                    purchaseSubType: item.purchSubType || item.PurchSubType || '',
+                    company: item.companyName || item.CompanyName || ''
+                }));
+                this.choosePOTable.rows.add(mappedData);
+            }
+            this.choosePOTable.draw();
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Failed to load PO list'
+            });
+        }
+    }
+
+    /**
+     * Select PO and load all related data (OPTIMIZED with parallel API calls)
+     */
+    async selectPO(poNumber) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                throw new Error('API module not available');
+            }
+            
+            // Show loading indicator
+            const loadingToast = Swal.fire({
+                title: 'Loading PO Data...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // PHASE 1: Get PO Details (must be first)
+            const poData = await this.manager.apiModule.getPODetails(poNumber);
+            
+            this.selectedPO = poData;
+            this.purchaseRequestAdditional = null; // Reset PurchaseRequestAdditional
+            if (this.manager.termModule) {
+                this.manager.termModule.selectedPeriods = []; // Reset selected periods
+            }
+            
+            // Populate basic PO information immediately (no API call needed)
+            this.populatePOInformation(poData);
+            
+            // Get PR Number and Vendor ID for parallel calls
+            const prNumber = poData.prNumber || poData.PRNumber || poData.trxPROPurchaseRequestNumber || poData.TrxPROPurchaseRequestNumber || '';
+            const vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID;
+            
+            // PHASE 2: Load critical data in parallel (PO Items, Vendor, Master Data)
+            const [
+                poItemsResult,
+                vendorResult,
+                purchaseTypesResult,
+                workTypeMappingsResult,
+                billingTypesResult,
+                existingInvoicesResult
+            ] = await Promise.allSettled([
+                // Load PO Items (critical for table)
+                this.manager.apiModule.getPOItems(poNumber),
+                // Load Vendor Information (if vendorID exists)
+                vendorID ? this.manager.apiModule.getVendorDetails(vendorID).catch(() => null) : Promise.resolve(null),
+                // Load Purchase Types (master data - cached)
+                this.manager.apiModule.getPurchaseTypes(),
+                // Load Work Type Mappings (master data - cached)
+                this.manager.apiModule.getWorkTypeMappings(),
+                // Load Billing Types (master data - cached)
+                this.manager.apiModule.getBillingTypes(),
+                // Load Existing Invoices (for term eligibility)
+                this.manager.apiModule.getExistingInvoices(poNumber)
+            ]);
+            
+            // Process PO Items result
+            if (poItemsResult.status === 'fulfilled') {
+                this.poDetailItems = poItemsResult.value || [];
+                // Store existing invoices for use in loadPODetail
+                const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
+                // Populate PO Items table (pass existing invoices to avoid duplicate API call)
+                this.loadPODetailOptimized(poNumber, existingInvoices).catch(err => console.error('Error loading PO detail:', err));
+            }
+            
+            // Process Vendor result
+            if (vendorResult.status === 'fulfilled' && vendorResult.value) {
+                this.populateVendorInformationFromDetail(vendorResult.value);
+            } else {
+                this.populateVendorInformation(poData); // Use basic vendor name from PO
+            }
+            
+            // Process Purchase Types and load names
+            if (purchaseTypesResult.status === 'fulfilled') {
+                await this.loadPurchaseTypeAndSubTypeNamesOptimized(poData, purchaseTypesResult.value);
+            }
+            
+            // Process Work Type Mappings
+            if (workTypeMappingsResult.status === 'fulfilled') {
+                await this.loadWorkTypeFromMappingOptimized(poData, workTypeMappingsResult.value);
+            }
+            
+            // PHASE 3: Load PR-dependent data (if PR Number exists)
+            let prAdditionalResult = null;
+            let hasPeriodPayment = false;
+            
+            if (prNumber) {
+                try {
+                    // Get PR Additional (needed for STIP and Period Payment)
+                    prAdditionalResult = await this.manager.apiModule.getPRAdditional(prNumber);
+                    this.purchaseRequestAdditional = prAdditionalResult;
+                } catch (error) {
+                    console.warn('Failed to load PR Additional:', error);
+                    prAdditionalResult = null;
+                }
+                
+                // PHASE 4: Load STIP and Period Payment in parallel (after PR Additional)
+                if (prAdditionalResult) {
+                    const sonumb = prAdditionalResult.sonumb || prAdditionalResult.Sonumb || '';
+                    
+                    const [stipSites, periodPaymentResult] = await Promise.allSettled([
+                        // Load STIP Sites if sonumb exists
+                        sonumb ? this.manager.apiModule.getSTIPSites(sonumb).catch(() => null) : Promise.resolve(null),
+                        // Check Period of Payment
+                        this.manager.termModule && this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized 
+                            ? this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized(prAdditionalResult, billingTypesResult.status === 'fulfilled' ? billingTypesResult.value : null)
+                            : Promise.resolve(false)
+                    ]);
+                    
+                    // Process STIP result
+                    if (stipSites.status === 'fulfilled' && stipSites.value && sonumb) {
+                        this.populateSTIPData(sonumb, stipSites.value);
+                    }
+                    
+                    // Process Period Payment result
+                    if (periodPaymentResult.status === 'fulfilled') {
+                        hasPeriodPayment = periodPaymentResult.value || false;
+                    }
+                }
+            }
+            
+            // Reset sections visibility when new PO is selected (only if not revised invoice)
+            const currentInvoiceId = this.manager.currentInvoiceId || null;
+            if (!currentInvoiceId) {
+                $('#invoiceInformationSection').hide();
+                $('#documentChecklistSection').hide();
+                $('#submitButtonsSection').hide();
+            }
+            
+            // Show/hide Term or Period of Payment sections
+            if (hasPeriodPayment) {
+                $('#termOfPaymentSection').hide();
+                $('#periodOfPaymentSection').show();
+            } else {
+                $('#termOfPaymentSection').show();
+                $('#periodOfPaymentSection').hide();
+                // Load Term of Payment grid (async, non-blocking - pass existing invoices to avoid duplicate API call)
+                if (this.manager.termModule) {
+                    const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
+                    this.manager.termModule.loadTermOfPaymentGridOptimized(existingInvoices).catch(err => console.error('Error loading term grid:', err));
+                }
+            }
+            
+            // Close loading indicator
+            Swal.close();
+            
+            // Close modal
+            const modalElement = document.getElementById('modalChoosePO');
+            if (modalElement) {
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Failed to load PO detail'
+            });
+        }
+    }
+
+    /**
+     * Load Vendor Information
+     */
+    async loadVendorInformation(vendorID) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                throw new Error('API module not available');
+            }
+            
+            const vendorData = await this.manager.apiModule.getVendorDetails(vendorID);
+            this.populateVendorInformationFromDetail(vendorData);
+        } catch (error) {
+            // Fallback to basic vendor information from PO
+            const poData = this.selectedPO || {};
+            this.populateVendorInformation(poData);
+        }
+    }
+
+    /**
+     * Populate PO Information fields
+     */
+    populatePOInformation(poData) {
+        const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+        const formatDate = this.utils ? this.utils.formatDate.bind(this.utils) : this.formatDate.bind(this);
+        
+        $('#txtPurchOrderID').val(poData.purchOrderID || poData.PurchOrderID || '');
+        $('#txtPurchOrderName').val(poData.purchOrderName || poData.PurchOrderName || '');
+        $('#txtPurchDate').val(poData.poDate ? formatDate(poData.poDate) : (poData.PODate ? formatDate(poData.PODate) : ''));
+        $('#txtPOAmount').val(formatCurrency(poData.poAmount || poData.POAmount || 0));
+        
+        // Site, ProductType, and SONumber will be populated from STIP if sonumb exists
+        $('#siteFieldWrapper').hide();
+        $('#productTypeFieldWrapper').hide();
+        $('#sonumbFieldWrapper').hide();
+        
+        // Clear values
+        $('#txtSite').val('');
+        $('#txtProductType').val('');
+        $('#txtSONumber').val('');
+        
+        // Keep SiteID for saving (from PO data as fallback)
+        const siteID = poData.mstSiteID || poData.MstSiteID || '';
+        $('#txtSiteID').val(siteID);
+        
+        $('#txtStatusPO').val(poData.approvalStatus || poData.ApprovalStatus || '');
+        $('#txtPurchType').val(poData.purchType || poData.PurchType || '');
+        $('#txtPurchSubType').val(poData.purchSubType || poData.PurchSubType || '');
+        $('#txtTermOfPayment').val(poData.topDescription || poData.TOPDescription || '');
+        $('#txtCompany').val(poData.companyName || poData.CompanyName || '');
+        
+        // Store additional data in selectedPO for later use
+        if (this.selectedPO) {
+            this.selectedPO.companyID = poData.companyID || poData.CompanyID || this.selectedPO.companyID;
+            this.selectedPO.vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID || this.selectedPO.vendorID;
+            this.selectedPO.workTypeID = poData.workTypeID || poData.WorkTypeID || this.selectedPO.workTypeID;
+            this.selectedPO.productTypeID = poData.productTypeID || poData.ProductTypeID || this.selectedPO.productTypeID;
+            this.selectedPO.topDescription = poData.topDescription || poData.TOPDescription || this.selectedPO.topDescription;
+            this.selectedPO.poAmount = poData.poAmount || poData.POAmount || this.selectedPO.poAmount;
+            this.selectedPO.seqTOPID = poData.seqTOPID || poData.SeqTOPID || this.selectedPO.seqTOPID;
+            // Store PurchaseType and PurchaseSubType for WorkType mapping
+            this.selectedPO.purchaseType = poData.purchType || poData.PurchType || '';
+            this.selectedPO.purchaseSubType = poData.purchSubType || poData.PurchSubType || '';
+            this.selectedPO.purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID || null;
+            this.selectedPO.purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID || null;
+        }
+    }
+
+    /**
+     * Populate Vendor Information (basic from PO)
+     */
+    populateVendorInformation(poData) {
+        $('#txtVendorName').val(poData.mstVendorVendorName || poData.MstVendorVendorName || '');
+    }
+
+    /**
+     * Populate Vendor Information from Detail API
+     */
+    populateVendorInformationFromDetail(vendorData) {
+        $('#txtVendorName').val(vendorData.vendorName || vendorData.VendorName || '');
+        $('#txtContactPerson').val(vendorData.cp || vendorData.CP || '');
+        $('#txtEmailAddress').val(vendorData.cpEmail || vendorData.CPEmail || vendorData.emailCorresspondence || vendorData.EmailCorresspondence || '');
+        $('#txtPhoneNumber').val(vendorData.cpPhone || vendorData.CPPhone || vendorData.telephone || vendorData.Telephone || '');
+        $('#txtNPWP').val(vendorData.npwp || vendorData.NPWP || '');
+        $('#txtBank').val(vendorData.bankName || vendorData.BankName || '');
+        $('#txtAccountName').val(vendorData.recipientName || vendorData.RecipientName || '');
+        $('#txtAccountNumber').val(vendorData.bankAccount || vendorData.BankAccount || '');
+        
+        // Vendor Status
+        const isActive = vendorData.isActive !== undefined ? vendorData.isActive : (vendorData.IsActive !== undefined ? vendorData.IsActive : false);
+        $('#txtVendorStatus').val(isActive ? 'Active' : 'Inactive');
+    }
+
+    /**
+     * Populate Currency from PO Items
+     */
+    populateCurrencyFromPOItems(poItems) {
+        if (poItems && poItems.length > 0) {
+            const firstItem = poItems[0];
+            const currencyCode = firstItem.currencyCode || firstItem.CurrencyCode || '';
+            $('#txtCurrency').val(currencyCode);
+        }
+    }
+
+    /**
+     * Load Purchase Type and Sub Type Names (Optimized - uses pre-fetched purchaseTypes)
+     */
+    async loadPurchaseTypeAndSubTypeNamesOptimized(poData, purchaseTypes) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return;
+            }
+            
+            // Get PurchaseTypeID and PurchaseSubTypeID from PO data
+            let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
+            let purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID;
+            
+            // If IDs are not available, try to get from PurchaseType and PurchaseSubType strings
+            if (!purchaseTypeID) {
+                const purchaseTypeValue = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
+                if (purchaseTypeValue && /^\d+$/.test(purchaseTypeValue.trim())) {
+                    purchaseTypeID = purchaseTypeValue.trim();
+                }
+            }
+            
+            if (!purchaseSubTypeID) {
+                const purchaseSubTypeValue = poData.purchSubType || poData.PurchSubType || poData.purchaseSubType || poData.PurchaseSubType || '';
+                if (purchaseSubTypeValue && /^\d+$/.test(purchaseSubTypeValue.trim())) {
+                    purchaseSubTypeID = purchaseSubTypeValue.trim();
+                }
+            }
+            
+            // If we have PurchaseTypeID, lookup the name from pre-fetched data
+            if (purchaseTypeID && purchaseTypes) {
+                try {
+                    const purchaseTypeIDInt = parseInt(purchaseTypeID);
+                    const purchaseType = purchaseTypes.find(pt => (pt.id || pt.ID) === purchaseTypeIDInt);
+                    
+                    if (purchaseType) {
+                        // Format: PurchaseRequestType + Category (if different)
+                        let formattedType = purchaseType.purchaseRequestType || purchaseType.PurchaseRequestType || '';
+                        const category = purchaseType.category || purchaseType.Category || '';
+                        
+                        if (category && category.trim() !== '' && category.trim() !== formattedType.trim()) {
+                            if (formattedType && formattedType.trim() !== '') {
+                                formattedType = `${formattedType} ${category}`;
+                            } else {
+                                formattedType = category;
+                            }
+                        }
+                        
+                        // Update poData with formatted name
+                        const finalFormattedType = formattedType || purchaseType.purchaseRequestType || purchaseType.PurchaseRequestType || '';
+                        poData.purchType = finalFormattedType;
+                        poData.PurchType = finalFormattedType;
+                        
+                        // Update UI
+                        $('#txtPurchType').val(finalFormattedType);
+                        
+                        // Store ID and formatted name for later use
+                        if (this.selectedPO) {
+                            this.selectedPO.purchaseTypeID = purchaseTypeIDInt;
+                            this.selectedPO.mstPROPurchaseTypeID = purchaseTypeIDInt;
+                            this.selectedPO.purchType = finalFormattedType;
+                            this.selectedPO.PurchType = finalFormattedType;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to lookup PurchaseType name:', error);
+                }
+            }
+            
+            // If we have PurchaseSubTypeID, lookup the name from pre-fetched data
+            if (purchaseSubTypeID && purchaseTypeID) {
+                try {
+                    // Get Purchase Sub Types (will use cache)
+                    const purchaseSubTypes = await this.manager.apiModule.getPurchaseSubTypes(purchaseTypeID);
+                    const purchaseSubTypeIDInt = parseInt(purchaseSubTypeID);
+                    const purchaseSubType = purchaseSubTypes.find(pst => (pst.id || pst.ID) === purchaseSubTypeIDInt);
+                    
+                    if (purchaseSubType) {
+                        const formattedSubType = purchaseSubType.purchaseRequestSubType || purchaseSubType.PurchaseRequestSubType || '';
+                        
+                        // Update poData with formatted name
+                        poData.purchSubType = formattedSubType;
+                        poData.PurchSubType = formattedSubType;
+                        
+                        // Update UI
+                        $('#txtPurchSubType').val(formattedSubType);
+                        
+                        // Store ID and formatted name for later use
+                        if (this.selectedPO) {
+                            this.selectedPO.purchaseSubTypeID = purchaseSubTypeIDInt;
+                            this.selectedPO.mstPROPurchaseSubTypeID = purchaseSubTypeIDInt;
+                            this.selectedPO.purchSubType = formattedSubType;
+                            this.selectedPO.PurchSubType = formattedSubType;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to lookup PurchaseSubType name:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load PurchaseType and PurchaseSubType names:', error);
+        }
+    }
+
+    /**
+     * Load Purchase Type and Sub Type Names (Original - for backward compatibility)
+     */
+    async loadPurchaseTypeAndSubTypeNames(poData) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return;
+            }
+            
+            // Get PurchaseTypeID and PurchaseSubTypeID from PO data
+            let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
+            let purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID;
+            
+            // If IDs are not available, try to get from PurchaseType and PurchaseSubType strings (which might be IDs)
+            if (!purchaseTypeID) {
+                const purchaseTypeValue = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
+                if (purchaseTypeValue && /^\d+$/.test(purchaseTypeValue.trim())) {
+                    purchaseTypeID = purchaseTypeValue.trim();
+                }
+            }
+            
+            if (!purchaseSubTypeID) {
+                const purchaseSubTypeValue = poData.purchSubType || poData.PurchSubType || poData.purchaseSubType || poData.PurchaseSubType || '';
+                if (purchaseSubTypeValue && /^\d+$/.test(purchaseSubTypeValue.trim())) {
+                    purchaseSubTypeID = purchaseSubTypeValue.trim();
+                }
+            }
+            
+            // If we have PurchaseTypeID, lookup the name
+            if (purchaseTypeID) {
+                try {
+                    const purchaseTypes = await this.manager.apiModule.getPurchaseTypes();
+                    const purchaseTypeIDInt = parseInt(purchaseTypeID);
+                    const purchaseType = purchaseTypes.find(pt => (pt.id || pt.ID) === purchaseTypeIDInt);
+                    
+                    if (purchaseType) {
+                        // Format: PurchaseRequestType + Category (if different)
+                        let formattedType = purchaseType.purchaseRequestType || purchaseType.PurchaseRequestType || '';
+                        const category = purchaseType.category || purchaseType.Category || '';
+                        
+                        if (category && category.trim() !== '' && category.trim() !== formattedType.trim()) {
+                            if (formattedType && formattedType.trim() !== '') {
+                                formattedType = `${formattedType} ${category}`;
+                            } else {
+                                formattedType = category;
+                            }
+                        }
+                        
+                        // Update poData with formatted name
+                        const finalFormattedType = formattedType || purchaseType.purchaseRequestType || purchaseType.PurchaseRequestType || '';
+                        poData.purchType = finalFormattedType;
+                        poData.PurchType = finalFormattedType;
+                        
+                        // Store ID and formatted name for later use
+                        if (this.selectedPO) {
+                            this.selectedPO.purchaseTypeID = purchaseTypeIDInt;
+                            this.selectedPO.mstPROPurchaseTypeID = purchaseTypeIDInt;
+                            this.selectedPO.purchType = finalFormattedType;
+                            this.selectedPO.PurchType = finalFormattedType;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to lookup PurchaseType name:', error);
+                }
+            }
+            
+            // If we have PurchaseSubTypeID, lookup the name
+            if (purchaseSubTypeID) {
+                try {
+                    const currentPurchaseTypeID = purchaseTypeID || (this.selectedPO ? (this.selectedPO.purchaseTypeID || this.selectedPO.mstPROPurchaseTypeID) : null);
+                    const purchaseSubTypes = await this.manager.apiModule.getPurchaseSubTypes(currentPurchaseTypeID);
+                    const purchaseSubTypeIDInt = parseInt(purchaseSubTypeID);
+                    const purchaseSubType = purchaseSubTypes.find(pst => (pst.id || pst.ID) === purchaseSubTypeIDInt);
+                    
+                    if (purchaseSubType) {
+                        const formattedSubType = purchaseSubType.purchaseRequestSubType || purchaseSubType.PurchaseRequestSubType || '';
+                        
+                        // Update poData with formatted name
+                        poData.purchSubType = formattedSubType;
+                        poData.PurchSubType = formattedSubType;
+                        
+                        // Store ID and formatted name for later use
+                        if (this.selectedPO) {
+                            this.selectedPO.purchaseSubTypeID = purchaseSubTypeIDInt;
+                            this.selectedPO.mstPROPurchaseSubTypeID = purchaseSubTypeIDInt;
+                            this.selectedPO.purchSubType = formattedSubType;
+                            this.selectedPO.PurchSubType = formattedSubType;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to lookup PurchaseSubType name:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load PurchaseType and PurchaseSubType names:', error);
+        }
+    }
+
+    /**
+     * Load Work Type from Mapping (Optimized - uses pre-fetched workTypeMappings)
+     */
+    async loadWorkTypeFromMappingOptimized(poData, allMappings) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return;
+            }
+            
+            // Get PurchaseTypeID and PurchaseSubTypeID from PO data
+            let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
+            let purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID;
+            
+            // If IDs are not available, try to lookup from PurchaseType and PurchaseSubType strings
+            if (!purchaseTypeID || !purchaseSubTypeID) {
+                const purchaseTypeName = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
+                const purchaseSubTypeName = poData.purchSubType || poData.PurchSubType || poData.purchaseSubType || poData.PurchaseSubType || '';
+                
+                if (purchaseTypeName && !purchaseTypeID) {
+                    try {
+                        const purchaseTypes = await this.manager.apiModule.getPurchaseTypes();
+                        const purchaseType = purchaseTypes.find(pt => 
+                            (pt.purchaseRequestType || pt.PurchaseRequestType || '').trim() === purchaseTypeName.trim() ||
+                            (pt.id || pt.ID || 0).toString() === purchaseTypeName.trim()
+                        );
+                        if (purchaseType) {
+                            purchaseTypeID = purchaseType.id || purchaseType.ID;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to lookup PurchaseTypeID:', error);
+                    }
+                }
+                
+                if (purchaseSubTypeName && purchaseTypeID && !purchaseSubTypeID) {
+                    try {
+                        const purchaseSubTypes = await this.manager.apiModule.getPurchaseSubTypes(purchaseTypeID);
+                        const purchaseSubType = purchaseSubTypes.find(pst => 
+                            (pst.purchaseRequestSubType || pst.PurchaseRequestSubType || '').trim() === purchaseSubTypeName.trim() ||
+                            (pst.id || pst.ID || 0).toString() === purchaseSubTypeName.trim()
+                        );
+                        if (purchaseSubType) {
+                            purchaseSubTypeID = purchaseSubType.id || purchaseSubType.ID;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to lookup PurchaseSubTypeID:', error);
+                    }
+                }
+            }
+            
+            // If we still don't have IDs, cannot proceed
+            if (!purchaseTypeID || !purchaseSubTypeID) {
+                console.warn('PurchaseTypeID or PurchaseSubTypeID not found, cannot load WorkType from mapping');
+                $('#txtWorkType').val('');
+                return;
+            }
+            
+            // Convert to integers
+            purchaseTypeID = parseInt(purchaseTypeID);
+            purchaseSubTypeID = parseInt(purchaseSubTypeID);
+            
+            if (isNaN(purchaseTypeID) || isNaN(purchaseSubTypeID)) {
+                console.warn('Invalid PurchaseTypeID or PurchaseSubTypeID');
+                $('#txtWorkType').val('');
+                return;
+            }
+            
+            // Filter by PurchaseTypeID and PurchaseSubTypeID from pre-fetched mappings
+            if (!allMappings) {
+                allMappings = await this.manager.apiModule.getWorkTypeMappings();
+            }
+            
+            const matchedMapping = allMappings.find(mapping => {
+                const mappingPurchaseTypeID = parseInt(mapping.mstPROPurchaseTypeID || mapping.mstProPurchaseTypeId || 0);
+                const mappingPurchaseSubTypeID = parseInt(mapping.mstPROPurchaseSubTypeID || mapping.mstProPurchaseSubTypeId || 0);
+                return mappingPurchaseTypeID === purchaseTypeID && mappingPurchaseSubTypeID === purchaseSubTypeID;
+            });
+            
+            if (matchedMapping) {
+                // Get WorkType from mapping
+                const workType = matchedMapping.workType || matchedMapping.WorkType || '';
+                $('#txtWorkType').val(workType);
+                
+                // Store WorkTypeID for later use
+                if (this.selectedPO) {
+                    this.selectedPO.workTypeID = matchedMapping.mstFINInvoiceWorkTypeID || matchedMapping.mstFinInvoiceWorkTypeId || this.selectedPO.workTypeID;
+                }
+            } else {
+                // No mapping found
+                $('#txtWorkType').val('');
+                console.warn(`No WorkType mapping found for PurchaseTypeID=${purchaseTypeID} and PurchaseSubTypeID=${purchaseSubTypeID}`);
+            }
+        } catch (error) {
+            console.error('Failed to load WorkType from mapping:', error);
+            $('#txtWorkType').val('');
+        }
+    }
+
+    /**
+     * Load Work Type from Mapping (Original - for backward compatibility)
+     */
+    async loadWorkTypeFromMapping(poData) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return;
+            }
+            
+            // Get PurchaseTypeID and PurchaseSubTypeID from PO data
+            let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
+            let purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID;
+            
+            // If IDs are not available, try to lookup from PurchaseType and PurchaseSubType strings
+            if (!purchaseTypeID || !purchaseSubTypeID) {
+                const purchaseTypeName = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
+                const purchaseSubTypeName = poData.purchSubType || poData.PurchSubType || poData.purchaseSubType || poData.PurchaseSubType || '';
+                
+                if (purchaseTypeName && !purchaseTypeID) {
+                    try {
+                        const purchaseTypes = await this.manager.apiModule.getPurchaseTypes();
+                        const purchaseType = purchaseTypes.find(pt => 
+                            (pt.purchaseRequestType || pt.PurchaseRequestType || '').trim() === purchaseTypeName.trim() ||
+                            (pt.id || pt.ID || 0).toString() === purchaseTypeName.trim()
+                        );
+                        if (purchaseType) {
+                            purchaseTypeID = purchaseType.id || purchaseType.ID;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to lookup PurchaseTypeID:', error);
+                    }
+                }
+                
+                if (purchaseSubTypeName && purchaseTypeID && !purchaseSubTypeID) {
+                    try {
+                        const purchaseSubTypes = await this.manager.apiModule.getPurchaseSubTypes(purchaseTypeID);
+                        const purchaseSubType = purchaseSubTypes.find(pst => 
+                            (pst.purchaseRequestSubType || pst.PurchaseRequestSubType || '').trim() === purchaseSubTypeName.trim() ||
+                            (pst.id || pst.ID || 0).toString() === purchaseSubTypeName.trim()
+                        );
+                        if (purchaseSubType) {
+                            purchaseSubTypeID = purchaseSubType.id || purchaseSubType.ID;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to lookup PurchaseSubTypeID:', error);
+                    }
+                }
+            }
+            
+            // If we still don't have IDs, cannot proceed
+            if (!purchaseTypeID || !purchaseSubTypeID) {
+                console.warn('PurchaseTypeID or PurchaseSubTypeID not found, cannot load WorkType from mapping');
+                $('#txtWorkType').val('');
+                return;
+            }
+            
+            // Convert to integers
+            purchaseTypeID = parseInt(purchaseTypeID);
+            purchaseSubTypeID = parseInt(purchaseSubTypeID);
+            
+            if (isNaN(purchaseTypeID) || isNaN(purchaseSubTypeID)) {
+                console.warn('Invalid PurchaseTypeID or PurchaseSubTypeID');
+                $('#txtWorkType').val('');
+                return;
+            }
+            
+            // Get all WorkType PurchaseType mappings
+            const allMappings = await this.manager.apiModule.getWorkTypeMappings();
+            
+            // Filter by PurchaseTypeID and PurchaseSubTypeID
+            const matchedMapping = allMappings.find(mapping => {
+                const mappingPurchaseTypeID = parseInt(mapping.mstPROPurchaseTypeID || mapping.mstProPurchaseTypeId || 0);
+                const mappingPurchaseSubTypeID = parseInt(mapping.mstPROPurchaseSubTypeID || mapping.mstProPurchaseSubTypeId || 0);
+                return mappingPurchaseTypeID === purchaseTypeID && mappingPurchaseSubTypeID === purchaseSubTypeID;
+            });
+            
+            if (matchedMapping) {
+                // Get WorkType from mapping
+                const workType = matchedMapping.workType || matchedMapping.WorkType || '';
+                $('#txtWorkType').val(workType);
+                
+                // Store WorkTypeID for later use
+                if (this.selectedPO) {
+                    this.selectedPO.workTypeID = matchedMapping.mstFINInvoiceWorkTypeID || matchedMapping.mstFinInvoiceWorkTypeId || this.selectedPO.workTypeID;
+                }
+            } else {
+                // No mapping found
+                $('#txtWorkType').val('');
+                console.warn(`No WorkType mapping found for PurchaseTypeID=${purchaseTypeID} and PurchaseSubTypeID=${purchaseSubTypeID}`);
+            }
+        } catch (error) {
+            console.error('Failed to load WorkType from mapping:', error);
+            $('#txtWorkType').val('');
+        }
+    }
+
+    /**
+     * Populate STIP Data (Helper method for optimized loading)
+     */
+    populateSTIPData(sonumb, stipSites) {
+        try {
+            // Show fields since sonumb is found
+            $('#siteFieldWrapper').show();
+            $('#productTypeFieldWrapper').show();
+            $('#sonumbFieldWrapper').show();
+            
+            // Update txtSONumber field with sonumb
+            $('#txtSONumber').val(sonumb);
+            
+            if (stipSites && stipSites.length > 0) {
+                // Use first result (or find by SONumber if multiple)
+                let stipSiteData = stipSites.find(stip => 
+                    (stip.sonumber || stip.SONumber || '') === sonumb ||
+                    (stip.stipNumber || stip.STIPNumber || '') === sonumb
+                );
+                
+                // If not found by exact match, use first result
+                if (!stipSiteData && stipSites.length > 0) {
+                    stipSiteData = stipSites[0];
+                }
+                
+                if (stipSiteData) {
+                    // Update Site field
+                    const siteName = stipSiteData.siteName || stipSiteData.SiteName || '';
+                    const siteID = stipSiteData.siteID || stipSiteData.SiteID || '';
+                    
+                    if (siteName || siteID) {
+                        if (siteID && siteName) {
+                            $('#txtSite').val(`${siteID} - ${siteName}`);
+                        } else if (siteName) {
+                            $('#txtSite').val(siteName);
+                        } else if (siteID) {
+                            $('#txtSite').val(siteID);
+                        }
+                        
+                        // Also update hidden SiteID field if exists
+                        if (siteID) {
+                            $('#txtSiteID').val(siteID);
+                        }
+                    }
+                    
+                    // Update ProductType field
+                    const product = stipSiteData.product || stipSiteData.Product || '';
+                    if (product) {
+                        $('#txtProductType').val(product);
+                        
+                        // Store ProductID for later use if needed
+                        if (this.selectedPO) {
+                            this.selectedPO.productTypeID = stipSiteData.productID || stipSiteData.ProductID || this.selectedPO.productTypeID;
+                        }
+                    }
+                }
+            } else {
+                console.warn('No STIP sites found for sonumb:', sonumb);
+            }
+        } catch (error) {
+            console.error('Failed to populate STIP data:', error);
+        }
+    }
+
+    /**
+     * Load Site and ProductType from STIP (Original - for backward compatibility)
+     */
+    async loadSiteAndProductTypeFromSTIP(poData) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return;
+            }
+            
+            // Hide fields initially (will show if sonumb found)
+            $('#siteFieldWrapper').hide();
+            $('#productTypeFieldWrapper').hide();
+            $('#sonumbFieldWrapper').hide();
+            
+            // Get PRNumber from PO data
+            const prNumber = poData.prNumber || poData.PRNumber || poData.trxPROPurchaseRequestNumber || poData.TrxPROPurchaseRequestNumber || '';
+            
+            if (!prNumber) {
+                console.warn('PRNumber not found in PO data, cannot load STIP data');
+                return;
+            }
+            
+            // Get PurchaseRequestAdditional by PRNumber
+            const additionalData = await this.manager.apiModule.getPRAdditional(prNumber);
+            
+            if (!additionalData) {
+                console.warn('PurchaseRequestAdditional not found for PRNumber:', prNumber);
+                return;
+            }
+            
+            // Get Sonumb (STIPNumber) from PurchaseRequestAdditional
+            const sonumb = additionalData.sonumb || additionalData.Sonumb || '';
+            
+            if (!sonumb) {
+                console.warn('Sonumb not found in PurchaseRequestAdditional');
+                return;
+            }
+            
+            // Show fields since sonumb is found
+            $('#siteFieldWrapper').show();
+            $('#productTypeFieldWrapper').show();
+            $('#sonumbFieldWrapper').show();
+            
+            // Update txtSONumber field with sonumb
+            $('#txtSONumber').val(sonumb);
+            
+            // Get STIP data using STIPSites endpoint
+            try {
+                const stipSites = await this.manager.apiModule.getSTIPSites(sonumb);
+                
+                if (stipSites && stipSites.length > 0) {
+                    // Use first result (or find by SONumber if multiple)
+                    let stipSiteData = stipSites.find(stip => 
+                        (stip.sonumber || stip.SONumber || '') === sonumb ||
+                        (stip.stipNumber || stip.STIPNumber || '') === sonumb
+                    );
+                    
+                    // If not found by exact match, use first result
+                    if (!stipSiteData && stipSites.length > 0) {
+                        stipSiteData = stipSites[0];
+                    }
+                    
+                    if (stipSiteData) {
+                        // Update Site field
+                        const siteName = stipSiteData.siteName || stipSiteData.SiteName || '';
+                        const siteID = stipSiteData.siteID || stipSiteData.SiteID || '';
+                        
+                        if (siteName || siteID) {
+                            if (siteID && siteName) {
+                                $('#txtSite').val(`${siteID} - ${siteName}`);
+                            } else if (siteName) {
+                                $('#txtSite').val(siteName);
+                            } else if (siteID) {
+                                $('#txtSite').val(siteID);
+                            }
+                            
+                            // Also update hidden SiteID field if exists
+                            if (siteID) {
+                                $('#txtSiteID').val(siteID);
+                            }
+                        }
+                        
+                        // Update ProductType field
+                        const product = stipSiteData.product || stipSiteData.Product || '';
+                        if (product) {
+                            $('#txtProductType').val(product);
+                            
+                            // Store ProductID for later use if needed
+                            if (this.selectedPO) {
+                                this.selectedPO.productTypeID = stipSiteData.productID || stipSiteData.ProductID || this.selectedPO.productTypeID;
+                            }
+                        }
+                    }
+                } else {
+                    console.warn('No STIP sites found for sonumb:', sonumb);
+                }
+            } catch (error) {
+                console.warn('Failed to load STIP data from STIPSites:', error);
+            }
+        } catch (error) {
+            console.error('Failed to load Site and ProductType from STIP:', error);
+        }
+    }
+
+    /**
+     * Get Next Term Value
+     */
+    async getNextTermValue(poNumber) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                return null;
+            }
+            
+            // Get existing invoices for this PO
+            const existingInvoices = await this.manager.apiModule.getExistingInvoices(poNumber);
+            
+            // Get TOPDescription from PO data
+            const topDescription = this.selectedPO ? (this.selectedPO.topDescription || this.selectedPO.TOPDescription || '') : '';
+            if (!topDescription) {
+                return null;
+            }
+            
+            // Parse TOPDescription (e.g., "30|70" becomes [30, 70])
+            const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+            
+            if (termValues.length === 0) {
+                return null;
+            }
+            
+            // If no existing invoices, use first term (termPosition = 1)
+            if (!existingInvoices || existingInvoices.length === 0) {
+                return termValues[0]; // First term value (30%)
+            }
+            
+            // Get the highest termPosition from existing invoices
+            const maxTermPosition = Math.max(...existingInvoices.map(inv => inv.termPosition || inv.TermPosition || 0));
+            
+            // Next term position = maxTermPosition + 1
+            const nextTermPosition = maxTermPosition + 1;
+            
+            // Get term value for next term position (index is termPosition - 1)
+            if (nextTermPosition <= termValues.length) {
+                return termValues[nextTermPosition - 1];
+            }
+            
+            // If next term position exceeds available terms, return null or last term
+            return null;
+        } catch (error) {
+            console.error('Failed to get next term value:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load PO Detail Items (Optimized - uses pre-fetched existingInvoices)
+     */
+    async loadPODetailOptimized(poNumber, existingInvoices = null) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                throw new Error('API module not available');
+            }
+            
+            // Use pre-fetched existingInvoices if available, otherwise fetch
+            let invoices = existingInvoices;
+            if (!invoices) {
+                invoices = await this.manager.apiModule.getExistingInvoices(poNumber);
+            }
+            
+            const tbody = document.getElementById('tblPODetailBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (this.poDetailItems.length > 0) {
+                const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+                
+                // Get term value for calculation (only if not period payment)
+                if (!this.purchaseRequestAdditional) {
+                    this.currentTermValue = this.getNextTermValueFromInvoices(invoices);
+                } else {
+                    // For period payment, term value is not applicable (amount is divided by period count)
+                    this.currentTermValue = null;
+                }
+                
+                this.poDetailItems.forEach((item, index) => {
+                    const itemQty = item.itemQty || item.ItemQty || 0;
+                    const unitPrice = item.unitPrice || item.UnitPrice || 0;
+                    const amount = item.amount || item.Amount || 0;
+                    
+                    // Calculate Qty Invoice and Amount Invoice
+                    let qtyInvoice = itemQty;
+                    let amountInvoice = amount;
+                    
+                    if (this.currentTermValue !== null && this.currentTermValue > 0) {
+                        // Calculate based on term value percentage
+                        // Qty Invoice = Qty PO * (Term Value / 100)
+                        qtyInvoice = itemQty * (this.currentTermValue / 100);
+                        // Amount Invoice = Qty Invoice * Price
+                        amountInvoice = qtyInvoice * unitPrice;
+                    } else if (this.purchaseRequestAdditional && this.purchaseRequestAdditional.period > 0) {
+                        // For period payment: Term Value = 100% for each period
+                        // Qty Invoice = Qty PO * (100 / 100) = Qty PO
+                        qtyInvoice = itemQty;
+                        // Amount Invoice = Qty Invoice * Price = Qty PO * Price
+                        amountInvoice = qtyInvoice * unitPrice;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-center">${this.escapeHtml(item.mstPROPurchaseItemInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.mstPROInventoryItemID || item.MstPROInventoryItemID || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemName || item.ItemName || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemUnit || item.ItemUnit || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemDescription || item.ItemDescription || '')}</td>
+                        <td class="text-center">${itemQty}</td>
+                        <td class="text-center">${formatCurrency(unitPrice)}</td>
+                        <td class="text-center">${formatCurrency(amount)}</td>
+                        <td class="text-center">
+                            <input type="number" class="form-control form-control-sm qty-invoice" 
+                                   data-line="${index}" 
+                                   data-unit-price="${unitPrice}"
+                                   data-qty-po="${itemQty}"
+                                   value="${qtyInvoice.toFixed(2)}" 
+                                   min="0" 
+                                   max="${itemQty}"
+                                   step="0.01"
+                                   readonly>
+                        </td>
+                        <td class="text-center line-amount-invoice" data-line="${index}">
+                            ${formatCurrency(amountInvoice)}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                // Setup event handlers for quantity changes (if not readonly)
+                const self = this;
+                $('.qty-invoice').on('input', function() {
+                    if (self.manager && self.manager.formModule) {
+                        const lineIndex = $(this).data('line');
+                        const item = self.poDetailItems[lineIndex];
+                        const qty = parseFloat($(this).val()) || 0;
+                        const price = item.unitPrice || item.UnitPrice || 0;
+                        const amount = qty * price;
+                        
+                        const formatCurrency = self.utils ? self.utils.formatCurrency.bind(self.utils) : self.formatCurrency.bind(self);
+                        $(`.line-amount-invoice[data-line="${lineIndex}"]`).text(formatCurrency(amount));
+                        self.manager.formModule.calculateInvoiceAmount();
+                    }
+                });
+                
+                // Populate Currency from PO items
+                this.populateCurrencyFromPOItems(this.poDetailItems);
+                
+                // Calculate total invoice amount
+                if (this.manager && this.manager.formModule) {
+                    this.manager.formModule.calculateInvoiceAmount();
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
+            }
+        } catch (error) {
+            console.error('Failed to load PO detail:', error);
+        }
+    }
+
+    /**
+     * Get Next Term Value from existing invoices (Helper method)
+     */
+    getNextTermValueFromInvoices(existingInvoices) {
+        try {
+            // Get TOPDescription from PO data
+            const topDescription = this.selectedPO ? (this.selectedPO.topDescription || this.selectedPO.TOPDescription || '') : '';
+            if (!topDescription) {
+                return null;
+            }
+            
+            // Parse TOPDescription (e.g., "30|70" becomes [30, 70])
+            const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+            
+            if (termValues.length === 0) {
+                return null;
+            }
+            
+            // If no existing invoices, use first term (termPosition = 1)
+            if (!existingInvoices || existingInvoices.length === 0) {
+                return termValues[0]; // First term value (30%)
+            }
+            
+            // Get the highest termPosition from existing invoices
+            const maxTermPosition = Math.max(...existingInvoices.map(inv => inv.termPosition || inv.TermPosition || 0));
+            
+            // Next term position = maxTermPosition + 1
+            const nextTermPosition = maxTermPosition + 1;
+            
+            // Get term value for next term position (index is termPosition - 1)
+            if (nextTermPosition <= termValues.length) {
+                return termValues[nextTermPosition - 1];
+            }
+            
+            // If next term position exceeds available terms, return null or last term
+            return null;
+        } catch (error) {
+            console.error('Failed to get next term value:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load PO Detail Items (Original - for backward compatibility)
+     */
+    async loadPODetail(poNumber) {
+        try {
+            if (!this.manager || !this.manager.apiModule) {
+                throw new Error('API module not available');
+            }
+            
+            this.poDetailItems = await this.manager.apiModule.getPOItems(poNumber);
+            
+            const tbody = document.getElementById('tblPODetailBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (this.poDetailItems.length > 0) {
+                const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+                
+                // Get term value for calculation (only if not period payment)
+                if (!this.purchaseRequestAdditional) {
+                    this.currentTermValue = await this.getNextTermValue(poNumber);
+                } else {
+                    // For period payment, term value is not applicable (amount is divided by period count)
+                    this.currentTermValue = null;
+                }
+                
+                this.poDetailItems.forEach((item, index) => {
+                    const itemQty = item.itemQty || item.ItemQty || 0;
+                    const unitPrice = item.unitPrice || item.UnitPrice || 0;
+                    const amount = item.amount || item.Amount || 0;
+                    
+                    // Calculate Qty Invoice and Amount Invoice
+                    let qtyInvoice = itemQty;
+                    let amountInvoice = amount;
+                    
+                    if (this.currentTermValue !== null && this.currentTermValue > 0) {
+                        // Calculate based on term value percentage
+                        // Qty Invoice = Qty PO * (Term Value / 100)
+                        qtyInvoice = itemQty * (this.currentTermValue / 100);
+                        // Amount Invoice = Qty Invoice * Price
+                        amountInvoice = qtyInvoice * unitPrice;
+                    } else if (this.purchaseRequestAdditional && this.purchaseRequestAdditional.period > 0) {
+                        // For period payment: Term Value = 100% for each period
+                        // Qty Invoice = Qty PO * (100 / 100) = Qty PO
+                        qtyInvoice = itemQty;
+                        // Amount Invoice = Qty Invoice * Price = Qty PO * Price
+                        amountInvoice = qtyInvoice * unitPrice;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-center">${this.escapeHtml(item.mstPROPurchaseItemInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.mstPROInventoryItemID || item.MstPROInventoryItemID || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemName || item.ItemName || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemUnit || item.ItemUnit || '')}</td>
+                        <td class="text-center">${this.escapeHtml(item.itemDescription || item.ItemDescription || '')}</td>
+                        <td class="text-center">${itemQty}</td>
+                        <td class="text-center">${formatCurrency(unitPrice)}</td>
+                        <td class="text-center">${formatCurrency(amount)}</td>
+                        <td class="text-center">
+                            <input type="number" class="form-control form-control-sm qty-invoice" 
+                                   data-line="${index}" 
+                                   data-unit-price="${unitPrice}"
+                                   data-qty-po="${itemQty}"
+                                   value="${qtyInvoice.toFixed(2)}" 
+                                   min="0" 
+                                   max="${itemQty}"
+                                   step="0.01"
+                                   readonly>
+                        </td>
+                        <td class="text-center line-amount-invoice" data-line="${index}">
+                            ${formatCurrency(amountInvoice)}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                // Setup event handlers for quantity changes (if not readonly)
+                const self = this;
+                $('.qty-invoice').on('input', function() {
+                    if (self.manager && self.manager.formModule) {
+                        const lineIndex = $(this).data('line');
+                        const item = self.poDetailItems[lineIndex];
+                        const qty = parseFloat($(this).val()) || 0;
+                        const price = item.unitPrice || item.UnitPrice || 0;
+                        const amount = qty * price;
+                        
+                        const formatCurrency = self.utils ? self.utils.formatCurrency.bind(self.utils) : self.formatCurrency.bind(self);
+                        $(`.line-amount-invoice[data-line="${lineIndex}"]`).text(formatCurrency(amount));
+                        self.manager.formModule.calculateInvoiceAmount();
+                    }
+                });
+                
+                // Populate Currency from PO items
+                this.populateCurrencyFromPOItems(this.poDetailItems);
+                
+                // Calculate total invoice amount
+                if (this.manager && this.manager.formModule) {
+                    this.manager.formModule.calculateInvoiceAmount();
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
+            }
+        } catch (error) {
+            console.error('Failed to load PO detail:', error);
+        }
+    }
+
+    // Fallback methods if utils not available
+    formatCurrency(amount) {
+        return new Intl.NumberFormat('id-ID', { 
+            style: 'currency', 
+            currency: 'IDR', 
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount || 0);
+    }
+
+    formatDate(date) {
+        if (!date) return '';
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('en-GB');
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Make available globally
+if (typeof window !== 'undefined') {
+    window.InvoiceCreatePO = InvoiceCreatePO;
+}
+
+
