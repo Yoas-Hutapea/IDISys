@@ -179,8 +179,15 @@
                 }
                 
                 // Check if mstApprovalStatusID == 5 (Rejected) or 6 (Draft)
-                const statusID = pr.mstApprovalStatusID || pr.MstApprovalStatusID;
-                if (statusID !== 5 && statusID !== 6) {
+                const rawStatusId = pr.mstApprovalStatusID ?? pr.MstApprovalStatusID ?? null;
+                const statusID = rawStatusId !== null ? parseInt(rawStatusId, 10) : null;
+                const statusText = pr.approvalStatus ?? pr.ApprovalStatus ?? '';
+                const isEditableStatus =
+                    statusID === 5 ||
+                    statusID === 6 ||
+                    (typeof statusText === 'string' && statusText.toLowerCase().includes('draft'));
+
+                if (!isEditableStatus) {
                     return;
                 }
                 

@@ -51,29 +51,13 @@ class PRListTable {
                             title: 'Edit',
                             showIf: (row) => {
                                 const statusId = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
-                                const requestor = row.requestor ?? row.Requestor ?? '';
-                                
-                                // Get current user employee ID from config
-                                const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
-                                
-                                // Show Edit only if:
-                                // 1. Status is 5 or 6 (draft/cancelled)
-                                // 2. AND current user is the Requestor
-                                if (statusId === 5 || statusId === 6 || statusId === null) {
-                                    // Check if current user is Requestor
-                                    if (currentUserEmployeeID && requestor) {
-                                        // Normalize comparison (case-insensitive, trim whitespace)
-                                        const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
-                                        const requestorNormalized = requestor.trim().toLowerCase();
-                                        
-                                        // Show Edit only if current user is Requestor
-                                        return currentUserNormalized === requestorNormalized;
-                                    }
-                                    // If no current user or requestor info, don't show Edit
-                                    return false;
+                                const statusText = row.approvalStatus ?? row.ApprovalStatus ?? '';
+
+                                if (statusId === 6) return true;
+                                if (typeof statusText === 'string' && statusText.toLowerCase().includes('draft')) {
+                                    return true;
                                 }
-                                
-                                // For other statuses, don't show Edit
+
                                 return false;
                             }
                         },

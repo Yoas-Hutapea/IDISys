@@ -183,16 +183,11 @@
                                 title: 'Edit',
                                 showIf: (row) => {
                                     const statusId = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
-                                    const requestor = row.requestor ?? row.Requestor ?? '';
-                                    const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
+                                    const statusText = row.approvalStatus ?? row.ApprovalStatus ?? '';
 
-                                    if (statusId === 5 || statusId === 6 || statusId === null) {
-                                        if (currentUserEmployeeID && requestor) {
-                                            const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
-                                            const requestorNormalized = requestor.trim().toLowerCase();
-                                            return currentUserNormalized === requestorNormalized;
-                                        }
-                                        return false;
+                                    if (statusId === 6) return true;
+                                    if (typeof statusText === 'string' && statusText.toLowerCase().includes('draft')) {
+                                        return true;
                                     }
 
                                     return false;

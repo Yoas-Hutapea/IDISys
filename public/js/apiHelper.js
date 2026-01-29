@@ -108,6 +108,18 @@ async function apiCall(apiType, endpoint, method = 'GET', data = null, options =
     if (upperCaseMethod !== 'GET') {
         if (data && data instanceof FormData) {
             config.body = data;
+            // Add CSRF token for FormData requests as well
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (tokenInput) {
+                headers['RequestVerificationToken'] = tokenInput.value;
+            } else {
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                if (csrfMeta && csrfMeta.getAttribute('content')) {
+                    headers['X-CSRF-TOKEN'] = csrfMeta.getAttribute('content');
+                } else {
+                    console.warn('CSRF token not found. Non-GET request may be rejected by the server.');
+                }
+            }
         } else if (data) {
             // Jika data bukan FormData, set Content-Type menjadi 'application/json'
             headers['Content-Type'] = 'application/json';

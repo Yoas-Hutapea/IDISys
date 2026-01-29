@@ -186,6 +186,7 @@ class PurchaseRequestsController extends Controller
             ->where('trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('IsActive', true)
             ->select([
+                'ID',
                 'mstPROPurchaseItemInventoryItemID as ItemID',
                 'ItemName',
                 'ItemDescription',
@@ -259,6 +260,8 @@ class PurchaseRequestsController extends Controller
         $now = now();
         $userId = (string) optional(Auth::user())->Username ?: 'System';
 
+        $processedItemIds = [];
+
         foreach ($items as $item) {
             $id = $item['ID'] ?? $item['id'] ?? null;
             $data = [
@@ -278,12 +281,26 @@ class PurchaseRequestsController extends Controller
 
             if ($id) {
                 DB::table('trxPROPurchaseRequestItem')->where('ID', $id)->update($data);
+                $processedItemIds[] = (int) $id;
             } else {
                 $data['CreatedBy'] = $userId;
                 $data['CreatedDate'] = $now;
-                DB::table('trxPROPurchaseRequestItem')->insert($data);
+                $newId = DB::table('trxPROPurchaseRequestItem')->insertGetId($data);
+                $processedItemIds[] = (int) $newId;
             }
         }
+
+        $itemsToDeleteQuery = DB::table('trxPROPurchaseRequestItem')
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber);
+        if (!empty($processedItemIds)) {
+            $itemsToDeleteQuery->whereNotIn('ID', $processedItemIds);
+        }
+        $itemsToDeleteQuery->delete();
+
+        DB::table('trxPROPurchaseRequestItem')
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber)
+            ->where('IsActive', false)
+            ->delete();
 
         return response()->json(['message' => 'Items saved']);
     }
@@ -294,6 +311,8 @@ class PurchaseRequestsController extends Controller
         $documents = $request->input('Documents', []);
         $now = now();
         $userId = (string) optional(Auth::user())->Username ?: 'System';
+
+        $processedDocumentIds = [];
 
         foreach ($documents as $doc) {
             $id = $doc['ID'] ?? $doc['id'] ?? null;
@@ -308,12 +327,26 @@ class PurchaseRequestsController extends Controller
 
             if ($id) {
                 DB::table('trxPROPurchaseRequestDocument')->where('ID', $id)->update($data);
+                $processedDocumentIds[] = (int) $id;
             } else {
                 $data['CreatedBy'] = $userId;
                 $data['CreatedDate'] = $now;
-                DB::table('trxPROPurchaseRequestDocument')->insert($data);
+                $newId = DB::table('trxPROPurchaseRequestDocument')->insertGetId($data);
+                $processedDocumentIds[] = (int) $newId;
             }
         }
+
+        $documentsToDeleteQuery = DB::table('trxPROPurchaseRequestDocument')
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber);
+        if (!empty($processedDocumentIds)) {
+            $documentsToDeleteQuery->whereNotIn('ID', $processedDocumentIds);
+        }
+        $documentsToDeleteQuery->delete();
+
+        DB::table('trxPROPurchaseRequestDocument')
+            ->where('trxPROPurchaseRequestNumber', $decodedNumber)
+            ->where('IsActive', false)
+            ->delete();
 
         return response()->json(['message' => 'Documents saved']);
     }

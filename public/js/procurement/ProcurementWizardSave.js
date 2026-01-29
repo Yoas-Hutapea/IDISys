@@ -25,12 +25,12 @@ class ProcurementWizardSave {
      */
     async saveDraftBasicInfo(skipRedirect = false) {
         if (!this.wizard.cachedElements.form) return false;
-        
+
         const formData = new FormData(this.wizard.cachedElements.form);
-        
+
         // Get current logged-in user employee ID from config (for storing)
         const currentUserEmployeeID = (window.ProcurementConfig && window.ProcurementConfig.currentUserEmployeeID) || '';
-        
+
         // Get values directly from DOM elements (important for disabled/readonly fields)
         const applicantField = document.getElementById('Applicant');
         const companyField = document.getElementById('Company');
@@ -38,7 +38,7 @@ class ProcurementWizardSave {
         const purchReqSubTypeField = document.getElementById('PurchaseRequestSubType');
         const purchReqNameField = document.getElementById('PurchaseRequestName');
         const remarksField = document.getElementById('Remarks');
-        
+
         // Helper to get value from field
         const getFieldValue = (field) => {
             if (!field) return '';
@@ -47,7 +47,7 @@ class ProcurementWizardSave {
             }
             return field.value || '';
         };
-        
+
         // Gather form data
         const payload = {
             Requestor: currentUserEmployeeID || '',
@@ -59,21 +59,21 @@ class ProcurementWizardSave {
             Remark: getFieldValue(remarksField) || formData.get('Remarks')?.toString().trim() || '',
             mstApprovalStatusID: 6 // Draft
         };
-        
+
         // Validate required fields
         const requiredFields = ['Requestor', 'Applicant', 'Company', 'PurchReqType', 'PurchReqSubType', 'PurchReqName', 'Remark'];
         const missingFields = requiredFields.filter(field => !payload[field] || payload[field].trim() === '');
-        
+
         if (missingFields.length > 0) {
             this.wizard.showValidationMessage('Please fill in all required fields in Basic Information.');
             return false;
         }
-        
+
         if (!currentUserEmployeeID || currentUserEmployeeID.trim() === '') {
             this.wizard.showValidationMessage('Requestor (Employee ID) is required. Please ensure you are logged in correctly.');
             return false;
         }
-        
+
         // Show loading state
         const saveBtn = document.getElementById('saveDraftBtn');
         let originalText = '';
@@ -84,11 +84,11 @@ class ProcurementWizardSave {
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="icon-base bx bx-loader-circle me-2 spin"></i>Saving...';
         }
-        
+
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             let result;
             if (prNumber) {
                 try {
@@ -100,7 +100,7 @@ class ProcurementWizardSave {
                         localStorage.removeItem('procurementDraftItemsSaved');
                         localStorage.removeItem('procurementDraftApprovalSaved');
                         localStorage.removeItem('procurementDraftDocumentsSaved');
-                        
+
                         const createData = await apiCall('Procurement', '/Procurement/PurchaseRequest/PurchaseRequests', 'POST', payload);
                         result = createData.data || createData;
                         prNumber = result.purchReqNumber || result.PurchReqNumber;
@@ -113,7 +113,7 @@ class ProcurementWizardSave {
                 result = createData.data || createData;
                 prNumber = result.purchReqNumber || result.PurchReqNumber;
             }
-            
+
             localStorage.setItem('procurementDraft', JSON.stringify({
                 id: result.id || result.ID,
                 purchReqNumber: prNumber || result.purchReqNumber || result.PurchReqNumber,
@@ -123,16 +123,16 @@ class ProcurementWizardSave {
                 currentStepIndex: this.wizard.currentStepIndex,
                 timestamp: new Date().toISOString()
             }));
-            
+
             const finalPrNumber = prNumber || result.purchReqNumber || result.PurchReqNumber;
-            
+
             if (!skipRedirect) {
                 this.showDraftSavedMessage(finalPrNumber);
                 setTimeout(() => {
                     window.location.href = '/Procurement/PurchaseRequest/List';
                 }, 1500);
             }
-            
+
             return true;
         } catch (error) {
             console.error('Error saving draft:', error);
@@ -151,7 +151,7 @@ class ProcurementWizardSave {
      */
     showDraftSavedMessage(prNumber) {
         this.wizard.removeExistingAlerts();
-        const message = prNumber 
+        const message = prNumber
             ? `<strong>Draft Saved!</strong> Your procurement request has been saved. PR Number: ${prNumber}`
             : '<strong>Draft Saved!</strong> Your procurement request has been saved as draft.';
         this.wizard.createAlert('success', message, 5000);
@@ -163,7 +163,7 @@ class ProcurementWizardSave {
     getItemsFromTable() {
         const items = [];
         const rows = document.querySelectorAll('#itemDetailTable tbody tr');
-        
+
         rows.forEach(row => {
             const itemDataAttr = row.getAttribute('data-item-data');
             if (itemDataAttr) {
@@ -186,12 +186,12 @@ class ProcurementWizardSave {
             } else {
                 const cells = row.querySelectorAll('td');
                 if (cells.length < 5) return;
-                
+
                 const itemId = cells[1]?.textContent?.trim() || '';
                 const itemName = cells[2]?.textContent?.trim() || '';
                 const description = cells[3]?.textContent?.trim() || '';
                 const unit = cells[4]?.textContent?.trim() || '';
-                
+
                 if (itemId && itemName) {
                     items.push({
                         mstPROPurchaseItemInventoryItemID: itemId || null,
@@ -206,7 +206,7 @@ class ProcurementWizardSave {
                 }
             }
         });
-        
+
         return items;
     }
 
@@ -243,7 +243,7 @@ class ProcurementWizardSave {
             const subscribeSection = document.getElementById('subscribeSection');
             const isSonumbSectionVisible = sonumbSection && sonumbSection.style.display !== 'none';
             const isSubscribeSectionVisible = subscribeSection && subscribeSection.style.display !== 'none';
-            
+
             if (isSonumbSectionVisible) {
                 const sonumbField = document.getElementById('Sonumb');
                 if (sonumbField && sonumbField.value) {
@@ -255,13 +255,13 @@ class ProcurementWizardSave {
                     sonumbValue = subscribeSonumbField.value.trim();
                 }
             }
-            
+
             const formattedItems = items.map(item => {
                 const itemQty = parseFloat(item.ItemQty) || 0;
                 const unitPrice = parseFloat(item.UnitPrice) || 0;
                 const amount = parseFloat(item.Amount) || 0;
                 const itemId = item.id || item.ID || item.Id || null;
-                
+
                 const formattedItem = {
                     ID: itemId ? parseInt(itemId) : null,
                     trxPROPurchaseRequestNumber: prNumber || '',
@@ -275,14 +275,14 @@ class ProcurementWizardSave {
                     Amount: isNaN(amount) ? 0 : amount,
                     Sonumb: sonumbValue || null
                 };
-                
+
                 if (!formattedItem.trxPROPurchaseRequestNumber) {
                     throw new Error('trxPROPurchaseRequestNumber is required for each item');
                 }
                 if (!formattedItem.ItemName) {
                     throw new Error('ItemName is required for each item');
                 }
-                
+
                 return formattedItem;
             });
 
@@ -290,7 +290,7 @@ class ProcurementWizardSave {
                 trxPROPurchaseRequestNumber: prNumber || '',
                 Items: formattedItems
             };
-            
+
             if (!payload.trxPROPurchaseRequestNumber) {
                 throw new Error('trxPROPurchaseRequestNumber is required');
             }
@@ -299,7 +299,7 @@ class ProcurementWizardSave {
             }
 
             await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequestItems/${encodeURIComponent(prNumber)}/items/bulk`, 'POST', payload);
-            
+
             localStorage.setItem('procurementDraftItemsSaved', 'true');
         } catch (error) {
             console.error('Error saving items:', error);
@@ -334,12 +334,12 @@ class ProcurementWizardSave {
             const billingTypeSection = document.getElementById('billingTypeSection');
             const sonumbSection = document.getElementById('sonumbSection');
             const subscribeSection = document.getElementById('subscribeSection');
-            
+
             const typeId = this.wizard.currentPurchaseRequestTypeID;
             const subTypeId = this.wizard.currentPurchaseRequestSubTypeID;
-            
+
             const shouldShowBillingTypeSection = typeId === 6 && subTypeId === 2;
-            const shouldShowSonumbSection = 
+            const shouldShowSonumbSection =
                 (typeId === 8 && subTypeId === 4) ||
                 (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) ||
                 (typeId === 4 && subTypeId === 3) ||
@@ -377,7 +377,7 @@ class ProcurementWizardSave {
                     additionalData.SiteName = siteName || null;
                     additionalData.SiteID = siteID || null;
                 }
-                
+
                 // Only include SonumbId if it has a valid value
                 // If SonumbId is null/empty, don't send it to avoid foreign key constraint violation
                 if (sonumbId !== null && !isNaN(sonumbId) && sonumbId > 0) {
@@ -407,7 +407,7 @@ class ProcurementWizardSave {
                     additionalData.SiteName = subscribeSiteName || null;
                     additionalData.SiteID = subscribeSiteID || null;
                 }
-                
+
                 // Only include SubscribeSonumbId if it has a valid value
                 // If SubscribeSonumbId is null/empty, don't send it to avoid foreign key constraint violation
                 if (subscribeSonumbId !== null && !isNaN(subscribeSonumbId) && subscribeSonumbId > 0) {
@@ -415,7 +415,7 @@ class ProcurementWizardSave {
                 }
             }
 
-            const hasData = Object.keys(additionalData).some(key => 
+            const hasData = Object.keys(additionalData).some(key =>
                 key !== 'PurchaseRequestNumber' && additionalData[key] !== null && additionalData[key] !== undefined && additionalData[key] !== ''
             );
 
@@ -425,7 +425,7 @@ class ProcurementWizardSave {
             }
 
             await apiCall('Procurement', '/Procurement/PurchaseRequest/PurchaseRequestAdditional', 'POST', additionalData);
-            
+
             console.log('Additional data saved successfully');
         } catch (error) {
             console.error('Error saving Additional data:', error);
@@ -461,16 +461,36 @@ class ProcurementWizardSave {
                 if (fileName) {
                     const file = this.wizard.documentFiles.get(fileName);
                     if (file) {
-                        filesToUpload.push({ fileName, file });
+                        filesToUpload.push({ fileName, file, row });
                     }
                 }
             });
 
-            for (const { fileName, file } of filesToUpload) {
+            for (const { fileName, file, row } of filesToUpload) {
                 try {
                     const formData = new FormData();
                     formData.append('file', file);
-                    await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${encodeURIComponent(prNumber)}/documents/upload`, 'POST', formData);
+                    const uploadResult = await apiCall(
+                        'Procurement',
+                        `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${encodeURIComponent(prNumber)}/documents/upload`,
+                        'POST',
+                        formData
+                    );
+                    const uploadData = uploadResult?.data || uploadResult || {};
+                    const uploadedId = uploadData.id || uploadData.ID || null;
+
+                    if (uploadedId && row) {
+                        const fileSize = row.querySelector('td:nth-child(3)')?.textContent?.trim() || '';
+                        row.setAttribute('data-document-data', JSON.stringify({
+                            id: uploadedId,
+                            fileName: fileName,
+                            fileSize: fileSize
+                        }));
+                    }
+
+                    if (this.wizard.documentFiles) {
+                        this.wizard.documentFiles.delete(fileName);
+                    }
                 } catch (error) {
                     console.error(`Error uploading file "${fileName}":`, error);
                     throw new Error(`Failed to upload file "${fileName}": ${error.message}`);
@@ -483,7 +503,7 @@ class ProcurementWizardSave {
                 documentRows.forEach(row => {
                     const fileName = row.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
                     const fileSize = row.querySelector('td:nth-child(3)')?.textContent?.trim() || '';
-                    
+
                     if (fileName) {
                         const documentDataAttr = row.getAttribute('data-document-data');
                         let documentId = null;
@@ -495,14 +515,14 @@ class ProcurementWizardSave {
                                 console.error('Error parsing document data:', e);
                             }
                         }
-                        
+
                         const documentDto = {
                             ID: documentId ? parseInt(documentId) : null,
                             trxPROPurchaseRequestNumber: prNumber || '',
                             FileName: fileName,
                             FileSize: fileSize
                         };
-                        
+
                         documents.push(documentDto);
                     }
                 });
@@ -512,13 +532,13 @@ class ProcurementWizardSave {
                 trxPROPurchaseRequestNumber: prNumber || '',
                 Documents: documents
             };
-            
+
             if (!payload.trxPROPurchaseRequestNumber) {
                 throw new Error('trxPROPurchaseRequestNumber is required');
             }
 
             await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${encodeURIComponent(prNumber)}/documents/bulk`, 'POST', payload);
-            
+
             localStorage.setItem('procurementDraftDocumentsSaved', 'true');
         } catch (error) {
             console.error('Error saving documents:', error);
@@ -526,6 +546,20 @@ class ProcurementWizardSave {
         } finally {
             sessionStorage.removeItem(savingKey);
         }
+    }
+
+    async saveDraftDocumentsIfDirty(prNumber) {
+        const documentsSaved = localStorage.getItem('procurementDraftDocumentsSaved') === 'true';
+        if (documentsSaved) {
+            return;
+        }
+
+        const documentTable = document.querySelector('#documentTable tbody');
+        if (!documentTable) {
+            return;
+        }
+
+        await this.saveDraftDocumentsOnly(prNumber);
     }
 
     /**
@@ -539,20 +573,20 @@ class ProcurementWizardSave {
         const reviewedByIdInput = document.getElementById('reviewedById');
         const approvedByIdInput = document.getElementById('approvedById');
         const confirmedByIdInput = document.getElementById('confirmedById');
-        
+
         const reviewedByField = document.getElementById('reviewedBy');
         const approvedByField = document.getElementById('approvedBy');
         const confirmedByField = document.getElementById('confirmedBy');
-        
-        let reviewedBy = reviewedByIdInput?.value?.trim() || 
+
+        let reviewedBy = reviewedByIdInput?.value?.trim() ||
                    reviewedByField?.getAttribute('data-employee-id')?.trim() || null;
-        
-        let approvedBy = approvedByIdInput?.value?.trim() || 
+
+        let approvedBy = approvedByIdInput?.value?.trim() ||
                    approvedByField?.getAttribute('data-employee-id')?.trim() || null;
-        
-        let confirmedBy = confirmedByIdInput?.value?.trim() || 
+
+        let confirmedBy = confirmedByIdInput?.value?.trim() ||
                     confirmedByField?.getAttribute('data-employee-id')?.trim() || null;
-        
+
         const form = document.getElementById('assignApprovalForm');
         if (form) {
             const formData = new FormData(form);
@@ -583,7 +617,7 @@ class ProcurementWizardSave {
     async saveDraftItems() {
         const saveBtn = document.getElementById('saveDraftBtn');
         if (!saveBtn) return;
-        
+
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="icon-base bx bx-loader-circle me-2 spin"></i>Saving...';
@@ -591,7 +625,7 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             const saved = await this.saveDraftBasicInfo();
             if (!saved) {
                 if (!prNumber) {
@@ -603,12 +637,12 @@ class ProcurementWizardSave {
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber || prNumber;
             }
-            
+
             if (!prNumber) {
                 this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                 return;
             }
-            
+
             const additionalStep = document.getElementById('additional');
             if (additionalStep && additionalStep.style.display !== 'none') {
                 try {
@@ -618,16 +652,18 @@ class ProcurementWizardSave {
                     console.warn('Continuing save despite Additional save error');
                 }
             }
-            
+
             const itemRows = document.querySelectorAll('#itemDetailTable tbody tr');
             if (itemRows.length > 0) {
                 await this.saveDraftItemsOnly(prNumber);
-                
+
                 const items = this.getItemsFromTable();
                 const additionalInfo = (additionalStep && additionalStep.style.display !== 'none') ? ', additional data, ' : ', ';
+                await this.saveDraftDocumentsIfDirty(prNumber);
                 this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information${additionalInfo}and ${items.length} item(s) have been saved. PR Number: ${prNumber}`, 5000);
             } else {
                 const additionalInfo = (additionalStep && additionalStep.style.display !== 'none') ? ' and additional data' : '';
+                await this.saveDraftDocumentsIfDirty(prNumber);
                 this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information${additionalInfo} has been saved. PR Number: ${prNumber}`, 5000);
             }
         } catch (error) {
@@ -648,7 +684,7 @@ class ProcurementWizardSave {
             console.error('saveDraftDocumentBtn button not found!');
             return;
         }
-        
+
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="icon-base bx bx-loader-circle me-2 spin"></i>Saving...';
@@ -656,7 +692,7 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             const saved = await this.saveDraftBasicInfo();
             if (!saved) {
                 if (!prNumber) {
@@ -668,12 +704,12 @@ class ProcurementWizardSave {
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber || prNumber;
             }
-            
+
             if (!prNumber) {
                 this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                 return;
             }
-            
+
             const itemRows = document.querySelectorAll('#itemDetailTable tbody tr');
             if (itemRows.length > 0) {
                 try {
@@ -684,19 +720,19 @@ class ProcurementWizardSave {
                     return;
                 }
             }
-            
+
             let hasApprovalData = false;
             try {
                 const reviewedByIdInput = document.getElementById('reviewedById');
                 const approvedByIdInput = document.getElementById('approvedById');
                 const confirmedByIdInput = document.getElementById('confirmedById');
-                
+
                 const reviewedBy = reviewedByIdInput?.value?.trim() || null;
                 const approvedBy = approvedByIdInput?.value?.trim() || null;
                 const confirmedBy = confirmedByIdInput?.value?.trim() || null;
-                
+
                 hasApprovalData = !!(reviewedBy || approvedBy || confirmedBy);
-                
+
                 if (hasApprovalData) {
                     await this.saveDraftApprovalOnly(prNumber);
                 }
@@ -705,22 +741,22 @@ class ProcurementWizardSave {
                 this.wizard.showValidationMessage('Error saving approval: ' + error.message);
                 return;
             }
-            
+
             try {
                 await this.saveDraftAdditionalOnly(prNumber);
             } catch (error) {
                 console.error('Error saving Additional data:', error);
                 console.warn('Continuing save despite Additional save error');
             }
-            
+
             const documentRows = document.querySelectorAll('#documentTable tbody tr');
             let hasDocuments = false;
             let documentsCount = 0;
-            
+
             if (documentRows.length > 0) {
                 hasDocuments = true;
                 documentsCount = documentRows.length;
-                
+
                 try {
                     await this.saveDraftDocumentsOnly(prNumber);
                 } catch (error) {
@@ -743,10 +779,10 @@ class ProcurementWizardSave {
                 messageParts.push(`${documentsCount} document(s)`);
             }
             messageParts.push(`have been saved. PR Number: ${prNumber}`);
-            
+
             const message = `<strong>Draft Saved!</strong> ${messageParts.join(', ')}`;
             this.wizard.createAlert('success', message, 5000);
-            
+
             setTimeout(() => {
                 window.location.href = '/Procurement/PurchaseRequest/List';
             }, 1500);
@@ -768,7 +804,7 @@ class ProcurementWizardSave {
             console.error('saveDraftApprovalBtn button not found!');
             return;
         }
-        
+
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="icon-base bx bx-loader-circle me-2 spin"></i>Saving...';
@@ -776,7 +812,7 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             const saved = await this.saveDraftBasicInfo();
             if (!saved) {
                 if (!prNumber) {
@@ -788,12 +824,12 @@ class ProcurementWizardSave {
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber || prNumber;
             }
-            
+
             if (!prNumber) {
                 this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                 return;
             }
-            
+
             const itemRows = document.querySelectorAll('#itemDetailTable tbody tr');
             if (itemRows.length > 0) {
                 try {
@@ -804,19 +840,27 @@ class ProcurementWizardSave {
                     return;
                 }
             }
-            
+
             try {
                 await this.saveDraftAdditionalOnly(prNumber);
             } catch (error) {
                 console.error('Error saving Additional data:', error);
                 console.warn('Continuing save despite Additional save error');
             }
-            
+
             try {
                 await this.saveDraftApprovalOnly(prNumber);
             } catch (error) {
                 console.error('Error saving approval:', error);
                 this.wizard.showValidationMessage('Error saving approval: ' + error.message);
+                return;
+            }
+
+            try {
+                await this.saveDraftDocumentsIfDirty(prNumber);
+            } catch (error) {
+                console.error('Error saving documents:', error);
+                this.wizard.showValidationMessage('Error saving documents: ' + error.message);
                 return;
             }
 
@@ -828,10 +872,10 @@ class ProcurementWizardSave {
             }
             messageParts.push('approval information');
             messageParts.push(`have been saved. PR Number: ${prNumber}`);
-            
+
             const message = `<strong>Draft Saved!</strong> ${messageParts.join(', ')}`;
             this.wizard.createAlert('success', message, 5000);
-            
+
             setTimeout(() => {
                 window.location.href = '/Procurement/PurchaseRequest/List';
             }, 1500);
@@ -858,7 +902,7 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             const saved = await this.saveDraftBasicInfo(true);
             if (!saved) {
                 if (!prNumber) {
@@ -870,7 +914,7 @@ class ProcurementWizardSave {
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber || prNumber;
             }
-            
+
             if (!prNumber) {
                 this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                 return;
@@ -878,8 +922,16 @@ class ProcurementWizardSave {
 
             await this.saveDraftAdditionalOnly(prNumber);
 
+            try {
+                await this.saveDraftDocumentsIfDirty(prNumber);
+            } catch (error) {
+                console.error('Error saving documents:', error);
+                this.wizard.showValidationMessage('Error saving documents: ' + error.message);
+                return;
+            }
+
             this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information and additional data have been saved. PR Number: ${prNumber}`, 5000);
-            
+
             setTimeout(() => {
                 window.location.href = '/Procurement/PurchaseRequest/List';
             }, 2000);
@@ -898,7 +950,7 @@ class ProcurementWizardSave {
     async saveDraftAll() {
         const saveBtn = document.getElementById('saveDraftBtn');
         if (!saveBtn) return;
-        
+
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="icon-base bx bx-loader-circle me-2 spin"></i>Saving...';
@@ -906,17 +958,17 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             if (!prNumber) {
                 const saved = await this.saveDraftBasicInfo(true);
                 if (!saved) {
                     this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                     return;
                 }
-                
+
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber;
-                
+
                 if (!prNumber) {
                     this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                     return;
@@ -945,7 +997,7 @@ class ProcurementWizardSave {
 
             const itemCount = document.querySelectorAll('#itemDetailTable tbody tr').length > 0 ? this.getItemsFromTable().length : 0;
             const docCount = document.querySelectorAll('#documentTable tbody tr').length;
-            
+
             let successMessage = 'Your Purchase Request has been saved successfully.';
             if (itemCount > 0 && docCount > 0) {
                 successMessage = `Basic information, ${itemCount} item(s), approval information, and ${docCount} document(s) have been saved.`;
@@ -956,9 +1008,9 @@ class ProcurementWizardSave {
             } else {
                 successMessage = 'Basic information and approval information have been saved.';
             }
-            
+
             this.wizard.createAlert('success', `<strong>Draft Saved!</strong> ${successMessage} PR Number: ${prNumber}`, 5000);
-            
+
             setTimeout(() => {
                 window.location.href = '/Procurement/PurchaseRequest/List';
             }, 1500);
@@ -980,7 +1032,7 @@ class ProcurementWizardSave {
             console.error('submitPRBtn button not found!');
             return;
         }
-        
+
         const confirmCheckbox = document.getElementById('confirmSubmission');
         if (!confirmCheckbox || !confirmCheckbox.checked) {
             if (typeof Swal !== 'undefined') {
@@ -997,7 +1049,7 @@ class ProcurementWizardSave {
                         confirmButton: 'btn btn-primary'
                     }
                 });
-                
+
                 if (confirmCheckbox) {
                     confirmCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     setTimeout(() => {
@@ -1009,7 +1061,7 @@ class ProcurementWizardSave {
             }
             return;
         }
-        
+
         // Validate all wizard steps
         if (this.wizard.validateAllWizardSteps && typeof this.wizard.validateAllWizardSteps === 'function') {
             const validationResult = this.wizard.validateAllWizardSteps();
@@ -1028,7 +1080,7 @@ class ProcurementWizardSave {
                             confirmButton: 'btn btn-primary'
                         }
                     });
-                    
+
                     if (validationResult.firstInvalidField && validationResult.firstInvalidField.step) {
                         this.wizard.navigateToInvalidField(validationResult.firstInvalidField);
                     }
@@ -1038,7 +1090,7 @@ class ProcurementWizardSave {
                 return;
             }
         }
-        
+
         const originalText = submitBtn.innerHTML;
         const buttonWasDisabled = submitBtn.disabled;
         submitBtn.disabled = true;
@@ -1047,7 +1099,7 @@ class ProcurementWizardSave {
         try {
             let draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             let prNumber = draft.purchReqNumber;
-            
+
             const saved = await this.saveDraftBasicInfo(true);
             if (!saved) {
                 if (!prNumber) {
@@ -1059,12 +1111,12 @@ class ProcurementWizardSave {
                 draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 prNumber = draft.purchReqNumber || prNumber;
             }
-            
+
             if (!prNumber) {
                 this.wizard.showValidationMessage('Failed to create purchase request. Please try again.');
                 return;
             }
-            
+
             const itemRows = document.querySelectorAll('#itemDetailTable tbody tr');
             if (itemRows.length > 0) {
                 try {
@@ -1075,7 +1127,7 @@ class ProcurementWizardSave {
                     return;
                 }
             }
-            
+
             try {
                 await this.saveDraftApprovalOnly(prNumber);
             } catch (error) {
@@ -1083,14 +1135,14 @@ class ProcurementWizardSave {
                 this.wizard.showValidationMessage('Error saving approval: ' + error.message);
                 return;
             }
-            
+
             try {
                 await this.saveDraftAdditionalOnly(prNumber);
             } catch (error) {
                 console.error('Step 3.5: Error saving Additional data:', error);
                 console.warn('Continuing submission despite Additional save error');
             }
-            
+
             const documentRows = document.querySelectorAll('#documentTable tbody tr');
             if (documentRows.length > 0) {
                 try {
@@ -1101,18 +1153,18 @@ class ProcurementWizardSave {
                     return;
                 }
             }
-            
+
             // Update status to Submitted
             const formData = new FormData(this.wizard.cachedElements.form);
             const currentUserEmployeeID = (window.ProcurementConfig && window.ProcurementConfig.currentUserEmployeeID) || '';
-            
+
             const applicantField = document.getElementById('Applicant');
             const companyField = document.getElementById('Company');
             const purchReqTypeField = document.getElementById('PurchaseRequestType');
             const purchReqSubTypeField = document.getElementById('PurchaseRequestSubType');
             const purchReqNameField = document.getElementById('PurchaseRequestName');
             const remarksField = document.getElementById('Remarks');
-            
+
             const getFieldValue = (field) => {
                 if (!field) return '';
                 if (field.tagName === 'SELECT') {
@@ -1120,14 +1172,14 @@ class ProcurementWizardSave {
                 }
                 return field.value || '';
             };
-            
+
             const applicantValue = getFieldValue(applicantField) || formData.get('Applicant')?.toString().trim() || '';
             const companyValue = (getFieldValue(companyField) || formData.get('Company')?.toString().trim() || '').toUpperCase();
             const purchReqTypeValue = getFieldValue(purchReqTypeField) || formData.get('PurchaseRequestType')?.toString().trim() || '';
             const purchReqSubTypeValue = getFieldValue(purchReqSubTypeField) || formData.get('PurchaseRequestSubType')?.toString().trim() || '';
             const purchReqNameValue = getFieldValue(purchReqNameField) || formData.get('PurchaseRequestName')?.toString().trim() || '';
             const remarkValue = getFieldValue(remarksField) || formData.get('Remarks')?.toString().trim() || '';
-            
+
             const updatePayload = {
                 Requestor: currentUserEmployeeID || '',
                 Applicant: applicantValue,
@@ -1138,7 +1190,7 @@ class ProcurementWizardSave {
                 Remark: remarkValue,
                 mstApprovalStatusID: 1 // Submitted
             };
-            
+
             if (!applicantValue || !companyValue || !purchReqTypeValue || !purchReqSubTypeValue || !purchReqNameValue || !remarkValue) {
                 const missingFields = [];
                 if (!applicantValue) missingFields.push('Applicant');
@@ -1147,13 +1199,13 @@ class ProcurementWizardSave {
                 if (!purchReqSubTypeValue) missingFields.push('Purchase Request Sub Type');
                 if (!purchReqNameValue) missingFields.push('Purchase Request Name');
                 if (!remarkValue) missingFields.push('Remarks');
-                
+
                 this.wizard.showValidationMessage(`Please fill in all required fields: ${missingFields.join(', ')}`);
                 submitBtn.disabled = buttonWasDisabled;
                 submitBtn.innerHTML = originalText;
                 return;
             }
-            
+
             try {
                 await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'PUT', updatePayload);
             } catch (error) {
@@ -1161,10 +1213,10 @@ class ProcurementWizardSave {
                 this.wizard.showValidationMessage('Error submitting PR: ' + error.message);
                 return;
             }
-            
+
             const itemCount = itemRows.length > 0 ? this.getItemsFromTable().length : 0;
             const docCount = documentRows.length;
-            
+
             let successMessage = 'Your Purchase Request has been submitted successfully.';
             if (itemCount > 0 && docCount > 0) {
                 successMessage = `Basic information, ${itemCount} item(s), approval information, and ${docCount} document(s) have been saved.`;
@@ -1175,7 +1227,7 @@ class ProcurementWizardSave {
             } else {
                 successMessage = 'Basic information and approval information have been saved.';
             }
-            
+
             this.wizard.showSuccessModal(
                 'PR Submitted Successfully!',
                 successMessage,
