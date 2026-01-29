@@ -8,15 +8,21 @@ use App\Modules\Procurement\Controllers\Master\ApprovalStatusesController;
 use App\Modules\Procurement\Controllers\Master\BillingTypesController;
 use App\Modules\Procurement\Controllers\Master\CompaniesController;
 use App\Modules\Procurement\Controllers\Master\CurrenciesController;
+use App\Modules\Procurement\Controllers\Master\CoreBusinessesController;
 use App\Modules\Procurement\Controllers\Master\EmployeesController;
 use App\Modules\Procurement\Controllers\Master\InventoriesController;
 use App\Modules\Procurement\Controllers\Master\PurchaseTypesController;
 use App\Modules\Procurement\Controllers\Master\RegionsController;
 use App\Modules\Procurement\Controllers\Master\STIPSitesController;
+use App\Modules\Procurement\Controllers\Master\SubCoreBusinessesController;
 use App\Modules\Procurement\Controllers\Master\UnitsController;
+use App\Modules\Procurement\Controllers\Master\VendorContractsController;
 use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestsController;
 use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestApprovalsController;
+use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestAdditionalController;
 use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestReceivesController;
+use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestReleasesController;
+use App\Modules\Procurement\Controllers\Master\VendorsController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('Procurement')
@@ -27,6 +33,10 @@ Route::middleware(['web', 'auth'])
             Route::get('/Companies', [CompaniesController::class, 'index']);
             Route::get('/ApprovalStatuses', [ApprovalStatusesController::class, 'index']);
             Route::get('/Regions', [RegionsController::class, 'index']);
+            Route::get('/CoreBusinesses', [CoreBusinessesController::class, 'index']);
+            Route::get('/SubCoreBusinesses', [SubCoreBusinessesController::class, 'index']);
+            Route::get('/Vendors', [VendorsController::class, 'index']);
+            Route::get('/VendorContracts', [VendorContractsController::class, 'index']);
             Route::get('/PurchaseTypes/List', [PurchaseTypesController::class, 'list']);
             Route::get('/PurchaseTypes/SubTypes', [PurchaseTypesController::class, 'subTypes']);
             Route::get('/Units', [UnitsController::class, 'index']);
@@ -48,6 +58,10 @@ Route::middleware(['web', 'auth'])
         Route::post('/PurchaseRequest/PurchaseRequestReceives/{prNumber}', [PurchaseRequestReceivesController::class, 'store'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestReleases', [PurchaseRequestController::class, 'releases']);
+        Route::post('/PurchaseRequest/PurchaseRequestReleases/Grid', [PurchaseRequestReleasesController::class, 'grid']);
+        Route::post('/PurchaseRequest/PurchaseRequestReleases/Bulk', [PurchaseRequestReleasesController::class, 'bulk']);
+        Route::post('/PurchaseRequest/PurchaseRequestReleases/{prNumber}', [PurchaseRequestReleasesController::class, 'store'])
+            ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestController::class, 'index']);
 
         Route::post('/PurchaseRequest/PurchaseRequests/Grid', [PurchaseRequestsController::class, 'grid']);
@@ -67,6 +81,7 @@ Route::middleware(['web', 'auth'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional'])
             ->where('prNumber', '.*');
+        Route::post('/PurchaseRequest/PurchaseRequestAdditional/batch-check', [PurchaseRequestAdditionalController::class, 'batchCheck']);
         Route::post('/PurchaseRequest/PurchaseRequestItems/{prNumber}/items/bulk', [PurchaseRequestsController::class, 'saveItemsBulk'])
             ->where('prNumber', '.*');
         Route::post('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents/bulk', [PurchaseRequestsController::class, 'saveDocumentsBulk'])
