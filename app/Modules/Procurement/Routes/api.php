@@ -16,6 +16,7 @@ use App\Modules\Procurement\Controllers\Master\STIPSitesController;
 use App\Modules\Procurement\Controllers\Master\UnitsController;
 use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestsController;
 use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestApprovalsController;
+use App\Modules\Procurement\Controllers\PurchaseRequest\PurchaseRequestReceivesController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('Procurement')
@@ -42,6 +43,10 @@ Route::middleware(['web', 'auth'])
         Route::get('/PurchaseRequest/PurchaseRequestApprovals/History/{prNumber}', [PurchaseRequestApprovalsController::class, 'history'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestReceives', [PurchaseRequestController::class, 'receives']);
+        Route::post('/PurchaseRequest/PurchaseRequestReceives/Grid', [PurchaseRequestsController::class, 'grid']);
+        Route::post('/PurchaseRequest/PurchaseRequestReceives/Bulk', [PurchaseRequestReceivesController::class, 'bulk']);
+        Route::post('/PurchaseRequest/PurchaseRequestReceives/{prNumber}', [PurchaseRequestReceivesController::class, 'store'])
+            ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestReleases', [PurchaseRequestController::class, 'releases']);
         Route::get('/PurchaseRequest/PurchaseRequests', [PurchaseRequestController::class, 'index']);
 

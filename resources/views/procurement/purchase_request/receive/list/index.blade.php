@@ -1,11 +1,11 @@
 ﻿@extends('layouts.app')
 
-@section('title', 'Purchase Request Approval List')
+@section('title', 'Purchase Request Receive List')
 
 @section('styles')
     <style>
-        /* Performance-optimized ApprovalList styles */
-        .approval-list-container {
+        /* Performance-optimized ReceiveList styles */
+        .receive-list-container {
             contain: layout style;
         }
         
@@ -179,12 +179,12 @@
 @endsection
 
 @section('content')
-<div class="container-xxl flex-grow-1 container-p-y approval-list-container">
+<div class="container-xxl flex-grow-1 container-p-y receive-list-container">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center py-3 mb-4">
                 <h5 class="fw-bold mb-0">
-                    <span class="text-muted fw-light">Procurement /</span> Purchase Request Approval List
+                    <span class="text-muted fw-light">Procurement /</span> Purchase Request Receive List
                 </h5>
             </div>
         </div>
@@ -200,7 +200,7 @@
             <i class="icon-base bx bx-chevron-down" id="filter-chevron" aria-hidden="true"></i>
         </header>
         <div class="filter-content" id="filter-content" role="region" aria-labelledby="filter-heading">
-            @include('procurement.purchase_request.approval.list.partials._FilterPartial')
+            @include('procurement.purchase_request.receive.list.partials._FilterPartial')
         </div>
     </section>
 
@@ -209,25 +209,29 @@
         <header class="list-header">
             <div class="d-flex align-items-center">
                 <h5 id="list-heading" class="fw-semibold mb-0">
-                    List Purchase Request Approval<span id="dateRangeInfo" class="text-muted ms-2" style="font-size: 0.9em; font-weight: normal;"></span>
+                    List Purchase Request Receive<span id="dateRangeInfo" class="text-muted ms-2" style="font-size: 0.9em; font-weight: normal;"></span>
                 </h5>
             </div>
             <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-success" id="exportExcelBtn" onclick="exportExcel('#approvalTable')" title="Export to Excel">
+                <button class="btn btn-success" id="exportExcelBtn" onclick="exportExcel('#receiveTable')" title="Export to Excel">
                     <i class="icon-base bx bx-file me-1"></i>
                     Excel
+                </button>
+                <button class="btn btn-warning" id="processBulkReceiveBtn" onclick="processBulkReceive()" disabled>
+                    <i class="icon-base bx bx-check-square me-1"></i>
+                    Process
                 </button>
             </div>
         </header>
         
-        @include('procurement.purchase_request.approval.list.partials._ListPartial')
+        @include('procurement.purchase_request.receive.list.partials._ListPartial')
     </section>
 
-    <!-- View Approval Section (hidden by default) -->
-    <section class="list-section" id="viewApprovalSection" style="display: none;" aria-labelledby="view-approval-heading">
+    <!-- View Receive Section (hidden by default) -->
+    <section class="list-section" id="viewReceiveSection" style="display: none;" aria-labelledby="view-receive-heading">
         <header class="list-header">
             <div class="d-flex align-items-center">
-                <h5 id="view-approval-heading" class="fw-semibold mb-0">View Purchase Request Approval</h5>
+                <h5 id="view-receive-heading" class="fw-semibold mb-0">Receive Purchase Request</h5>
             </div>
             <div class="d-flex align-items-center gap-3">
                 <button class="btn btn-secondary" onclick="backToList()">
@@ -237,13 +241,13 @@
             </div>
         </header>
         
-        <div id="viewApprovalContainer">
-            @include('procurement.purchase_request.approval.view._ViewApproval')
+        <div id="viewReceiveContainer">
+            @include('procurement.purchase_request.receive.view._ViewReceive')
         </div>
     </section>
  </div>
 @endsection
 @section('scripts')
-    @include('shared.scripts.components._ApprovalListScriptsPartial')
+    @include('shared.scripts.components._ReceiveListScriptsPartial')
 @endsection
 

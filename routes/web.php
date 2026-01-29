@@ -33,3 +33,11 @@ Route::get('/procurement/purchase-request/approval', function () {
 Route::get('/Procurement/PurchaseRequest/Approval', function () {
     return view('procurement.purchase_request.approval.list.index');
 })->middleware('auth')->name('procurement.purchase_request.approval.legacy');
+
+Route::get('/procurement/purchase-request/receive', function () {
+    return view('procurement.purchase_request.receive.list.index');
+})->middleware('auth')->name('procurement.purchase_request.receive');
+
+Route::get('/Procurement/PurchaseRequest/Receive', function () {
+    return view('procurement.purchase_request.receive.list.index');
+})->middleware('auth')->name('procurement.purchase_request.receive.legacy');
