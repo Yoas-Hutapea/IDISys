@@ -49,3 +49,11 @@ Route::get('/procurement/purchase-request/release', function () {
 Route::get('/Procurement/PurchaseRequest/Release', function () {
     return view('procurement.purchase_request.release.list.index');
 })->middleware('auth')->name('procurement.purchase_request.release.legacy');
+
+Route::get('/procurement/purchase-order/list', function () {
+    return view('procurement.purchase_order.list.index');
+})->middleware('auth')->name('procurement.purchase_order.list');
+
+Route::get('/Procurement/PurchaseOrder/List', function () {
+    return view('procurement.purchase_order.list.index');
+})->middleware('auth')->name('procurement.purchase_order.list.legacy');

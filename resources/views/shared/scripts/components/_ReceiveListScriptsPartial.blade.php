@@ -1,25 +1,10 @@
-{{--
-    ReceiveList Scripts Partial
-    Handles filter functionality, search, pagination, receive actions (single and bulk)
-    
-    REFACTORING NOTE: This file has been refactored into smaller modules for better performance and caching.
-    Modules:
-    - ReceiveListAPI.js: API calls with caching
-    - ReceiveListFilter.js: Filter and search functionality
-    - ReceiveListTable.js: DataTable management with bulk selection
-    - ReceiveListView.js: View receive functionality, submit receive, and bulk receive
---}}
-
-{{-- Include shared cache module (must be loaded first) --}}
 <script src="{{ asset('js/procurement/ProcurementSharedCache.js') }}"></script>
 
-{{-- Include Receive List modules --}}
 <script src="{{ asset('js/procurement/ReceiveListAPI.js') }}"></script>
 <script src="{{ asset('js/procurement/ReceiveListFilter.js') }}"></script>
 <script src="{{ asset('js/procurement/ReceiveListTable.js') }}"></script>
 <script src="{{ asset('js/procurement/ReceiveListView.js') }}"></script>
 
-{{-- Add CSS for loading spinner animation --}}
 <style>
     @@keyframes spin {
         to { transform: rotate(360deg); }
@@ -43,7 +28,7 @@
             this.currentPRNumber = null;
             this.selectedPRNumbers = new Set(); // Track selected PRs for bulk receive
             this.isTogglingSelectAll = false; // Flag to prevent race condition in updateSelectAllCheckbox
-            
+
             // Initialize modules
             if (typeof ReceiveListAPI !== 'undefined') {
                 this.apiModule = new ReceiveListAPI();
@@ -65,7 +50,7 @@
             } else if (window.approvalListManager && window.approvalListManager.employeeCacheModule) {
                 this.employeeCacheModule = window.approvalListManager.employeeCacheModule;
             }
-            
+
             this.init();
         }
 
@@ -82,12 +67,12 @@
 
         init() {
             this.bindEvents();
-            
+
             // Initialize filter module
             if (this.filterModule) {
                 this.filterModule.init();
             }
-            
+
             // Initialize DataTable
             if (this.tableModule) {
                 this.tableModule.initializeDataTable();
@@ -110,7 +95,7 @@
                 }
                 return result;
             }
-            
+
             // Fallback if module not available
             console.warn('ReceiveListTable module not available');
         }
@@ -128,9 +113,9 @@
         updateSelectAllCheckbox() {
             // Skip update if we're currently toggling select all to prevent race condition
             if (this.isTogglingSelectAll) return;
-            
+
             if (!this.cachedElements.selectAllCheckbox) return;
-            
+
             // Use selector that works with DataTable (DataTable creates its own tbody)
             const checkboxes = document.querySelectorAll('#receiveTable tbody .row-checkbox');
             if (checkboxes.length === 0) {
@@ -141,13 +126,13 @@
 
             // Count checked checkboxes in visible rows
             const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-            
+
             // Also check if all data in selectedPRNumbers matches visible rows (for server-side pagination)
             if (this.dataTable) {
                 const visibleData = this.dataTable.rows({ page: 'current' }).data().toArray();
                 const visiblePRNumbers = new Set(visibleData.map(row => row.purchReqNumber || row.PurchReqNumber || '').filter(p => p));
                 const visibleSelectedCount = Array.from(visiblePRNumbers).filter(pr => this.selectedPRNumbers.has(pr)).length;
-                
+
                 if (visibleSelectedCount === 0) {
                     this.cachedElements.selectAllCheckbox.indeterminate = false;
                     this.cachedElements.selectAllCheckbox.checked = false;
@@ -181,7 +166,7 @@
 
         bindEvents() {
             // Filter events are handled by filterModule.init()
-            
+
             // Rows per page is now handled by DataTables automatically
 
             if (typeof searchReceive === 'undefined') {
@@ -215,7 +200,7 @@
             if (typeof toggleSelectAll === 'undefined') {
                 window.toggleSelectAll = (checkbox) => this.toggleSelectAll(checkbox);
             }
-            
+
             // Also bind event listener directly to selectAllCheckbox to ensure it works
             if (this.cachedElements.selectAllCheckbox) {
                 this.cachedElements.selectAllCheckbox.addEventListener('change', (e) => {
@@ -241,14 +226,14 @@
         toggleSelectAll(checkbox) {
             // Set flag to prevent updateSelectAllCheckbox from interfering
             this.isTogglingSelectAll = true;
-            
+
             const isChecked = checkbox.checked;
-            
+
             // If DataTable is initialized, use it to get visible rows on current page
             if (this.dataTable) {
                 // Get only visible rows on current page (for server-side pagination, we only select current page)
                 const visibleData = this.dataTable.rows({ page: 'current' }).data().toArray();
-                
+
                 // Update selectedPRNumbers set for visible rows
                 visibleData.forEach(row => {
                     const prNumber = row.purchReqNumber || row.PurchReqNumber || '';
@@ -260,7 +245,7 @@
                         }
                     }
                 });
-                
+
                 // Update all visible checkboxes in current page
                 const visibleCheckboxes = document.querySelectorAll('#receiveTable tbody .row-checkbox');
                 visibleCheckboxes.forEach(cb => {
@@ -281,9 +266,9 @@
                     }
                 });
             }
-            
+
             this.updateProcessButton();
-            
+
             // Reset flag and update select all checkbox after a short delay to ensure DOM is updated
             setTimeout(() => {
                 this.isTogglingSelectAll = false;
@@ -321,7 +306,7 @@
             }
             console.warn('ReceiveListFilter module not available');
         }
-        
+
         updateDateRangeInfo() {
             if (this.filterModule && this.filterModule.updateDateRangeInfo) {
                 return this.filterModule.updateDateRangeInfo();
@@ -414,7 +399,7 @@
                 const prSubType = pr.purchReqSubType || pr.PurchReqSubType || '';
                 const approvalStatusID = pr.mstApprovalStatusID || pr.MstApprovalStatusID || null;
                 let approvalStatus = pr.approvalStatus || pr.ApprovalStatus || 'Draft';
-                
+
                 // If mstApprovalStatusID = 4, show "Waiting Receive Purchase Request"
                 if (approvalStatusID === 4) {
                     approvalStatus = 'Waiting Receive Purchase Request';
@@ -426,7 +411,7 @@
                 const requestor = pr.requestor || pr.Requestor || '';
                 const applicant = pr.applicant || pr.Applicant || '';
                 const createdDate = pr.createdDate || pr.CreatedDate || null;
-                
+
                 const amountDisplay = totalAmount ? this.formatCurrency(totalAmount) : '-';
                 const dateDisplay = createdDate ? this.formatDate(createdDate) : '-';
                 const badgeClass = this.getBadgeClass(prType);
@@ -505,35 +490,35 @@
 
         async getEmployeeNameByEmployId(employId) {
             if (!employId || employId === '-') return '';
-            
+
             const cacheKey = employId.trim().toLowerCase();
             if (this.employeeNameCache.has(cacheKey)) {
                 return this.employeeNameCache.get(cacheKey);
             }
-            
+
             if (this.pendingEmployeeLookups.has(cacheKey)) {
                 return await this.pendingEmployeeLookups.get(cacheKey);
             }
-            
+
             const lookupPromise = (async () => {
                 try {
                     const endpoint = `/Procurement/Master/Employees?searchTerm=${encodeURIComponent(employId)}`;
                     const data = await apiCall('Procurement', endpoint, 'GET');
                     const employees = data.data || data;
-                    
+
                     if (Array.isArray(employees) && employees.length > 0) {
                         const employee = employees.find(emp => {
                             const empId = emp.Employ_Id || emp.employ_Id || emp.EmployId || emp.employeeId || '';
                             return empId.trim().toLowerCase() === employId.trim().toLowerCase();
                         });
-                        
+
                         if (employee) {
                             const name = employee.name || employee.Name || '';
                             this.employeeNameCache.set(cacheKey, name);
                             return name;
                         }
                     }
-                    
+
                     this.employeeNameCache.set(cacheKey, '');
                     return '';
                 } catch (error) {
@@ -544,7 +529,7 @@
                     this.pendingEmployeeLookups.delete(cacheKey);
                 }
             })();
-            
+
             this.pendingEmployeeLookups.set(cacheKey, lookupPromise);
             return await lookupPromise;
         }
@@ -552,7 +537,7 @@
         async updateEmployeeNamesInTable() {
             const employeeNameSpans = document.querySelectorAll('#receiveTable .employee-name');
             if (employeeNameSpans.length === 0) return;
-            
+
             const employeeIds = new Set();
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
@@ -560,23 +545,23 @@
                     employeeIds.add(employeeId);
                 }
             });
-            
+
             if (employeeIds.size === 0) return;
-            
+
             const lookupPromises = Array.from(employeeIds).map(async (employeeId) => {
                 const name = await this.getEmployeeNameByEmployId(employeeId);
                 return { employeeId, name };
             });
-            
+
             const results = await Promise.all(lookupPromises);
-            
+
             const nameMap = new Map();
             results.forEach(({ employeeId, name }) => {
                 if (name) {
                     nameMap.set(employeeId.trim().toLowerCase(), name);
                 }
             });
-            
+
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
                 if (employeeId && employeeId !== '-') {
@@ -686,45 +671,45 @@
         // Format date from YYYY-MM-DD to compact format (30 Nov 2025)
         formatDateCompact(dateString, includeYear = true) {
             if (!dateString) return '';
-            
+
             const date = new Date(dateString + 'T00:00:00');
             if (isNaN(date.getTime())) return '';
-            
+
             const months = [
                 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
                 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
             ];
-            
+
             const day = date.getDate();
             const month = months[date.getMonth()];
             const year = date.getFullYear();
-            
+
             return includeYear ? `${day} ${month} ${year}` : `${day} ${month}`;
         }
-        
+
         // Update date range info in header with compact format
         updateDateRangeInfo() {
             const dateRangeInfo = document.getElementById('dateRangeInfo');
             if (!dateRangeInfo) return;
-            
+
             const form = document.getElementById('filterForm');
             if (!form) return;
-            
+
             const formData = new FormData(form);
             const startDate = formData.get('startDate');
             const endDate = formData.get('endDate');
-            
+
             if (startDate && endDate) {
                 const startDateObj = new Date(startDate + 'T00:00:00');
                 const endDateObj = new Date(endDate + 'T00:00:00');
-                
+
                 const startYear = startDateObj.getFullYear();
                 const endYear = endDateObj.getFullYear();
                 const startMonth = startDateObj.getMonth();
                 const endMonth = endDateObj.getMonth();
                 const startDay = startDateObj.getDate();
                 const endDay = endDateObj.getDate();
-                
+
                 // If same year and month, show: "1 Des 2025 s/d 31 Des 2025"
                 if (startYear === endYear && startMonth === endMonth) {
                     // Check if same day
@@ -840,7 +825,7 @@
             }
             console.warn('ReceiveListView module not available');
         }
-        
+
         async processBulkReceive() {
             if (this.viewModule && this.viewModule.processBulkReceive) {
                 return this.viewModule.processBulkReceive();
@@ -860,29 +845,29 @@
 
     // Flag to prevent multiple initializations
     let receiveListInitialized = false;
-    
+
     // Initialize manager when all dependencies are ready
     function initializeReceiveList() {
         // Prevent multiple initializations
         if (receiveListInitialized) {
             return;
         }
-        
+
         if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
             setTimeout(initializeReceiveList, 100);
             return;
         }
-        
+
         if (typeof CreateTable === 'undefined' || typeof ColumnBuilder === 'undefined') {
             setTimeout(initializeReceiveList, 100);
             return;
         }
-        
+
         // All dependencies are ready, initialize
         window.receiveListManager = new ReceiveListManager();
         receiveListInitialized = true;
     }
-    
+
     // Start initialization when DOM is ready (only once)
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeReceiveList);

@@ -5,7 +5,9 @@ namespace App\Modules\Procurement\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Procurement\Services\TaskToDoService;
 use App\Models\MstEmployee;
+use App\Models\TrxProPurchaseOrder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class PurchaseRequestController extends Controller
 {
@@ -15,17 +17,32 @@ class PurchaseRequestController extends Controller
 
     public function approvals()
     {
-        if (!$this->isProcurementUser() && !$this->isDepartmentHead()) {
+        $userIdentifiers = $this->getCurrentUserIdentifiers();
+        if (empty($userIdentifiers)) {
             return response()->json([]);
         }
 
         $query = $this->taskToDoService
             ->getPurchaseRequestsByStatusQuery([1, 2, 3]);
 
-        $allowedCreatedBy = $this->getAllowedCreatedByIds();
-        if (!empty($allowedCreatedBy)) {
-            $query->whereIn('CreatedBy', $allowedCreatedBy);
-        }
+        $query->where(function ($statusQuery) use ($userIdentifiers) {
+            $statusQuery
+                ->where(function ($reviewQuery) use ($userIdentifiers) {
+                    $reviewQuery
+                        ->where('mstApprovalStatusID', 1)
+                        ->whereIn('ReviewedBy', $userIdentifiers);
+                })
+                ->orWhere(function ($approveQuery) use ($userIdentifiers) {
+                    $approveQuery
+                        ->where('mstApprovalStatusID', 2)
+                        ->whereIn('ApprovedBy', $userIdentifiers);
+                })
+                ->orWhere(function ($confirmQuery) use ($userIdentifiers) {
+                    $confirmQuery
+                        ->where('mstApprovalStatusID', 3)
+                        ->whereIn('ConfirmedBy', $userIdentifiers);
+                });
+        });
 
         return response()->json($query->get());
     }
@@ -36,9 +53,35 @@ class PurchaseRequestController extends Controller
             return response()->json([]);
         }
 
-        return response()->json(
-            $this->taskToDoService->getPurchaseRequestsByStatus([4])
-        );
+        $purchaseRequests = $this->taskToDoService->getPurchaseRequestsByStatus([4]);
+        if ($purchaseRequests->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $prNumbers = $purchaseRequests
+            ->pluck('PurchaseRequestNumber')
+            ->filter(fn ($number) => !empty($number))
+            ->values();
+
+        if ($prNumbers->isEmpty()) {
+            return response()->json($purchaseRequests);
+        }
+
+        $prNumbersWithPO = TrxProPurchaseOrder::query()
+            ->whereIn('trxPROPurchaseRequestNumber', $prNumbers)
+            ->pluck('trxPROPurchaseRequestNumber')
+            ->filter(fn ($number) => !empty($number))
+            ->all();
+
+        if (empty($prNumbersWithPO)) {
+            return response()->json($purchaseRequests);
+        }
+
+        $filtered = $purchaseRequests
+            ->filter(fn ($pr) => !in_array($pr->PurchaseRequestNumber, $prNumbersWithPO, true))
+            ->values();
+
+        return response()->json($filtered);
     }
 
     public function releases()
@@ -91,7 +134,29 @@ class PurchaseRequestController extends Controller
             return $employee->Employ_Id;
         }
 
-        return (string) optional(auth()->user())->Username;
+        return (string) optional(Auth::user())->Username;
+    }
+
+    private function getCurrentUserIdentifiers(): array
+    {
+        $employee = $this->getEmployeeFromSession();
+        $ids = [];
+
+        if ($employee) {
+            if (!empty($employee->Employ_Id)) {
+                $ids[] = $employee->Employ_Id;
+            }
+            if (!empty($employee->Employ_Id_TBGSYS)) {
+                $ids[] = $employee->Employ_Id_TBGSYS;
+            }
+        }
+
+        $username = (string) optional(Auth::user())->Username;
+        if ($username !== '') {
+            $ids[] = $username;
+        }
+
+        return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
     }
 
     private function isProcurementUser(): bool
@@ -103,49 +168,5 @@ class PurchaseRequestController extends Controller
             strcasecmp($positionName, 'Procurement Staff') === 0 ||
             strcasecmp($positionName, 'Procurement Team Leader') === 0
         );
-    }
-
-    private function isDepartmentHead(): bool
-    {
-        $employee = $this->getEmployeeFromSession();
-        $jobTitle = $employee?->JobTitleName ?? '';
-
-        return $jobTitle !== '' && (
-            stripos($jobTitle, 'Dept Head') !== false ||
-            stripos($jobTitle, 'Department Head') !== false
-        );
-    }
-
-    private function getAllowedCreatedByIds(): array
-    {
-        if ($this->isProcurementUser()) {
-            return [];
-        }
-
-        $employee = $this->getEmployeeFromSession();
-        $currentId = $this->getCurrentEmployeeId();
-        if ($currentId === '') {
-            return [];
-        }
-
-        if (!$this->isDepartmentHead()) {
-            return [$currentId];
-        }
-
-        $ids = [$currentId];
-        $subordinates = MstEmployee::query()
-            ->where('Report_Code', $currentId)
-            ->get();
-
-        foreach ($subordinates as $sub) {
-            if (!empty($sub->Employ_Id)) {
-                $ids[] = $sub->Employ_Id;
-            }
-            if (!empty($sub->Employ_Id_TBGSYS)) {
-                $ids[] = $sub->Employ_Id_TBGSYS;
-            }
-        }
-
-        return array_values(array_unique($ids));
     }
 }

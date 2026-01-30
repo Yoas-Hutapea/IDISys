@@ -1,25 +1,10 @@
-@*
-    ApprovalList Scripts Partial
-    Handles filter functionality, search, pagination, and approval actions
-    
-    REFACTORING NOTE: This file has been refactored into smaller modules for better performance and caching.
-    Modules:
-    - ApprovalListAPI.js: API calls with caching
-    - ApprovalListFilter.js: Filter and search functionality
-    - ApprovalListTable.js: DataTable management
-    - ApprovalListView.js: View approval functionality
-*@
-
-@* Include shared cache module (must be loaded first) *@
 <script src="{{ asset('js/procurement/ProcurementSharedCache.js') }}"></script>
 
-@* Include Approval List modules *@
 <script src="{{ asset('js/procurement/ApprovalListAPI.js') }}"></script>
 <script src="{{ asset('js/procurement/ApprovalListFilter.js') }}"></script>
 <script src="{{ asset('js/procurement/ApprovalListTable.js') }}"></script>
 <script src="{{ asset('js/procurement/ApprovalListView.js') }}"></script>
 
-@* Add CSS for loading spinner animation *@
 <style>
     @@keyframes spin {
         to { transform: rotate(360deg); }
@@ -40,7 +25,7 @@
             this.totalRecords = 0;
             this.isLoading = false;
             this.cachedElements = this.cacheElements();
-            
+
             // Initialize modules
             if (typeof ApprovalListAPI !== 'undefined') {
                 this.apiModule = new ApprovalListAPI();
@@ -60,7 +45,7 @@
             } else if (window.prListManager && window.prListManager.employeeCacheModule) {
                 this.employeeCacheModule = window.prListManager.employeeCacheModule;
             }
-            
+
             this.init();
         }
 
@@ -75,12 +60,12 @@
 
         init() {
             this.bindEvents();
-            
+
             // Initialize filter module
             if (this.filterModule) {
                 this.filterModule.init();
             }
-            
+
             // Initialize DataTable
             if (this.tableModule) {
                 this.tableModule.initializeDataTable();
@@ -91,7 +76,7 @@
             } else {
                 this.initializeDataTable();
             }
-            
+
             // Don't call loadData() here - DataTable will load automatically
         }
 
@@ -105,14 +90,14 @@
                 }
                 return result;
             }
-            
+
             // Fallback if module not available
             console.warn('ApprovalListTable module not available');
         }
 
         bindEvents() {
             // Filter events are handled by filterModule.init()
-            
+
             // Rows per page is now handled by DataTables automatically
 
             if (typeof searchApproval === 'undefined') {
@@ -188,7 +173,7 @@
             }
             console.warn('ApprovalListFilter module not available');
         }
-        
+
         updateDateRangeInfo() {
             if (this.filterModule && this.filterModule.updateDateRangeInfo) {
                 return this.filterModule.updateDateRangeInfo();
@@ -610,30 +595,30 @@
 
     // Flag to prevent multiple initializations
     let approvalListInitialized = false;
-    
+
     // Initialize manager when all dependencies are ready
     function initializeApprovalList() {
         // Prevent multiple initializations
         if (approvalListInitialized) {
             return;
         }
-        
+
         // Wait for jQuery, DataTables, and DataTableHelper to be available
         if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
             setTimeout(initializeApprovalList, 100);
             return;
         }
-        
+
         if (typeof CreateTable === 'undefined' || typeof ColumnBuilder === 'undefined') {
             setTimeout(initializeApprovalList, 100);
             return;
         }
-        
+
         // All dependencies are ready, initialize
         window.approvalListManager = new ApprovalListManager();
         approvalListInitialized = true;
     }
-    
+
     // Start initialization when DOM is ready (only once)
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeApprovalList);

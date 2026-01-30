@@ -3,6 +3,7 @@
 namespace App\Modules\Procurement\Controllers\PurchaseRequest;
 
 use App\Http\Controllers\Controller;
+use App\Models\MstEmployee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -472,6 +473,7 @@ class PurchaseRequestsController extends Controller
         $purchReqType = $request->input('purchReqType') ?? $request->input('prType');
         $purchReqSubType = $request->input('purchReqSubType') ?? $request->input('prSubType');
         $statusPR = $request->input('statusPR');
+        $source = $request->input('source');
 
         if ($fromDate) {
             $query->whereDate('pr.CreatedDate', '>=', $fromDate);
@@ -480,31 +482,32 @@ class PurchaseRequestsController extends Controller
             $query->whereDate('pr.CreatedDate', '<=', $toDate);
         }
         if ($purchReqNum) {
-            $query->where('pr.PurchaseRequestNumber', 'like', '%' . $purchReqNum . '%');
+            $query->where('pr.PurchaseRequestNumber', trim((string) $purchReqNum));
         }
         if ($purchReqName) {
             $query->where('pr.PurchaseRequestName', 'like', '%' . $purchReqName . '%');
         }
         if ($purchReqType) {
-            if (is_numeric($purchReqType)) {
-                $query->where('pr.mstPurchaseTypeID', (string) $purchReqType);
-            } else {
-                $query->where(function ($q) use ($purchReqType) {
-                    $q->where('type.PurchaseRequestType', 'like', '%' . $purchReqType . '%')
-                        ->orWhere('type.Category', 'like', '%' . $purchReqType . '%');
-                });
-            }
+            $query->where('pr.mstPurchaseTypeID', trim((string) $purchReqType));
         }
         if ($purchReqSubType) {
-            if (is_numeric($purchReqSubType)) {
-                $query->where('pr.mstPurchaseSubTypeID', (string) $purchReqSubType);
-            } else {
-                $query->where('subType.PurchaseRequestSubType', 'like', '%' . $purchReqSubType . '%');
-            }
+            $query->where('pr.mstPurchaseSubTypeID', trim((string) $purchReqSubType));
         }
         if ($statusPR !== null && $statusPR !== '') {
             $query->where('pr.mstApprovalStatusID', (int) $statusPR);
         }
+        if ($source) {
+            $query->where('pr.Company', strtoupper(trim((string) $source)));
+        }
+
+        $allowedCreatedBy = $this->getAllowedCreatedByIds();
+        if ($allowedCreatedBy === null) {
+            return $query;
+        }
+        if (empty($allowedCreatedBy)) {
+            return $query->whereRaw('1 = 0');
+        }
+        $query->whereIn('pr.CreatedBy', $allowedCreatedBy);
 
         return $query;
     }
@@ -571,5 +574,115 @@ class PurchaseRequestsController extends Controller
         return $this->documentCounter->generateNumber('PR', [
             'COMPANY' => $companyCode,
         ]);
+    }
+
+    private function getEmployeeFromSession(): ?MstEmployee
+    {
+        $employee = session('employee');
+        return $employee instanceof MstEmployee ? $employee : null;
+    }
+
+    private function getCurrentUserIdentifiers(): array
+    {
+        $employee = $this->getEmployeeFromSession();
+        $ids = [];
+
+        if ($employee) {
+            if (!empty($employee->Employ_Id)) {
+                $ids[] = $employee->Employ_Id;
+            }
+            if (!empty($employee->Employ_Id_TBGSYS)) {
+                $ids[] = $employee->Employ_Id_TBGSYS;
+            }
+        }
+
+        $username = (string) optional(Auth::user())->Username;
+        if ($username !== '') {
+            $ids[] = $username;
+        }
+
+        return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
+    }
+
+    private function isProcurementUser(): bool
+    {
+        $employee = $this->getEmployeeFromSession();
+        $positionName = $employee?->PositionName ?? $employee?->JobTitleName ?? '';
+
+        return $positionName !== '' && (
+            strcasecmp($positionName, 'Procurement Staff') === 0 ||
+            strcasecmp($positionName, 'Procurement Team Leader') === 0
+        );
+    }
+
+    private function getDepartmentHeadEmployeeId(): ?string
+    {
+        $employee = $this->getEmployeeFromSession();
+        $jobTitle = $employee?->JobTitleName ?? '';
+
+        if ($jobTitle !== '' && (
+            stripos($jobTitle, 'Dept Head') !== false ||
+            stripos($jobTitle, 'Department Head') !== false
+        )) {
+            return $employee?->Employ_Id ?? $employee?->Employ_Id_TBGSYS;
+        }
+
+        $currentIds = $this->getCurrentUserIdentifiers();
+        if (empty($currentIds)) {
+            return null;
+        }
+
+        $currentEmployee = MstEmployee::query()
+            ->whereIn('Employ_Id', $currentIds)
+            ->orWhereIn('Employ_Id_TBGSYS', $currentIds)
+            ->first();
+
+        if (!$currentEmployee) {
+            return null;
+        }
+
+        $jobTitleName = $currentEmployee->JobTitleName ?? '';
+        if ($jobTitleName === '') {
+            return null;
+        }
+
+        if (stripos($jobTitleName, 'Dept Head') === false && stripos($jobTitleName, 'Department Head') === false) {
+            return null;
+        }
+
+        return $currentEmployee->Employ_Id ?? $currentEmployee->Employ_Id_TBGSYS;
+    }
+
+    private function getAllowedCreatedByIds(): ?array
+    {
+        if ($this->isProcurementUser()) {
+            return null;
+        }
+
+        $currentIds = $this->getCurrentUserIdentifiers();
+        if (empty($currentIds)) {
+            return [];
+        }
+
+        $departmentHeadId = $this->getDepartmentHeadEmployeeId();
+        if ($departmentHeadId === null) {
+            return $currentIds;
+        }
+
+        $subordinates = MstEmployee::query()
+            ->where('Report_Code', $departmentHeadId)
+            ->get();
+
+        $ids = $currentIds;
+        foreach ($subordinates as $sub) {
+            if (!empty($sub->Employ_Id)) {
+                $ids[] = $sub->Employ_Id;
+            }
+            if (!empty($sub->Employ_Id_TBGSYS)) {
+                $ids[] = $sub->Employ_Id_TBGSYS;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 }

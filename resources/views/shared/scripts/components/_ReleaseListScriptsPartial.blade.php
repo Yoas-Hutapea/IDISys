@@ -1,25 +1,10 @@
-{{--
-    ReleaseList Scripts Partial
-    Handles filter functionality, search, pagination, release actions (single and bulk)
-    
-    REFACTORING NOTE: This file has been refactored into smaller modules for better performance and caching.
-    Modules:
-    - ReleaseListAPI.js: API calls with caching
-    - ReleaseListFilter.js: Filter and search functionality
-    - ReleaseListTable.js: DataTable management (normal and bulky)
-    - ReleaseListView.js: View release functionality, submit release, and bulk release
---}}
-
-{{-- Include shared cache module (must be loaded first) --}}
 <script src="{{ asset('js/procurement/ProcurementSharedCache.js') }}"></script>
 
-{{-- Include Release List modules --}}
 <script src="{{ asset('js/procurement/ReleaseListAPI.js') }}"></script>
 <script src="{{ asset('js/procurement/ReleaseListFilter.js') }}"></script>
 <script src="{{ asset('js/procurement/ReleaseListTable.js') }}"></script>
 <script src="{{ asset('js/procurement/ReleaseListView.js') }}"></script>
 
-{{-- Add CSS for loading spinner animation --}}
 <style>
     @@keyframes spin {
         to { transform: rotate(360deg); }
@@ -42,7 +27,7 @@
             this.bulkyCheckboxMode = null; // null, 'mode1', or 'mode2' - tracks which checkbox mode is active
             this.bulkyPRAdditionalCache = new Map(); // Cache PR Additional data: PR Number -> { StartPeriod, EndPeriod, exists }
             this.isTogglingSelectAll = false; // Flag to prevent race condition in updateBulkySelectAllCheckbox
-            
+
             // Initialize modules
             if (typeof ReleaseListAPI !== 'undefined') {
                 this.apiModule = new ReleaseListAPI();
@@ -66,7 +51,7 @@
             } else if (window.receiveListManager && window.receiveListManager.employeeCacheModule) {
                 this.employeeCacheModule = window.receiveListManager.employeeCacheModule;
             }
-            
+
             this.init();
         }
 
@@ -81,12 +66,12 @@
 
         init() {
             this.bindEvents();
-            
+
             // Initialize filter module
             if (this.filterModule) {
                 this.filterModule.init();
             }
-            
+
             // Initialize DataTable
             if (this.tableModule) {
                 this.tableModule.initializeDataTable();
@@ -109,14 +94,14 @@
                 }
                 return result;
             }
-            
+
             // Fallback if module not available
             console.warn('ReleaseListTable module not available');
         }
 
         bindEvents() {
             // Filter form submission is handled by filterModule.init()
-            
+
             // Prevent form submit for bulkyReleaseForm (use custom validation instead)
             const bulkyReleaseForm = document.getElementById('bulkyReleaseForm');
             if (bulkyReleaseForm) {
@@ -124,7 +109,7 @@
                     e.preventDefault();
                     // Validation is handled in submitBulkyRelease function
                 });
-                
+
                 // Add event listeners to remove error messages when fields are filled
                 bulkyReleaseForm.addEventListener('change', (e) => {
                     const target = e.target;
@@ -137,7 +122,7 @@
                                 errorDiv.remove();
                             }
                         }
-                        
+
                         // For hidden inputs (dropdowns), also check the dropdown button
                         if (target.type === 'hidden') {
                             const dropdownBtnId = target.id + 'DropdownBtn';
@@ -152,14 +137,14 @@
                                 }
                             }
                         }
-                        
+
                         // Clear custom validity
                         if (target.setCustomValidity) {
                             target.setCustomValidity('');
                         }
                     }
                 });
-                
+
                 // Also listen for input events for text fields
                 bulkyReleaseForm.addEventListener('input', (e) => {
                     const target = e.target;
@@ -173,7 +158,7 @@
                         }
                     }
                 });
-                
+
                 // Listen for radio button changes
                 bulkyReleaseForm.addEventListener('change', (e) => {
                     if (e.target && e.target.type === 'radio' && e.target.name === 'vendorType') {
@@ -306,7 +291,7 @@
             // Hide list section and show bulky release section
             this.hideListSection();
             this.showBulkyReleaseSection();
-            
+
             // Initialize bulky release DataTable if not already initialized
             if (this.tableModule && this.tableModule.initializeBulkyReleaseDataTable) {
                 if (!this.tableModule.bulkyReleaseDataTable) {
@@ -317,7 +302,7 @@
             } else {
                 console.warn('ReleaseListTable module not available for bulky release');
             }
-            
+
             // Store reference for backward compatibility (after initialization)
             if (this.tableModule && this.tableModule.bulkyReleaseDataTable) {
                 this.bulkyReleaseDataTable = this.tableModule.bulkyReleaseDataTable;
@@ -332,7 +317,7 @@
             const filterSection = document.querySelector('.filter-section');
             const listSection = document.getElementById('listSection');
             const viewReleaseSection = document.getElementById('viewReleaseSection');
-            
+
             if (filterSection) filterSection.style.display = 'none';
             if (listSection) listSection.style.display = 'none';
             if (viewReleaseSection) viewReleaseSection.style.display = 'none';
@@ -347,7 +332,7 @@
             const listSection = document.getElementById('listSection');
             const viewReleaseSection = document.getElementById('viewReleaseSection');
             const bulkyReleaseSection = document.getElementById('bulkyReleaseSection');
-            
+
             if (filterSection) filterSection.style.display = 'block';
             if (listSection) listSection.style.display = 'block';
             if (viewReleaseSection) viewReleaseSection.style.display = 'none';
@@ -382,7 +367,7 @@
                 if (this.bulkyCheckboxMode === null) {
                     // Determine mode based on first selected PR
                     const additionalData = this.bulkyPRAdditionalCache.get(prNumber);
-                    
+
                     if (!additionalData || !additionalData.exists) {
                         // PR not in Additional table OR StartPeriod/EndPeriod is NULL
                         // Mode 1: Only allow PRs that are NOT in Additional OR have NULL StartPeriod/EndPeriod
@@ -396,7 +381,7 @@
                         // Mode 1: Only allow PRs that are NOT in Additional OR have NULL StartPeriod/EndPeriod
                         this.bulkyCheckboxMode = 'mode1';
                     }
-                    
+
                     // Update all checkbox states based on new mode
                     if (this.tableModule && this.tableModule.updateBulkyCheckboxStates) {
                         this.tableModule.updateBulkyCheckboxStates();
@@ -411,7 +396,7 @@
                     if (checkbox) {
                         checkbox.checked = false;
                     }
-                    
+
                     // Show appropriate error message
                     if (this.viewModule && this.viewModule.showAlertModal) {
                         if (this.bulkyCheckboxMode === 'mode1') {
@@ -427,7 +412,7 @@
             } else {
                 // Unchecking - if this was the last selected PR, reset mode
                 this.selectedPRNumbers.delete(prNumber);
-                
+
                 if (this.selectedPRNumbers.size === 0) {
                     this.bulkyCheckboxMode = null;
                     if (this.tableModule && this.tableModule.updateBulkyCheckboxStates) {
@@ -435,7 +420,7 @@
                     }
                 }
             }
-            
+
             this.updateBulkySelectAllCheckbox();
         }
 
@@ -622,29 +607,29 @@
 
     // Flag to prevent multiple initializations
     let releaseListInitialized = false;
-    
+
     // Initialize manager when all dependencies are ready
     function initializeReleaseList() {
         // Prevent multiple initializations
         if (releaseListInitialized) {
             return;
         }
-        
+
         if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
             setTimeout(initializeReleaseList, 100);
             return;
         }
-        
+
         if (typeof CreateTable === 'undefined' || typeof ColumnBuilder === 'undefined') {
             setTimeout(initializeReleaseList, 100);
             return;
         }
-        
+
         // All dependencies are ready, initialize
         window.releaseListManager = new ReleaseListManager();
         releaseListInitialized = true;
     }
-    
+
     // Start initialization when DOM is ready (only once)
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeReleaseList);
@@ -657,10 +642,10 @@
         const filterContent = document.getElementById('bulkyReleaseFilterContent');
         const chevron = document.getElementById('bulkyReleaseFilterChevron');
         const header = document.querySelector('[onclick="toggleBulkyReleaseFilter()"]');
-        
+
         if (filterContent && chevron && header) {
             const isCollapsed = filterContent.style.display === 'none' || !filterContent.style.display;
-            
+
             if (isCollapsed) {
                 filterContent.style.display = 'block';
                 chevron.classList.remove('bx-chevron-down');

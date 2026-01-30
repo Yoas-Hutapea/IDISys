@@ -53,7 +53,7 @@ Route::middleware(['web', 'auth'])
         Route::get('/PurchaseRequest/PurchaseRequestApprovals/History/{prNumber}', [PurchaseRequestApprovalsController::class, 'history'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestReceives', [PurchaseRequestController::class, 'receives']);
-        Route::post('/PurchaseRequest/PurchaseRequestReceives/Grid', [PurchaseRequestsController::class, 'grid']);
+        Route::post('/PurchaseRequest/PurchaseRequestReceives/Grid', [PurchaseRequestReceivesController::class, 'grid']);
         Route::post('/PurchaseRequest/PurchaseRequestReceives/Bulk', [PurchaseRequestReceivesController::class, 'bulk']);
         Route::post('/PurchaseRequest/PurchaseRequestReceives/{prNumber}', [PurchaseRequestReceivesController::class, 'store'])
             ->where('prNumber', '.*');
@@ -91,4 +91,10 @@ Route::middleware(['web', 'auth'])
         Route::post('/PurchaseRequest/PurchaseRequestAdditional', [PurchaseRequestsController::class, 'saveAdditional']);
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
+        Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}/items', [PurchaseOrderController::class, 'items'])
+            ->where('poNumber', '.*');
+        Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}', [PurchaseOrderController::class, 'show'])
+            ->where('poNumber', '.*');
+        Route::get('/PurchaseOrder/Approval/History/{poNumber}', [PurchaseOrderController::class, 'approvalHistory'])
+            ->where('poNumber', '.*');
     });

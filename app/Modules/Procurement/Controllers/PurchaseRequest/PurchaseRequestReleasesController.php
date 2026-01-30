@@ -205,6 +205,7 @@ class PurchaseRequestReleasesController extends Controller
                 'pr.ReviewedBy as reviewedBy',
                 'pr.ApprovedBy as approvedBy',
                 'pr.ConfirmedBy as confirmedBy',
+                'pr.UpdatedBy as updatedBy',
                 'pr.mstApprovalStatusID',
                 'pr.CreatedDate as createdDate',
                 'type.PurchaseRequestType as purchaseRequestType',
@@ -214,9 +215,11 @@ class PurchaseRequestReleasesController extends Controller
                 DB::raw('COALESCE(items.TotalAmount, 0) as totalAmount'),
             ]);
 
-        $employeeId = $this->getCurrentEmployeeId();
-        if ($employeeId !== '') {
-            $query->where('pr.UpdatedBy', $employeeId);
+        $allowedUpdatedBy = $this->getCurrentUserIdentifiers();
+        if (empty($allowedUpdatedBy)) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->whereIn('pr.UpdatedBy', $allowedUpdatedBy);
         }
 
         return $query;
@@ -230,7 +233,6 @@ class PurchaseRequestReleasesController extends Controller
         $purchReqName = $request->input('purchReqName') ?? $request->input('prName');
         $purchReqType = $request->input('purchReqType') ?? $request->input('prType');
         $purchReqSubType = $request->input('purchReqSubType') ?? $request->input('prSubType');
-        $statusPR = $request->input('statusPR');
         $company = $request->input('company');
         $regional = $request->input('regional');
         $typeSPK = $request->input('typeSPK');
@@ -265,9 +267,6 @@ class PurchaseRequestReleasesController extends Controller
                 $query->where('subType.PurchaseRequestSubType', 'like', '%' . $purchReqSubType . '%');
             }
         }
-        if ($statusPR !== null && $statusPR !== '') {
-            $query->where('pr.mstApprovalStatusID', (int) $statusPR);
-        }
         if ($company) {
             $query->where('pr.Company', 'like', '%' . $company . '%');
         }
@@ -300,7 +299,7 @@ class PurchaseRequestReleasesController extends Controller
             'purchReqSubType' => $row->purchaseRequestSubType ?? null,
             'approvalStatus' => $row->approvalStatus ?? null,
             'mstApprovalStatusID' => $row->mstApprovalStatusID ?? null,
-            'pic' => $row->reviewedBy ?? null,
+            'pic' => $row->updatedBy ?? null,
             'totalAmount' => $row->totalAmount ?? 0,
             'company' => $row->company ?? null,
             'requestor' => $row->requestor ?? null,
@@ -362,6 +361,28 @@ class PurchaseRequestReleasesController extends Controller
         }
 
         return (string) optional(Auth::user())->Username;
+    }
+
+    private function getCurrentUserIdentifiers(): array
+    {
+        $employee = session('employee');
+        $ids = [];
+
+        if ($employee instanceof MstEmployee) {
+            if (!empty($employee->Employ_Id)) {
+                $ids[] = $employee->Employ_Id;
+            }
+            if (!empty($employee->Employ_Id_TBGSYS)) {
+                $ids[] = $employee->Employ_Id_TBGSYS;
+            }
+        }
+
+        $username = (string) optional(Auth::user())->Username;
+        if ($username !== '') {
+            $ids[] = $username;
+        }
+
+        return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
     }
 
     private function getCurrentPositionName(): string
