@@ -91,10 +91,14 @@ Route::middleware(['web', 'auth'])
         Route::post('/PurchaseRequest/PurchaseRequestAdditional', [PurchaseRequestsController::class, 'saveAdditional']);
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
+        Route::post('/PurchaseOrder/PurchaseOrderItems/Grid', [PurchaseOrderController::class, 'purchaseOrderItemsGrid']);
         Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}/items', [PurchaseOrderController::class, 'items'])
             ->where('poNumber', '.*');
         Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}', [PurchaseOrderController::class, 'show'])
             ->where('poNumber', '.*');
         Route::get('/PurchaseOrder/Approval/History/{poNumber}', [PurchaseOrderController::class, 'approvalHistory'])
             ->where('poNumber', '.*');
+        Route::post('/PurchaseOrder/Confirm/Submit', [PurchaseOrderController::class, 'confirmSubmit']);
+        Route::post('/PurchaseOrder/Confirm/Bulk', [PurchaseOrderController::class, 'confirmBulk']);
+        Route::post('/PurchaseOrder/UpdateBulkyPrice/Submit', [PurchaseOrderController::class, 'updateBulkyPriceSubmit']);
     });

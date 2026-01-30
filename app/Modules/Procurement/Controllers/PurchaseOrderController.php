@@ -261,6 +261,408 @@ class PurchaseOrderController extends Controller
         return response()->json($data);
     }
 
+    public function confirmSubmit(Request $request)
+    {
+        $poNumber = trim((string) $request->input('poNumber', ''));
+        $remarks = trim((string) $request->input('remarks', ''));
+
+        if ($poNumber === '' || $remarks === '') {
+            return response()->json(['message' => 'PO Number and remarks are required'], 422);
+        }
+
+        $decision = trim((string) $request->input('decision', 'Confirm')) ?: 'Confirm';
+        $updatedItems = $request->input('updatedItems', []);
+        $deletedItemIds = $request->input('deletedItemIds', []);
+
+        $employeeId = $this->getCurrentEmployeeId();
+        $positionName = $this->getPositionName();
+        $now = now();
+
+        return DB::transaction(function () use (
+            $poNumber,
+            $remarks,
+            $decision,
+            $updatedItems,
+            $deletedItemIds,
+            $employeeId,
+            $positionName,
+            $now
+        ) {
+            $po = DB::table('trxPROPurchaseOrder')
+                ->where('PurchaseOrderNumber', $poNumber)
+                ->first();
+
+            if (!$po) {
+                return response()->json(['message' => 'Purchase Order not found'], 404);
+            }
+
+            $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+            if ($prNumber === '') {
+                return response()->json(['message' => 'Purchase Request number not found for PO'], 422);
+            }
+
+            $itemsQuery = DB::table('trxPROPurchaseOrderItem')
+                ->where('trxPROPurchaseOrderNumber', $poNumber);
+
+            $items = $itemsQuery->get();
+            $itemsById = [];
+            foreach ($items as $item) {
+                if (isset($item->ID)) {
+                    $itemsById[$item->ID] = $item;
+                }
+            }
+
+            if (is_array($updatedItems)) {
+                foreach ($updatedItems as $itemDto) {
+                    $itemId = $itemDto['ID'] ?? $itemDto['id'] ?? null;
+                    if (!$itemId || !isset($itemsById[$itemId])) {
+                        continue;
+                    }
+
+                    $updatePayload = [
+                        'ItemDescription' => (string) ($itemDto['ItemDescription'] ?? ''),
+                        'ItemUnit' => (string) ($itemDto['ItemUnit'] ?? ''),
+                        'ItemQty' => $itemDto['ItemQty'] ?? $itemsById[$itemId]->ItemQty ?? 0,
+                        'UnitPrice' => $itemDto['UnitPrice'] ?? $itemsById[$itemId]->UnitPrice ?? 0,
+                        'Amount' => $itemDto['Amount'] ?? $itemsById[$itemId]->Amount ?? 0,
+                        'UpdatedBy' => $employeeId,
+                        'UpdatedDate' => $now,
+                    ];
+
+                    DB::table('trxPROPurchaseOrderItem')
+                        ->where('ID', $itemId)
+                        ->update($updatePayload);
+
+                    $itemsById[$itemId]->ItemDescription = $updatePayload['ItemDescription'];
+                    $itemsById[$itemId]->ItemUnit = $updatePayload['ItemUnit'];
+                    $itemsById[$itemId]->ItemQty = $updatePayload['ItemQty'];
+                    $itemsById[$itemId]->UnitPrice = $updatePayload['UnitPrice'];
+                    $itemsById[$itemId]->Amount = $updatePayload['Amount'];
+                }
+            }
+
+            $deletedIds = array_filter(array_map('intval', is_array($deletedItemIds) ? $deletedItemIds : []));
+            $hasIsActiveColumn = Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive');
+            if ($hasIsActiveColumn && !empty($deletedIds)) {
+                DB::table('trxPROPurchaseOrderItem')
+                    ->whereIn('ID', $deletedIds)
+                    ->update([
+                        'IsActive' => false,
+                        'UpdatedBy' => $employeeId,
+                        'UpdatedDate' => $now,
+                    ]);
+
+                foreach ($deletedIds as $deletedId) {
+                    if (isset($itemsById[$deletedId])) {
+                        $itemsById[$deletedId]->IsActive = false;
+                    }
+                }
+            }
+
+            $activeItems = array_filter($itemsById, function ($item) use ($hasIsActiveColumn, $deletedIds) {
+                if (!$hasIsActiveColumn) {
+                    return !in_array($item->ID ?? null, $deletedIds, true);
+                }
+                return ($item->IsActive ?? true) === true;
+            });
+
+            $totalAmount = null;
+            if (!empty($activeItems)) {
+                $totalAmount = collect($activeItems)
+                    ->pluck('Amount')
+                    ->filter(fn ($amount) => $amount !== null)
+                    ->sum();
+            }
+
+            DB::table('trxPROPurchaseOrder')
+                ->where('PurchaseOrderNumber', $poNumber)
+                ->update([
+                    'mstApprovalStatusID' => 9,
+                    'PurchaseOrderAmount' => $totalAmount,
+                    'UpdatedBy' => $employeeId,
+                    'UpdatedDate' => $now,
+                ]);
+
+            if (Schema::hasTable('logPROPurchaseOrder')) {
+                $logData = [
+                    'mstEmployeeID' => $employeeId,
+                    'mstEmployeePositionName' => $positionName,
+                    'trxPROPurchaseRequestNumber' => $prNumber,
+                    'Activity' => 'Confirm Purchase Order',
+                    'mstApprovalStatusID' => '9',
+                    'Remark' => $remarks,
+                    'Decision' => $decision,
+                ];
+
+                if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
+                    $logData['CreatedDate'] = $now;
+                }
+                if (Schema::hasColumn('logPROPurchaseOrder', 'IsActive')) {
+                    $logData['IsActive'] = true;
+                }
+
+                DB::table('logPROPurchaseOrder')->insert($logData);
+            }
+
+            return response()->json([
+                'poNumber' => $poNumber,
+                'success' => true,
+                'message' => 'Purchase Order confirmed successfully',
+                'confirmedDate' => $now,
+            ]);
+        });
+    }
+
+    public function confirmBulk(Request $request)
+    {
+        $poNumbers = $request->input('PoNumbers', []);
+        $remarks = trim((string) $request->input('Remarks', ''));
+        $decision = trim((string) $request->input('Decision', 'Confirm')) ?: 'Confirm';
+
+        if (!is_array($poNumbers) || empty($poNumbers)) {
+            return response()->json(['message' => 'At least one PO Number is required'], 422);
+        }
+        if ($remarks === '') {
+            return response()->json(['message' => 'Remarks is required for bulk confirmation'], 422);
+        }
+
+        $employeeId = $this->getCurrentEmployeeId();
+        $positionName = $this->getPositionName();
+        $now = now();
+
+        $successCount = 0;
+        $failed = [];
+        $hasIsActiveColumn = Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive');
+
+        foreach ($poNumbers as $poNumberRaw) {
+            $poNumber = trim((string) $poNumberRaw);
+            if ($poNumber === '') {
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use (
+                    $poNumber,
+                    $remarks,
+                    $decision,
+                    $employeeId,
+                    $positionName,
+                    $now,
+                    $hasIsActiveColumn
+                ) {
+                    $po = DB::table('trxPROPurchaseOrder')
+                        ->where('PurchaseOrderNumber', $poNumber)
+                        ->first();
+
+                    if (!$po) {
+                        throw new \RuntimeException('Purchase Order not found');
+                    }
+
+                    $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+                    if ($prNumber === '') {
+                        throw new \RuntimeException('Purchase Request number not found for PO');
+                    }
+
+                    $amountQuery = DB::table('trxPROPurchaseOrderItem')
+                        ->where('trxPROPurchaseOrderNumber', $poNumber);
+                    if ($hasIsActiveColumn) {
+                        $amountQuery->where('IsActive', true);
+                    }
+                    $amountQuery->whereNotNull('Amount');
+                    $totalAmount = $amountQuery->sum('Amount');
+                    $totalAmount = $totalAmount === 0.0 ? null : $totalAmount;
+
+                    DB::table('trxPROPurchaseOrder')
+                        ->where('PurchaseOrderNumber', $poNumber)
+                        ->update([
+                            'mstApprovalStatusID' => 9,
+                            'PurchaseOrderAmount' => $totalAmount,
+                            'UpdatedBy' => $employeeId,
+                            'UpdatedDate' => $now,
+                        ]);
+
+                    if (Schema::hasTable('logPROPurchaseOrder')) {
+                        $logData = [
+                            'mstEmployeeID' => $employeeId,
+                            'mstEmployeePositionName' => $positionName,
+                            'trxPROPurchaseRequestNumber' => $prNumber,
+                            'Activity' => 'Confirm Purchase Order',
+                            'mstApprovalStatusID' => '9',
+                            'Remark' => $remarks,
+                            'Decision' => $decision,
+                        ];
+
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
+                            $logData['CreatedDate'] = $now;
+                        }
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'IsActive')) {
+                            $logData['IsActive'] = true;
+                        }
+
+                        DB::table('logPROPurchaseOrder')->insert($logData);
+                    }
+                });
+
+                $successCount++;
+            } catch (\Throwable $e) {
+                $failed[] = $poNumber;
+            }
+        }
+
+        if (!empty($failed)) {
+            return response()->json([
+                'message' => 'Bulk confirmation completed with failures',
+                'successCount' => $successCount,
+                'failedCount' => count($failed),
+                'failedPONumbers' => $failed,
+            ], 400);
+        }
+
+        return response()->json([
+            'poNumber' => 'Bulk Operation',
+            'success' => true,
+            'message' => "Successfully confirmed {$successCount} Purchase Order(s).",
+            'confirmedDate' => $now,
+        ]);
+    }
+
+    public function updateBulkyPriceSubmit(Request $request)
+    {
+        $items = $request->input('items', []);
+        if (!is_array($items) || empty($items)) {
+            return response()->json(['message' => 'Items list cannot be empty'], 422);
+        }
+
+        $employeeId = $this->getCurrentEmployeeId();
+        $now = now();
+
+        return DB::transaction(function () use ($items, $employeeId, $now) {
+            $itemIds = collect($items)
+                ->map(fn ($item) => $item['Id'] ?? $item['ID'] ?? $item['id'] ?? null)
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values();
+
+            if ($itemIds->isEmpty()) {
+                return response()->json(['message' => 'Items list cannot be empty'], 422);
+            }
+
+            $itemsQuery = DB::table('trxPROPurchaseOrderItem')
+                ->whereIn('ID', $itemIds);
+
+            if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+                $itemsQuery->where('IsActive', true);
+            }
+
+            $itemsFromDb = $itemsQuery->get();
+            if ($itemsFromDb->isEmpty()) {
+                return response()->json(['message' => 'No valid Purchase Order items found to update'], 422);
+            }
+
+            $itemsById = $itemsFromDb->keyBy('ID');
+            $affectedPONumbers = $itemsFromDb
+                ->pluck('trxPROPurchaseOrderNumber')
+                ->filter(fn ($value) => $value !== null && trim($value) !== '')
+                ->unique()
+                ->values();
+
+            foreach ($items as $itemDto) {
+                $itemId = $itemDto['Id'] ?? $itemDto['ID'] ?? $itemDto['id'] ?? null;
+                if (!$itemId || !$itemsById->has((int) $itemId)) {
+                    continue;
+                }
+
+                DB::table('trxPROPurchaseOrderItem')
+                    ->where('ID', (int) $itemId)
+                    ->update([
+                        'UnitPrice' => $itemDto['UnitPrice'] ?? 0,
+                        'Amount' => $itemDto['Amount'] ?? 0,
+                        'UpdatedBy' => $employeeId,
+                        'UpdatedDate' => $now,
+                    ]);
+            }
+
+            foreach ($affectedPONumbers as $poNumber) {
+                $amountQuery = DB::table('trxPROPurchaseOrderItem')
+                    ->where('trxPROPurchaseOrderNumber', $poNumber);
+                if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+                    $amountQuery->where('IsActive', true);
+                }
+                $amountQuery->whereNotNull('Amount');
+                $totalAmount = $amountQuery->sum('Amount');
+                $totalAmount = $totalAmount === 0.0 ? null : $totalAmount;
+
+                DB::table('trxPROPurchaseOrder')
+                    ->where('PurchaseOrderNumber', $poNumber)
+                    ->update([
+                        'PurchaseOrderAmount' => $totalAmount,
+                        'UpdatedBy' => $employeeId,
+                        'UpdatedDate' => $now,
+                    ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Unit prices updated successfully',
+            ]);
+        });
+    }
+
+    public function purchaseOrderItemsGrid(Request $request)
+    {
+        $draw = (int) $request->input('draw', 0);
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 10);
+
+        $baseQuery = $this->basePurchaseOrderItemsQuery($request);
+        $recordsTotal = (clone $baseQuery)->count('item.ID');
+
+        $filteredQuery = $this->applyPurchaseOrderItemsFilters($baseQuery, $request);
+        $recordsFiltered = (clone $filteredQuery)->count('item.ID');
+
+        $order = $request->input('order.0', []);
+        $columns = $request->input('columns', []);
+        $orderColumnIndex = $order['column'] ?? null;
+        $orderDir = $order['dir'] ?? 'asc';
+
+        if ($orderColumnIndex !== null && isset($columns[$orderColumnIndex]['data'])) {
+            $columnKey = $columns[$orderColumnIndex]['data'];
+            $orderColumn = $this->mapPurchaseOrderItemsOrderColumn($columnKey);
+            if ($orderColumn) {
+                $filteredQuery->orderBy($orderColumn, $orderDir === 'desc' ? 'desc' : 'asc');
+            }
+        } else {
+            $filteredQuery->orderBy('item.ID', 'asc');
+        }
+
+        $rows = $filteredQuery
+            ->skip($start)
+            ->take($length > 0 ? $length : $recordsFiltered)
+            ->get();
+
+        $data = $rows->map(function ($row) {
+            return [
+                'id' => $row->id ?? null,
+                'trxPROPurchaseOrderNumber' => $row->trxPROPurchaseOrderNumber ?? null,
+                'mstPROPurchaseItemInventoryItemID' => $row->mstPROPurchaseItemInventoryItemID ?? null,
+                'itemName' => $row->itemName ?? null,
+                'itemDescription' => $row->itemDescription ?? null,
+                'itemUnit' => $row->itemUnit ?? null,
+                'itemQty' => $row->itemQty ?? null,
+                'currencyCode' => $row->currencyCode ?? null,
+                'unitPrice' => $row->unitPrice ?? null,
+                'amount' => $row->amount ?? null,
+            ];
+        })->values();
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
     public function grid(Request $request)
     {
         $draw = (int) $request->input('draw', 0);
@@ -438,6 +840,77 @@ class PurchaseOrderController extends Controller
             'companyName' => 'po.CompanyName',
             'poAuthor' => 'po.PurchaseOrderAuthor',
             'prRequestor' => 'po.PurchaseRequestRequestor',
+            default => null,
+        };
+    }
+
+    private function basePurchaseOrderItemsQuery(Request $request)
+    {
+        $query = DB::table('trxPROPurchaseOrderItem as item')
+            ->leftJoin('trxPROPurchaseOrder as po', 'item.trxPROPurchaseOrderNumber', '=', 'po.PurchaseOrderNumber')
+            ->select([
+                'item.ID as id',
+                'item.trxPROPurchaseOrderNumber as trxPROPurchaseOrderNumber',
+                'item.mstPROPurchaseItemInventoryItemID as mstPROPurchaseItemInventoryItemID',
+                'item.ItemName as itemName',
+                'item.ItemDescription as itemDescription',
+                'item.ItemUnit as itemUnit',
+                'item.ItemQty as itemQty',
+                'item.CurrencyCode as currencyCode',
+                'item.UnitPrice as unitPrice',
+                'item.Amount as amount',
+                'po.mstApprovalStatusID as mstApprovalStatusID',
+            ]);
+
+        if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+            $query->where('item.IsActive', true);
+        }
+
+        $statusIds = $request->input('mstApprovalStatusIDs', []);
+        $statusIds = is_array($statusIds) ? $statusIds : [];
+        if (!empty($statusIds)) {
+            $query->whereIn('po.mstApprovalStatusID', array_map('intval', $statusIds));
+        }
+
+        return $query;
+    }
+
+    private function applyPurchaseOrderItemsFilters($query, Request $request)
+    {
+        $poNumber = $request->input('poNumber');
+        $poNumberFilter = $request->input('poNumberFilter');
+        $itemIdFilter = $request->input('itemIDFilter');
+        $descriptionFilter = $request->input('descriptionFilter');
+
+        if ($poNumber && trim($poNumber) !== '') {
+            $query->where('item.trxPROPurchaseOrderNumber', trim($poNumber));
+        }
+        if ($poNumberFilter && trim($poNumberFilter) !== '') {
+            $query->where('item.trxPROPurchaseOrderNumber', trim($poNumberFilter));
+        }
+        if ($itemIdFilter && trim($itemIdFilter) !== '') {
+            $query->where('item.mstPROPurchaseItemInventoryItemID', trim($itemIdFilter));
+        }
+        if ($descriptionFilter && trim($descriptionFilter) !== '') {
+            $query->where('item.ItemDescription', 'like', '%' . trim($descriptionFilter) . '%');
+        }
+
+        return $query;
+    }
+
+    private function mapPurchaseOrderItemsOrderColumn(?string $columnKey): ?string
+    {
+        return match ($columnKey) {
+            'id' => 'item.ID',
+            'trxPROPurchaseOrderNumber' => 'item.trxPROPurchaseOrderNumber',
+            'mstPROPurchaseItemInventoryItemID' => 'item.mstPROPurchaseItemInventoryItemID',
+            'itemName' => 'item.ItemName',
+            'itemDescription' => 'item.ItemDescription',
+            'itemUnit' => 'item.ItemUnit',
+            'itemQty' => 'item.ItemQty',
+            'currencyCode' => 'item.CurrencyCode',
+            'unitPrice' => 'item.UnitPrice',
+            'amount' => 'item.Amount',
             default => null,
         };
     }

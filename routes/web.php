@@ -57,3 +57,11 @@ Route::get('/procurement/purchase-order/list', function () {
 Route::get('/Procurement/PurchaseOrder/List', function () {
     return view('procurement.purchase_order.list.index');
 })->middleware('auth')->name('procurement.purchase_order.list.legacy');
+
+Route::get('/procurement/purchase-order/confirm', function () {
+    return view('procurement.purchase_order.confirm.list.index');
+})->middleware('auth')->name('procurement.purchase_order.confirm');
+
+Route::get('/Procurement/PurchaseOrder/Confirm', function () {
+    return view('procurement.purchase_order.confirm.list.index');
+})->middleware('auth')->name('procurement.purchase_order.confirm.legacy');
