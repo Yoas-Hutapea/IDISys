@@ -134,6 +134,8 @@ class PurchaseOrderController extends Controller
             'prDate' => $po->PurchaseRequestDate ?? null,
             'PRDate' => $po->PurchaseRequestDate ?? null,
             'mstVendorVendorName' => $po->mstVendorVendorName ?? null,
+            'mstVendorVendorID' => $po->mstVendorVendorID ?? null,
+            'MstVendorVendorID' => $po->mstVendorVendorID ?? null,
             'companyName' => $po->CompanyName ?? null,
             'mstApprovalStatusID' => $po->mstApprovalStatusID ?? null,
             'approvalStatus' => $approvalStatus,
@@ -259,6 +261,191 @@ class PurchaseOrderController extends Controller
         })->values();
 
         return response()->json($data);
+    }
+
+    public function cancelPeriodAmortizations(string $poNumber)
+    {
+        $decodedNumber = urldecode($poNumber);
+
+        if (!Schema::hasTable('trxPROPurchaseOrderAmortization')) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'periodOfPayment' => [],
+                    'termOfPayment' => [],
+                ],
+            ]);
+        }
+
+        $poColumn = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'trxPROPurchaseOrderNumber')
+            ? 'trxPROPurchaseOrderNumber'
+            : (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PurchaseOrderNumber') ? 'PurchaseOrderNumber' : null);
+
+        if (!$poColumn) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'periodOfPayment' => [],
+                    'termOfPayment' => [],
+                ],
+            ]);
+        }
+
+        $rowsQuery = DB::table('trxPROPurchaseOrderAmortization')
+            ->where($poColumn, $decodedNumber);
+
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber')) {
+            $rowsQuery->orderBy('PeriodNumber');
+        }
+
+        $rows = $rowsQuery->get();
+
+        $mapRow = function ($row) {
+            return [
+                'id' => $row->ID ?? null,
+                'periodNumber' => $row->PeriodNumber ?? $row->periodNumber ?? null,
+                'startDate' => $row->StartDate ?? $row->startDate ?? null,
+                'endDate' => $row->EndDate ?? $row->endDate ?? null,
+                'termValue' => $row->TermValue ?? $row->termValue ?? null,
+                'invoiceAmount' => $row->InvoiceAmount ?? $row->invoiceAmount ?? null,
+                'status' => $row->Status ?? $row->status ?? null,
+                'isCanceled' => isset($row->IsCanceled) ? (bool) $row->IsCanceled : (bool) ($row->isCanceled ?? false),
+                'canceledDate' => $row->CanceledDate ?? $row->canceledDate ?? null,
+                'canceledBy' => $row->CanceledBy ?? $row->canceledBy ?? null,
+                'cancelReason' => $row->CancelReason ?? $row->cancelReason ?? null,
+                'invoiceNumber' => $row->InvoiceNumber ?? $row->invoiceNumber ?? null,
+            ];
+        };
+
+        $periodOfPayment = [];
+        $termOfPayment = [];
+
+        foreach ($rows as $row) {
+            $type = $row->AmortizationType ?? $row->amortizationType ?? '';
+            $normalizedType = strtolower((string) $type);
+            if ($normalizedType === 'period') {
+                $periodOfPayment[] = $mapRow($row);
+            } elseif ($normalizedType === 'term') {
+                $termOfPayment[] = $mapRow($row);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'periodOfPayment' => $periodOfPayment,
+                'termOfPayment' => $termOfPayment,
+            ],
+        ]);
+    }
+
+    public function cancelPeriodSubmit(Request $request)
+    {
+        $purchOrderId = (string) $request->input('purchOrderID');
+        $termPositions = $request->input('termPositions', []);
+        $periodNumbers = $request->input('periodNumbers', []);
+        $cancelReason = $request->input('cancelReason');
+
+        if ($purchOrderId === '') {
+            return response()->json(['message' => 'Purchase Order ID is required'], 422);
+        }
+
+        if ((empty($termPositions) || !is_array($termPositions)) && (empty($periodNumbers) || !is_array($periodNumbers))) {
+            return response()->json(['message' => 'At least one term position or period number must be specified'], 422);
+        }
+
+        if (!Schema::hasTable('trxPROPurchaseOrderAmortization')) {
+            return response()->json(['message' => 'Amortization table not found'], 500);
+        }
+
+        $poColumn = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'trxPROPurchaseOrderNumber')
+            ? 'trxPROPurchaseOrderNumber'
+            : (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PurchaseOrderNumber') ? 'PurchaseOrderNumber' : null);
+
+        $periodColumn = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber')
+            ? 'PeriodNumber'
+            : (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'Period') ? 'Period' : null);
+
+        if (!$poColumn || !$periodColumn) {
+            return response()->json(['message' => 'Amortization columns not found'], 500);
+        }
+
+        $now = now();
+        $employeeId = $this->getCurrentEmployeeId();
+
+        $updatePayload = [];
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled')) {
+            $updatePayload['IsCanceled'] = true;
+        }
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'CanceledDate')) {
+            $updatePayload['CanceledDate'] = $now;
+        }
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'CanceledBy')) {
+            $updatePayload['CanceledBy'] = $employeeId;
+        }
+        if ($cancelReason !== null && Schema::hasColumn('trxPROPurchaseOrderAmortization', 'CancelReason')) {
+            $updatePayload['CancelReason'] = $cancelReason;
+        }
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
+            $updatePayload['UpdatedDate'] = $now;
+        }
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedBy')) {
+            $updatePayload['UpdatedBy'] = $employeeId;
+        }
+
+        $applyCancel = function (string $type, array $periods) use ($purchOrderId, $poColumn, $periodColumn, $updatePayload) {
+            if (empty($periods)) {
+                return;
+            }
+
+            $query = DB::table('trxPROPurchaseOrderAmortization')
+                ->where($poColumn, $purchOrderId)
+                ->whereIn($periodColumn, $periods);
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'AmortizationType')) {
+                $query->where('AmortizationType', $type);
+            }
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled')) {
+                $query->where(function ($q) {
+                    $q->whereNull('IsCanceled')->orWhere('IsCanceled', false);
+                });
+            }
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'InvoiceNumber')) {
+                $query->where(function ($q) {
+                    $q->whereNull('InvoiceNumber')->orWhere('InvoiceNumber', '');
+                });
+            }
+
+            if (!empty($updatePayload)) {
+                $query->update($updatePayload);
+            }
+        };
+
+        DB::beginTransaction();
+        try {
+            if (is_array($termPositions) && !empty($termPositions)) {
+                $applyCancel('Term', $termPositions);
+            }
+
+            if (is_array($periodNumbers) && !empty($periodNumbers)) {
+                $applyCancel('Period', $periodNumbers);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Period/Termin canceled successfully',
+            'purchOrderID' => $purchOrderId,
+            'canceledTerms' => $termPositions ?? [],
+            'canceledPeriods' => $periodNumbers ?? [],
+        ]);
     }
 
     public function confirmSubmit(Request $request)
@@ -606,6 +793,175 @@ class PurchaseOrderController extends Controller
                 'message' => 'Unit prices updated successfully',
             ]);
         });
+    }
+
+    public function approvalSubmit(Request $request, string $poNumber)
+    {
+        $decodedNumber = urldecode($poNumber);
+        $decision = trim((string) $request->input('Decision', 'Approve'));
+        $remark = trim((string) $request->input('Remark', ''));
+        $activity = trim((string) $request->input('Activity', ''));
+
+        return DB::transaction(function () use ($decodedNumber, $decision, $remark, $activity) {
+            $po = DB::table('trxPROPurchaseOrder')
+                ->where('PurchaseOrderNumber', $decodedNumber)
+                ->first();
+
+            if (!$po) {
+                return response()->json(['message' => 'Purchase Order not found'], 404);
+            }
+
+            if (!in_array((int) ($po->mstApprovalStatusID ?? 0), [9, 10], true)) {
+                return response()->json(['message' => 'Purchase Order status is not eligible for approval'], 422);
+            }
+
+            $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+            if ($prNumber === '') {
+                return response()->json(['message' => 'Purchase Request number not found for PO'], 422);
+            }
+
+            $decisionLower = strtolower($decision);
+            if ($decisionLower === 'reject') {
+                $nextStatusId = 12;
+            } else {
+                $nextStatusId = ((int) $po->mstApprovalStatusID === 9) ? 10 : 11;
+            }
+
+            $employeeId = $this->getCurrentEmployeeId();
+            $positionName = $this->getPositionName();
+            $now = now();
+
+            DB::table('trxPROPurchaseOrder')
+                ->where('PurchaseOrderNumber', $decodedNumber)
+                ->update([
+                    'mstApprovalStatusID' => $nextStatusId,
+                    'UpdatedBy' => $employeeId,
+                    'UpdatedDate' => $now,
+                ]);
+
+            if (Schema::hasTable('logPROPurchaseOrder')) {
+                $logData = [
+                    'mstEmployeeID' => $employeeId,
+                    'mstEmployeePositionName' => $positionName,
+                    'trxPROPurchaseRequestNumber' => $prNumber,
+                    'Activity' => $activity !== '' ? $activity : ($nextStatusId === 12 ? 'Reject Purchase Order' : 'Approve Purchase Order'),
+                    'mstApprovalStatusID' => (string) $nextStatusId,
+                    'Remark' => $remark,
+                    'Decision' => $decision !== '' ? $decision : ($nextStatusId === 12 ? 'Reject' : 'Approve'),
+                ];
+
+                if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
+                    $logData['CreatedDate'] = $now;
+                }
+                if (Schema::hasColumn('logPROPurchaseOrder', 'IsActive')) {
+                    $logData['IsActive'] = true;
+                }
+
+                DB::table('logPROPurchaseOrder')->insert($logData);
+            }
+
+            return response()->json([
+                'trxPROPurchaseOrderNumber' => $decodedNumber,
+                'mstApprovalStatusID' => $nextStatusId,
+                'Remark' => $remark,
+                'CreatedDate' => $now,
+            ]);
+        });
+    }
+
+    public function approvalBulk(Request $request)
+    {
+        $poNumbers = $request->input('poNumbers', []);
+        if (!is_array($poNumbers) || empty($poNumbers)) {
+            return response()->json(['message' => 'At least one Purchase Order Number is required'], 422);
+        }
+
+        $decision = trim((string) $request->input('Decision', 'Approve'));
+        $remark = trim((string) $request->input('Remark', ''));
+        $activity = trim((string) $request->input('Activity', ''));
+
+        $employeeId = $this->getCurrentEmployeeId();
+        $positionName = $this->getPositionName();
+        $now = now();
+
+        $successCount = 0;
+        $failed = [];
+
+        foreach ($poNumbers as $rawNumber) {
+            $poNumber = trim((string) $rawNumber);
+            if ($poNumber === '') {
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($poNumber, $decision, $remark, $activity, $employeeId, $positionName, $now) {
+                    $po = DB::table('trxPROPurchaseOrder')
+                        ->where('PurchaseOrderNumber', $poNumber)
+                        ->first();
+
+                    if (!$po) {
+                        throw new \RuntimeException('Purchase Order not found');
+                    }
+
+                    if (!in_array((int) ($po->mstApprovalStatusID ?? 0), [9, 10], true)) {
+                        throw new \RuntimeException('Purchase Order status is not eligible for approval');
+                    }
+
+                    $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+                    if ($prNumber === '') {
+                        throw new \RuntimeException('Purchase Request number not found for PO');
+                    }
+
+                    $decisionLower = strtolower($decision);
+                    if ($decisionLower === 'reject') {
+                        $nextStatusId = 12;
+                    } else {
+                        $nextStatusId = ((int) $po->mstApprovalStatusID === 9) ? 10 : 11;
+                    }
+
+                    DB::table('trxPROPurchaseOrder')
+                        ->where('PurchaseOrderNumber', $poNumber)
+                        ->update([
+                            'mstApprovalStatusID' => $nextStatusId,
+                            'UpdatedBy' => $employeeId,
+                            'UpdatedDate' => $now,
+                        ]);
+
+                    if (Schema::hasTable('logPROPurchaseOrder')) {
+                        $logData = [
+                            'mstEmployeeID' => $employeeId,
+                            'mstEmployeePositionName' => $positionName,
+                            'trxPROPurchaseRequestNumber' => $prNumber,
+                            'Activity' => $activity !== '' ? $activity : ($nextStatusId === 12 ? 'Reject Purchase Order' : 'Approve Purchase Order'),
+                            'mstApprovalStatusID' => (string) $nextStatusId,
+                            'Remark' => $remark,
+                            'Decision' => $decision !== '' ? $decision : ($nextStatusId === 12 ? 'Reject' : 'Approve'),
+                        ];
+
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
+                            $logData['CreatedDate'] = $now;
+                        }
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'IsActive')) {
+                            $logData['IsActive'] = true;
+                        }
+
+                        DB::table('logPROPurchaseOrder')->insert($logData);
+                    }
+                });
+
+                $successCount++;
+            } catch (\Throwable $e) {
+                $failed[] = $poNumber;
+            }
+        }
+
+        return response()->json([
+            'totalCount' => count($poNumbers),
+            'successCount' => $successCount,
+            'failedCount' => count($failed),
+            'failedPONumbers' => $failed,
+            'message' => "Successfully processed {$successCount} out of " . count($poNumbers) . " Purchase Order(s)",
+        ]);
     }
 
     public function purchaseOrderItemsGrid(Request $request)

@@ -113,10 +113,18 @@ class PurchaseRequestsController extends Controller
         $length = (int) $request->input('length', 10);
 
         $baseQuery = $this->baseQuery();
-        $recordsTotal = (clone $baseQuery)->count('pr.ID');
+        if ($this->isApprovalGridRequest($request)) {
+            $approvalBaseQuery = $this->applyApprovalBaseQuery($baseQuery);
+            $recordsTotal = (clone $approvalBaseQuery)->count('pr.ID');
 
-        $filteredQuery = $this->applyFilters($baseQuery, $request);
-        $recordsFiltered = (clone $filteredQuery)->count('pr.ID');
+            $filteredQuery = $this->applyApprovalFilters($approvalBaseQuery, $request);
+            $recordsFiltered = (clone $filteredQuery)->count('pr.ID');
+        } else {
+            $recordsTotal = (clone $baseQuery)->count('pr.ID');
+
+            $filteredQuery = $this->applyFilters($baseQuery, $request);
+            $recordsFiltered = (clone $filteredQuery)->count('pr.ID');
+        }
 
         $order = $request->input('order.0', []);
         $columns = $request->input('columns', []);
@@ -512,6 +520,80 @@ class PurchaseRequestsController extends Controller
         return $query;
     }
 
+    private function applyApprovalBaseQuery($query)
+    {
+        $userIdentifiers = $this->getCurrentUserIdentifiers();
+        if (empty($userIdentifiers)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $query->whereIn('pr.mstApprovalStatusID', [1, 2, 3]);
+        $query->where(function ($statusQuery) use ($userIdentifiers) {
+            $statusQuery
+                ->where(function ($reviewQuery) use ($userIdentifiers) {
+                    $reviewQuery
+                        ->where('pr.mstApprovalStatusID', 1)
+                        ->whereIn('pr.ReviewedBy', $userIdentifiers);
+                })
+                ->orWhere(function ($approveQuery) use ($userIdentifiers) {
+                    $approveQuery
+                        ->where('pr.mstApprovalStatusID', 2)
+                        ->whereIn('pr.ApprovedBy', $userIdentifiers);
+                })
+                ->orWhere(function ($confirmQuery) use ($userIdentifiers) {
+                    $confirmQuery
+                        ->where('pr.mstApprovalStatusID', 3)
+                        ->whereIn('pr.ConfirmedBy', $userIdentifiers);
+                });
+        });
+
+        return $query;
+    }
+
+    private function applyApprovalFilters($query, Request $request)
+    {
+        $fromDate = $request->input('fromDate') ?? $request->input('startDate');
+        $toDate = $request->input('toDate') ?? $request->input('endDate');
+        $purchReqNum = $request->input('purchReqNum') ?? $request->input('prNumber');
+        $purchReqName = $request->input('purchReqName') ?? $request->input('prName');
+        $purchReqType = $request->input('purchReqType') ?? $request->input('prType');
+        $purchReqSubType = $request->input('purchReqSubType') ?? $request->input('prSubType');
+        $statusPR = $request->input('statusPR');
+        $source = $request->input('source');
+
+        if ($fromDate) {
+            $query->whereDate('pr.CreatedDate', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('pr.CreatedDate', '<=', $toDate);
+        }
+        if ($purchReqNum) {
+            $query->where('pr.PurchaseRequestNumber', trim((string) $purchReqNum));
+        }
+        if ($purchReqName) {
+            $query->where('pr.PurchaseRequestName', 'like', '%' . $purchReqName . '%');
+        }
+        if ($purchReqType) {
+            $query->where('pr.mstPurchaseTypeID', trim((string) $purchReqType));
+        }
+        if ($purchReqSubType) {
+            $query->where('pr.mstPurchaseSubTypeID', trim((string) $purchReqSubType));
+        }
+        if ($statusPR !== null && $statusPR !== '') {
+            $query->where('pr.mstApprovalStatusID', (int) $statusPR);
+        }
+        if ($source) {
+            $query->where('pr.Company', strtoupper(trim((string) $source)));
+        }
+
+        return $query;
+    }
+
+    private function isApprovalGridRequest(Request $request): bool
+    {
+        return $request->is('Procurement/PurchaseRequest/PurchaseRequestApprovals/Grid');
+    }
+
     private function mapRow($row): array
     {
         $type = $row->purchaseRequestType ?? '';
@@ -521,6 +603,16 @@ class PurchaseRequestsController extends Controller
             $typeDisplay = trim($type . ' ' . $category);
         }
 
+        $statusId = (int) ($row->mstApprovalStatusID ?? 0);
+        $pic = $row->reviewedBy ?? null;
+        if ($statusId === 2) {
+            $pic = $row->approvedBy ?? null;
+        } elseif ($statusId === 3) {
+            $pic = $row->confirmedBy ?? null;
+        } elseif ($statusId === 1) {
+            $pic = $row->reviewedBy ?? null;
+        }
+
         return [
             'purchReqNumber' => $row->purchReqNumber ?? null,
             'purchReqName' => $row->purchReqName ?? null,
@@ -528,7 +620,7 @@ class PurchaseRequestsController extends Controller
             'purchReqSubType' => $row->purchaseRequestSubType ?? null,
             'approvalStatus' => $row->approvalStatus ?? null,
             'mstApprovalStatusID' => $row->mstApprovalStatusID ?? null,
-            'pic' => $row->reviewedBy ?? null,
+            'pic' => $pic,
             'totalAmount' => $row->totalAmount ?? 0,
             'company' => $row->company ?? null,
             'requestor' => $row->requestor ?? null,

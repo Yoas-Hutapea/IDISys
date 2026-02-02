@@ -7,6 +7,15 @@ class CancelPeriodFilter {
         this.manager = managerInstance;
         this.debounceTimer = null;
         this.filterCollapsed = true; // Default collapsed
+        this.cachedElements = this.cacheElements();
+    }
+
+    cacheElements() {
+        return {
+            filterForm: document.getElementById('filterForm'),
+            filterContent: document.getElementById('filter-content'),
+            filterChevron: document.getElementById('filter-chevron')
+        };
     }
 
     /**
@@ -20,7 +29,7 @@ class CancelPeriodFilter {
      * Bind filter events
      */
     bindEvents() {
-        const filterForm = document.getElementById('filterForm');
+        const filterForm = this.cachedElements.filterForm;
         if (!filterForm) return;
 
         // Filter form submission with debouncing
@@ -29,21 +38,33 @@ class CancelPeriodFilter {
             this.debouncedSearch();
         });
 
-        // Add input debouncing for real-time search
+        // Add input debouncing for real-time search and date range updates
         const searchInputs = filterForm.querySelectorAll('input, select');
         searchInputs.forEach(input => {
             input.addEventListener('input', () => {
+                if (input.id === 'poStartDate' || input.id === 'poEndDate') {
+                    this.updateDateRangeInfo();
+                }
                 this.debouncedSearch();
             });
         });
+
+        const poStartDateInput = document.getElementById('poStartDate');
+        const poEndDateInput = document.getElementById('poEndDate');
+        if (poStartDateInput) {
+            poStartDateInput.addEventListener('change', () => this.updateDateRangeInfo());
+        }
+        if (poEndDateInput) {
+            poEndDateInput.addEventListener('change', () => this.updateDateRangeInfo());
+        }
     }
 
     /**
      * Toggle filter visibility
      */
     toggleFilter() {
-        const filterContent = document.getElementById('filter-content');
-        const chevron = document.getElementById('filter-chevron');
+        const filterContent = this.cachedElements.filterContent;
+        const chevron = this.cachedElements.filterChevron;
         const header = document.querySelector('.filter-header');
         
         if (filterContent && chevron && header) {
@@ -69,6 +90,7 @@ class CancelPeriodFilter {
     debouncedSearch() {
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
+            this.updateDateRangeInfo();
             if (this.manager && this.manager.searchPO) {
                 this.manager.searchPO();
             }
@@ -79,7 +101,7 @@ class CancelPeriodFilter {
      * Get filter values from form
      */
     getFilterValues() {
-        const form = document.getElementById('filterForm');
+        const form = this.cachedElements.filterForm;
         if (!form) return {};
 
         const formData = new FormData(form);
@@ -129,6 +151,75 @@ class CancelPeriodFilter {
         if (filters.poEndDate) filter.poEndDate = filters.poEndDate;
 
         return filter;
+    }
+
+    formatDateCompact(dateString, includeYear = true) {
+        if (!dateString) return '';
+
+        const date = new Date(dateString + 'T00:00:00');
+        if (isNaN(date.getTime())) return '';
+
+        const months = [
+            'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+            'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+        ];
+
+        const day = date.getDate();
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+
+        return includeYear ? `${day} ${month} ${year}` : `${day} ${month}`;
+    }
+
+    updateDateRangeInfo() {
+        const dateRangeInfo = document.getElementById('dateRangeInfo');
+        if (!dateRangeInfo) return;
+
+        const form = this.cachedElements.filterForm;
+        if (!form) return;
+
+        const formData = new FormData(form);
+        const poStartDate = formData.get('poStartDate');
+        const poEndDate = formData.get('poEndDate');
+
+        if (poStartDate && poEndDate) {
+            const startDateObj = new Date(poStartDate + 'T00:00:00');
+            const endDateObj = new Date(poEndDate + 'T00:00:00');
+
+            const startYear = startDateObj.getFullYear();
+            const endYear = endDateObj.getFullYear();
+            const startMonth = startDateObj.getMonth();
+            const endMonth = endDateObj.getMonth();
+            const startDay = startDateObj.getDate();
+            const endDay = endDateObj.getDate();
+
+            if (startYear === endYear && startMonth === endMonth) {
+                if (startDay === endDay) {
+                    const formatted = this.formatDateCompact(poStartDate, true);
+                    dateRangeInfo.textContent = ` ${formatted}`;
+                } else {
+                    const startFormatted = this.formatDateCompact(poStartDate, true);
+                    const endFormatted = this.formatDateCompact(poEndDate, true);
+                    dateRangeInfo.textContent = ` ${startFormatted} s/d ${endFormatted}`;
+                }
+            } else if (startYear === endYear) {
+                const startFormatted = this.formatDateCompact(poStartDate, true);
+                const endFormatted = this.formatDateCompact(poEndDate, true);
+                dateRangeInfo.textContent = ` ${startFormatted} s/d ${endFormatted}`;
+            } else {
+                const startFormatted = this.formatDateCompact(poStartDate, true);
+                const endFormatted = this.formatDateCompact(poEndDate, true);
+                dateRangeInfo.textContent = ` ${startFormatted} s/d ${endFormatted}`;
+            }
+        } else if (poStartDate) {
+            const startFormatted = this.formatDateCompact(poStartDate, true);
+            dateRangeInfo.textContent = ` ${startFormatted}`;
+        } else if (poEndDate) {
+            const endFormatted = this.formatDateCompact(poEndDate, true);
+            dateRangeInfo.textContent = ` ${endFormatted}`;
+        } else {
+            dateRangeInfo.textContent = '';
+        }
     }
 
     /**
@@ -200,6 +291,8 @@ class CancelPeriodFilter {
         } else if (this.manager && this.manager.dataTable) {
             this.manager.dataTable.ajax.reload();
         }
+
+        this.updateDateRangeInfo();
     }
 }
 

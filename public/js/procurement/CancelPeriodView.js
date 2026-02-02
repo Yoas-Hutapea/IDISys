@@ -43,9 +43,11 @@ class CancelPeriodView {
             await this.populatePOInformation(po);
             
             // Load vendor information
-            const vendorID = po.mstVendorVendorID || po.MstVendorVendorID;
+            const vendorID = po.mstVendorVendorID || po.MstVendorVendorID || po.vendorID || po.VendorID || po.vendorId;
             if (vendorID) {
                 await this.loadVendorInformation(vendorID);
+            } else if (po.mstVendorVendorName || po.MstVendorVendorName) {
+                this.populateVendorInformation(po);
             }
             
             // Load item list

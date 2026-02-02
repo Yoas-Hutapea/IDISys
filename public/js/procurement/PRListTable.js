@@ -51,13 +51,23 @@ class PRListTable {
                             title: 'Edit',
                             showIf: (row) => {
                                 const statusId = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
-                                const statusText = row.approvalStatus ?? row.ApprovalStatus ?? '';
-
-                                if (statusId === 6) return true;
-                                if (typeof statusText === 'string' && statusText.toLowerCase().includes('draft')) {
-                                    return true;
+                                const requestor = row.requestor ?? row.Requestor ?? '';
+                                
+                                // Get current user employee ID from config
+                                const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
+                                
+                                // Show Edit only if:
+                                // 1. Status is 5 or 6 (rejected/draft)
+                                // 2. AND current user is the Requestor
+                                if (statusId === 5 || statusId === 6 || statusId === null) {
+                                    if (currentUserEmployeeID && requestor) {
+                                        const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
+                                        const requestorNormalized = requestor.trim().toLowerCase();
+                                        return currentUserNormalized === requestorNormalized;
+                                    }
+                                    return false;
                                 }
-
+                                
                                 return false;
                             }
                         },

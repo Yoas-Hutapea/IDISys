@@ -36,6 +36,7 @@ Route::middleware(['web', 'auth'])
             Route::get('/CoreBusinesses', [CoreBusinessesController::class, 'index']);
             Route::get('/SubCoreBusinesses', [SubCoreBusinessesController::class, 'index']);
             Route::get('/Vendors', [VendorsController::class, 'index']);
+            Route::get('/Vendors/{id}', [VendorsController::class, 'show']);
             Route::get('/VendorContracts', [VendorContractsController::class, 'index']);
             Route::get('/PurchaseTypes/List', [PurchaseTypesController::class, 'list']);
             Route::get('/PurchaseTypes/SubTypes', [PurchaseTypesController::class, 'subTypes']);
@@ -92,11 +93,17 @@ Route::middleware(['web', 'auth'])
 
         Route::post('/PurchaseOrder/PurchaseOrders/Grid', [PurchaseOrderController::class, 'grid']);
         Route::post('/PurchaseOrder/PurchaseOrderItems/Grid', [PurchaseOrderController::class, 'purchaseOrderItemsGrid']);
+        Route::get('/PurchaseOrder/CancelPeriod/{poNumber}/Amortizations', [PurchaseOrderController::class, 'cancelPeriodAmortizations'])
+            ->where('poNumber', '.*');
+        Route::post('/PurchaseOrder/CancelPeriod/Cancel', [PurchaseOrderController::class, 'cancelPeriodSubmit']);
         Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}/items', [PurchaseOrderController::class, 'items'])
             ->where('poNumber', '.*');
         Route::get('/PurchaseOrder/PurchaseOrders/{poNumber}', [PurchaseOrderController::class, 'show'])
             ->where('poNumber', '.*');
+        Route::post('/PurchaseOrder/Approval/Bulk', [PurchaseOrderController::class, 'approvalBulk']);
         Route::get('/PurchaseOrder/Approval/History/{poNumber}', [PurchaseOrderController::class, 'approvalHistory'])
+            ->where('poNumber', '.*');
+        Route::post('/PurchaseOrder/Approval/{poNumber}', [PurchaseOrderController::class, 'approvalSubmit'])
             ->where('poNumber', '.*');
         Route::post('/PurchaseOrder/Confirm/Submit', [PurchaseOrderController::class, 'confirmSubmit']);
         Route::post('/PurchaseOrder/Confirm/Bulk', [PurchaseOrderController::class, 'confirmBulk']);

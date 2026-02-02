@@ -32,4 +32,17 @@ class VendorsController extends Controller
 
         return response()->json($query->orderBy('VendorName')->get());
     }
+
+    public function show(int $id)
+    {
+        $vendor = DB::table('mstVendor')
+            ->where('ID', $id)
+            ->first();
+
+        if (!$vendor) {
+            return response()->json(['message' => 'Vendor not found'], 404);
+        }
+
+        return response()->json($vendor);
+    }
 }

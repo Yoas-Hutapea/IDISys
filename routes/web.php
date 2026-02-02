@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -65,3 +66,66 @@ Route::get('/procurement/purchase-order/confirm', function () {
 Route::get('/Procurement/PurchaseOrder/Confirm', function () {
     return view('procurement.purchase_order.confirm.list.index');
 })->middleware('auth')->name('procurement.purchase_order.confirm.legacy');
+
+Route::get('/procurement/purchase-order/approval', function () {
+    return view('procurement.purchase_order.approval.list.index');
+})->middleware('auth')->name('procurement.purchase_order.approval');
+
+Route::get('/Procurement/PurchaseOrder/Approval', function () {
+    return view('procurement.purchase_order.approval.list.index');
+})->middleware('auth')->name('procurement.purchase_order.approval.legacy');
+
+Route::get('/procurement/purchase-order/cancel-period', function () {
+    return view('procurement.purchase_order.cancel_period.index');
+})->middleware('auth')->name('procurement.purchase_order.cancel_period');
+
+Route::get('/Procurement/PurchaseOrder/CancelPeriod', function () {
+    return view('procurement.purchase_order.cancel_period.index');
+})->middleware('auth')->name('procurement.purchase_order.cancel_period.legacy');
+
+Route::get('/Finance/EBilling/MasterDocumentChecklist', function () {
+    return view('finance.ebilling.master_document_checklist.index');
+})->middleware('auth')->name('finance.ebilling.master_document_checklist');
+
+Route::get('/Finance/EBilling/MasterWorkType', function () {
+    return view('finance.ebilling.master_work_type.index');
+})->middleware('auth')->name('finance.ebilling.master_work_type');
+
+Route::get('/Finance/EBilling/MasterWorkTypePurchaseType', function () {
+    return view('finance.ebilling.master_work_type_purchase_type.index');
+})->middleware('auth')->name('finance.ebilling.master_work_type_purchase_type');
+
+Route::get('/Finance/EBilling/MasterWorkTypeTOPDocumentChecklist', function () {
+    return view('finance.ebilling.master_work_type_top_document_checklist.index');
+})->middleware('auth')->name('finance.ebilling.master_work_type_top_document_checklist');
+
+Route::get('/Finance/EBilling/Invoice/List', function () {
+    return view('finance.invoice.list.index');
+})->middleware('auth')->name('finance.ebilling.invoice.list');
+
+Route::get('/Finance/EBilling/Invoice/Create', function () {
+    $employee = session('employee');
+    $currentUserName = $employee?->name ?? (optional(Auth::user())->name ?? optional(Auth::user())->Username ?? '');
+    $currentUserEmail = $employee?->Email ?? optional(Auth::user())->email ?? '';
+
+    return view('finance.invoice.create.index', [
+        'currentUserName' => $currentUserName,
+        'currentUserEmail' => $currentUserEmail,
+    ]);
+})->middleware('auth')->name('finance.ebilling.invoice.create');
+
+Route::get('/Finance/EBilling/Invoice/Posting', function () {
+    return view('finance.invoice.posting.index');
+})->middleware('auth')->name('finance.ebilling.invoice.posting');
+
+Route::get('/Finance/VendorManagement', function () {
+    return view('finance.vendor_management.index');
+})->middleware('auth')->name('finance.vendor_management.index');
+
+Route::get('/Finance/VendorManagement/VendorData', function () {
+    return view('finance.vendor_management.vendor_data.index');
+})->middleware('auth')->name('finance.vendor_management.vendor_data');
+
+Route::get('/Finance/VendorManagement/VendorContract', function () {
+    return view('finance.vendor_management.vendor_contract.index');
+})->middleware('auth')->name('finance.vendor_management.vendor_contract');
