@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Modules\Procurement\Controllers\PurchaseOrderController;
 
 Route::get('/', function () {
     return view('home.index');
@@ -82,6 +83,10 @@ Route::get('/procurement/purchase-order/cancel-period', function () {
 Route::get('/Procurement/PurchaseOrder/CancelPeriod', function () {
     return view('procurement.purchase_order.cancel_period.index');
 })->middleware('auth')->name('procurement.purchase_order.cancel_period.legacy');
+
+Route::get('/Procurement/PurchaseOrder/Document/DownloadDocument', [PurchaseOrderController::class, 'downloadDocument'])
+    ->middleware('auth')
+    ->name('procurement.purchase_order.document.download');
 
 Route::get('/Finance/EBilling/MasterDocumentChecklist', function () {
     return view('finance.ebilling.master_document_checklist.index');

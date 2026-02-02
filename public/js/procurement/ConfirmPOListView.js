@@ -1,7 +1,7 @@
 /**
  * ConfirmPOListView Module
  * Handles view confirm PO details functionality, edit items, delete items, and document download
- * 
+ *
  * NOTE: This is a large module. Functions are organized by feature:
  * - View Confirm PO: viewConfirm, populateConfirmView, loadPODetailsForView
  * - Items Management: populateItemsTable, editItem, deleteItem, updateAmountTotal
@@ -29,10 +29,10 @@ class ConfirmPOListView {
         const viewSection = document.getElementById('viewConfirmSection');
         const loadingDiv = document.getElementById('viewConfirmLoading');
         const dataDiv = document.getElementById('viewConfirmData');
-        
+
         if (listSection) listSection.style.display = 'none';
         if (viewSection) viewSection.style.display = 'block';
-        
+
         // Reset deleted items and store current PO number
         this.deletedItemIds.clear();
         this.currentPONumber = poNumber;
@@ -40,11 +40,11 @@ class ConfirmPOListView {
             this.manager.deletedItemIds = this.deletedItemIds;
             this.manager.currentPONumber = poNumber;
         }
-        
+
         // Show loading state
         if (loadingDiv) loadingDiv.style.display = 'block';
         if (dataDiv) dataDiv.style.display = 'none';
-        
+
         try {
             // Load PO data using API module
             if (!this.manager || !this.manager.apiModule) {
@@ -52,22 +52,22 @@ class ConfirmPOListView {
             }
 
             const poData = await this.manager.apiModule.getPODetails(poNumber);
-            
+
             if (!poData) {
                 throw new Error('Purchase Order not found');
             }
-            
+
             // Load PO items and PR details if needed
             const prNumber = poData.prNumber || poData.PRNumber || '';
             await this.loadPODetailsForView(poNumber, prNumber);
-            
+
             // Populate view with data from correct sources
             await this.populateConfirmView(poData, this.viewPRData, this.viewPOItems, this.viewPRDocuments);
-            
+
             // Hide loading, show data
             if (loadingDiv) loadingDiv.style.display = 'none';
             if (dataDiv) dataDiv.style.display = 'block';
-            
+
         } catch (error) {
             console.error('Error loading PO details:', error);
             this.showError('Failed to load Purchase Order details: ' + error.message);
@@ -91,14 +91,14 @@ class ConfirmPOListView {
         if (!this.allPurchaseTypes && this.manager && this.manager.tableModule && this.manager.tableModule.allPurchaseTypes) {
             this.allPurchaseTypes = this.manager.tableModule.allPurchaseTypes;
         }
-        
+
         // Load if not already loaded
         if (!this.allPurchaseTypes && this.manager && this.manager.apiModule) {
             try {
                 // Use API module which uses shared cache (ProcurementSharedCache)
                 // This will prevent duplicate API calls even if called from multiple places
                 this.allPurchaseTypes = await this.manager.apiModule.getPurchaseTypes();
-                
+
                 // Share with tableModule if available
                 if (this.manager && this.manager.tableModule) {
                     this.manager.tableModule.allPurchaseTypes = this.allPurchaseTypes;
@@ -114,7 +114,7 @@ class ConfirmPOListView {
             const items = await this.manager.apiModule.getPOItems(poNumber);
             this.viewPOItems = Array.isArray(items) ? items : [];
             if (!Array.isArray(this.viewPOItems)) this.viewPOItems = [];
-            
+
             // Store original items data for tracking edits and deletes
             this.originalItemsData = [...this.viewPOItems];
             if (this.manager) {
@@ -142,69 +142,69 @@ class ConfirmPOListView {
             try {
                 const pr = await this.manager.apiModule.getPRDetails(prNumber);
                 this.viewPRData = pr || null;
-                
+
                 // Only load additional data if Type ID and SubType ID require Additional Section
                 let shouldLoadAdditional = false;
                 let typeId = null;
                 let subTypeId = null;
-                
+
                 if (pr) {
                     // Get Type ID and Sub Type ID from PR data
                     const purchReqType = pr.purchReqType || pr.PurchReqType || '';
                     const purchReqSubType = pr.purchReqSubType || pr.PurchReqSubType || '';
-                    
+
                     // Find Type ID
                     if (this.allPurchaseTypes && purchReqType) {
                         let type = null;
-                        
+
                         // First, try to find by matching PurchaseRequestType or formatted display
                         type = this.allPurchaseTypes.find(t => {
                             const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
                             const category = t.Category || t.category || '';
-                            const formattedDisplay = category && typeValue !== category 
-                                ? `${typeValue} ${category}` 
+                            const formattedDisplay = category && typeValue !== category
+                                ? `${typeValue} ${category}`
                                 : typeValue;
                             return typeValue === purchReqType || formattedDisplay === purchReqType;
                         });
-                        
+
                         // If not found, try to parse as ID
                         if (!type) {
                             const typeIdInt = parseInt(purchReqType.trim(), 10);
                             if (!isNaN(typeIdInt) && typeIdInt > 0) {
-                                type = this.allPurchaseTypes.find(t => 
+                                type = this.allPurchaseTypes.find(t =>
                                     parseInt(t.ID || t.id || '0', 10) === typeIdInt
                                 );
                             }
                         }
-                        
+
                         if (type) {
                             typeId = parseInt(type.ID || type.id || '0', 10);
                         }
                     }
-                    
+
                     // Load Purchase Sub Types if Type ID is found
                     if (typeId && purchReqSubType) {
                         try {
                             const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
-                            
+
                             // purchReqSubType might be formatted display or ID
                             let subType = null;
-                            
+
                             // First, try to find by matching PurchaseRequestSubType
-                            subType = subTypes.find(st => 
+                            subType = subTypes.find(st =>
                                 (st.PurchaseRequestSubType || st.purchaseRequestSubType) === purchReqSubType
                             );
-                            
+
                             // If not found, try to parse as ID
                             if (!subType) {
                                 const subTypeIdInt = parseInt(purchReqSubType.trim(), 10);
                                 if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
-                                    subType = subTypes.find(st => 
+                                    subType = subTypes.find(st =>
                                         parseInt(st.ID || st.id || '0', 10) === subTypeIdInt
                                     );
                                 }
                             }
-                            
+
                             if (subType) {
                                 subTypeId = parseInt(subType.ID || subType.id || '0', 10);
                             }
@@ -212,11 +212,11 @@ class ConfirmPOListView {
                             console.error('Error loading purchase sub types:', error);
                         }
                     }
-                    
+
                     // Check if Additional Section is required
                     shouldLoadAdditional = this.requiresAdditionalSection(typeId, subTypeId);
                 }
-                
+
                 // Load additional data only if required
                 if (shouldLoadAdditional) {
                     try {
@@ -228,7 +228,7 @@ class ConfirmPOListView {
                     } catch (error) {
                         // If 404 error or "not found" message, it's okay - additional data doesn't exist for this PR
                         const errorMessage = error.message || error.toString() || '';
-                        if (errorMessage.includes('not found') || errorMessage.includes('404') || 
+                        if (errorMessage.includes('not found') || errorMessage.includes('404') ||
                             (error.statusCode === 404) || (error.response && error.response.status === 404)) {
                             console.log('Additional data not found for PR:', prNumber, '- This is expected if PR does not have Additional data yet');
                             this.viewPOAdditional = null;
@@ -276,13 +276,13 @@ class ConfirmPOListView {
      */
     requiresAdditionalSection(typeId, subTypeId) {
         if (!typeId) return false;
-        
+
         // Type ID 5 or 7: Subscribe section (no Sub Type required)
         if (typeId === 5 || typeId === 7) return true;
-        
+
         // Type ID 6 && Sub Type ID 2: Billing Type section
         if (typeId === 6 && subTypeId === 2) return true;
-        
+
         // Sonumb Section conditions
         // Type ID 8 && Sub Type ID 4
         if (typeId === 8 && subTypeId === 4) return true;
@@ -292,7 +292,7 @@ class ConfirmPOListView {
         if (typeId === 4 && subTypeId === 3) return true;
         // Type ID 3 && (Sub Type ID 4 || 5)
         if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
-        
+
         return false;
     }
 
@@ -306,17 +306,17 @@ class ConfirmPOListView {
         const poNumber = poData.purchOrderID || poData.PurchOrderID || '';
         const poNumberDisplay = document.getElementById('confirm-po-number-display');
         if (poNumberDisplay) poNumberDisplay.textContent = poNumber || '[Nomor PO]';
-        
+
         // Purchase Information (from trxPROPurchaseOrder and trxPROPurchaseRequest)
         this.setValue('confirm-po-number', poNumber);
-        
+
         // Get employee IDs
         const requestorId = prData?.requestor || prData?.Requestor || poData.prRequestor || poData.PRRequestor || '';
         const applicantId = prData?.applicant || prData?.Applicant || '';
         const reviewedById = prData?.reviewedBy || prData?.ReviewedBy || '';
         const confirmedById = prData?.confirmedBy || prData?.ConfirmedBy || '';
         const approvedById = prData?.approvedBy || prData?.ApprovedBy || '';
-        
+
         // Get employee names asynchronously using shared cache
         let employeeCache = null;
         if (window.procurementSharedCache && window.procurementSharedCache.getEmployeeNameByEmployId) {
@@ -324,20 +324,20 @@ class ConfirmPOListView {
         } else if (this.manager && this.manager.employeeCacheModule && this.manager.employeeCacheModule.getEmployeeNameByEmployId) {
             employeeCache = this.manager.employeeCacheModule;
         }
-        
+
         const employeeIds = [];
         if (requestorId) employeeIds.push(requestorId);
         if (applicantId) employeeIds.push(applicantId);
         if (reviewedById) employeeIds.push(reviewedById);
         if (confirmedById) employeeIds.push(confirmedById);
         if (approvedById) employeeIds.push(approvedById);
-        
+
         let requestorName = '';
         let applicantName = '';
         let reviewedByName = '';
         let confirmedByName = '';
         let approvedByName = '';
-        
+
         if (employeeCache && employeeIds.length > 0) {
             if (employeeCache.batchGetEmployeeNames) {
                 const nameMap = await employeeCache.batchGetEmployeeNames(employeeIds);
@@ -361,32 +361,32 @@ class ConfirmPOListView {
                 approvedByName = apprName;
             }
         }
-        
+
         // Requestor from PR (trxPROPurchaseRequest) - show name or ID
         this.setValue('confirm-requestor', requestorName || requestorId || '');
         // Applicant from PR (trxPROPurchaseRequest) - show name or ID
         this.setValue('confirm-applicant', applicantName || applicantId || '');
-        
+
         // Purchase Type and Sub Type from PO (trxPROPurchaseOrder) - format with Category
         // Use tableModule if available for formatting
         let formattedPurchaseType = poData.purchType || poData.PurchType || '';
         let formattedPurchaseSubType = poData.purchSubType || poData.PurchSubType || '';
-        
+
         if (this.manager && this.manager.tableModule) {
             formattedPurchaseType = this.manager.tableModule.formatPurchaseType(poData.purchType || poData.PurchType || '', poData, false);
-            
+
             // For Purchase Sub Type, we need to load sub types first if not already loaded
             // Get Type ID from Purchase Type
             let typeId = null;
             const purchType = poData.purchType || poData.PurchType || '';
-            
+
             if (purchType) {
                 // First, try to parse as ID directly (most common case)
                 const typeIdInt = parseInt(purchType.toString().trim(), 10);
                 if (!isNaN(typeIdInt) && typeIdInt > 0) {
                     // Check if this ID exists in allPurchaseTypes
                     if (this.allPurchaseTypes) {
-                        const type = this.allPurchaseTypes.find(t => 
+                        const type = this.allPurchaseTypes.find(t =>
                             parseInt(t.ID || t.id || '0', 10) === typeIdInt
                         );
                         if (type) {
@@ -401,18 +401,18 @@ class ConfirmPOListView {
                     const type = this.allPurchaseTypes.find(t => {
                         const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
                         const category = t.Category || t.category || '';
-                        const formattedDisplay = category && typeValue !== category 
-                            ? `${typeValue} ${category}` 
+                        const formattedDisplay = category && typeValue !== category
+                            ? `${typeValue} ${category}`
                             : typeValue;
                         return typeValue === purchType || formattedDisplay === purchType;
                     });
-                    
+
                     if (type) {
                         typeId = parseInt(type.ID || type.id || '0', 10);
                     }
                 }
             }
-            
+
             // Load Purchase Sub Types if Type ID is found and not already loaded
             if (typeId && this.manager && this.manager.apiModule) {
                 const purchSubType = poData.purchSubType || poData.PurchSubType || '';
@@ -420,7 +420,7 @@ class ConfirmPOListView {
                     try {
                         // Load sub types for this type ID (will use cache)
                         const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
-                        
+
                         // Store in tableModule for formatting
                         if (this.manager.tableModule) {
                             if (!this.manager.tableModule.allPurchaseSubTypes) {
@@ -449,11 +449,11 @@ class ConfirmPOListView {
                     }
                 }
             }
-            
+
             // Now format Purchase Sub Type (sub types should be loaded)
             formattedPurchaseSubType = this.manager.tableModule.formatPurchaseSubType(poData.purchSubType || poData.PurchSubType || '', poData, false);
         }
-        
+
         this.setValue('confirm-purch-type', formattedPurchaseType);
         this.setValue('confirm-purch-sub-type', formattedPurchaseSubType);
         // Company from PR (trxPROPurchaseRequest) or PO
@@ -464,7 +464,7 @@ class ConfirmPOListView {
         // Remarks from PO (trxPROPurchaseOrder) or PR
         const remarks = poData.description || poData.Description || prData?.remark || prData?.Remark || '';
         this.setValue('confirm-remarks', remarks);
-        
+
         // Assign Approval (from trxPROPurchaseRequest) - show names or IDs
         this.setValue('confirm-approval-requestor', requestorName || requestorId || '');
         this.setValue('confirm-approval-applicant', applicantName || applicantId || '');
@@ -472,7 +472,7 @@ class ConfirmPOListView {
         this.setValue('confirm-reviewed-by', reviewedByName || reviewedById || '');
         this.setValue('confirm-confirmed-by', confirmedByName || confirmedById || '');
         this.setValue('confirm-approved-by', approvedByName || approvedById || '');
-        
+
         // Vendor Information (from trxPROPurchaseOrderAssignVendor via PurchaseOrderService.GetByPONumberAsync)
         // Vendor Type, Core Business, Sub Core Business, Contract Number, Contract Period, TOP, TOP Description
         // These come from trxPROPurchaseOrderAssignVendor table
@@ -486,7 +486,7 @@ class ConfirmPOListView {
         // TOP Description from trxPROPurchaseOrderAssignVendor.DescriptionVendor
         this.setValue('confirm-top', poData.topDescription || poData.TOPDescription || poData.TopDescription || '');
         this.setValue('confirm-top-description', poData.descriptionVendor || poData.DescriptionVendor || '');
-        
+
         // Hide/Show vendor contract fields based on Vendor Type
         const vendorType = poData.vendorType || poData.VendorType || '';
         const isNonContract = vendorType && vendorType.toLowerCase().trim() === 'non contract';
@@ -498,10 +498,10 @@ class ConfirmPOListView {
                 field.style.display = '';
             }
         });
-        
+
         // Get additional information HTML (async)
         const additionalHTML = await this.getAdditionalInformationSummaryHTML(poData);
-        
+
         // Inject Additional section HTML if exists
         const additionalSectionContainer = document.getElementById('confirm-additional-section-container');
         if (additionalSectionContainer) {
@@ -517,10 +517,10 @@ class ConfirmPOListView {
             // This is a fallback - ideally the container should exist in the HTML partial
             console.warn('Additional section container not found. Additional section HTML generated but not displayed.');
         }
-        
+
         // Populate Items Table (from trxPROPurchaseOrderItem)
         this.populateItemsTable(itemsData);
-        
+
         // Populate Documents Table (from PR documents)
         this.populateDocumentsTable(documentsData);
     }
@@ -538,10 +538,10 @@ class ConfirmPOListView {
     populateItemsTable(items) {
         const tbody = document.getElementById('confirm-items-tbody');
         if (!tbody) return;
-        
+
         tbody.innerHTML = '';
         // Don't clear deletedItemIds here - it should persist until submit or new view
-        
+
         if (!items || items.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No items</td></tr>';
             const amountTotalEl = document.getElementById('confirm-amount-total');
@@ -550,7 +550,7 @@ class ConfirmPOListView {
             }
             return;
         }
-        
+
         // Format currency helper - for display in table (Unit Price and Amount)
         const formatCurrency = (amount) => {
             if (amount === null || amount === undefined || amount === '') {
@@ -571,7 +571,7 @@ class ConfirmPOListView {
                 return numAmount.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2});
             }
         };
-        
+
         // Calculate total amount
         let totalAmount = 0;
         items.forEach(item => {
@@ -581,7 +581,7 @@ class ConfirmPOListView {
             const amount = parseFloat(cleanAmount) || 0;
             totalAmount += amount;
         });
-        
+
         const amountTotalEl = document.getElementById('confirm-amount-total');
         if (amountTotalEl) {
             // Format total amount - if 0 or NaN, show 0
@@ -598,16 +598,16 @@ class ConfirmPOListView {
                 }
             }
         }
-        
+
         // Populate all items (no pagination), excluding deleted items
         items.forEach(item => {
             const itemDbId = item.ID || item.id || item.Id || null; // Database ID for tracking
-            
+
             // Skip items that are marked for deletion
             if (itemDbId && this.deletedItemIds.has(itemDbId.toString())) {
                 return;
             }
-            
+
             const itemId = item.mstPROPurchaseItemInventoryItemID || item.mstPROInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.MstPROInventoryItemID || item.ItemID || item.itemID || '-';
             const itemName = item.ItemName || item.itemName || '-';
             const description = item.ItemDescription || item.itemDescription || '-';
@@ -616,7 +616,7 @@ class ConfirmPOListView {
             const currencyCode = item.CurrencyCode || item.currencyCode || '-';
             const unitPrice = item.UnitPrice ?? item.unitPrice ?? null;
             const amount = item.Amount ?? item.amount ?? null;
-            
+
             const row = document.createElement('tr');
             if (itemDbId) {
                 row.setAttribute('data-item-id', itemDbId.toString());
@@ -659,14 +659,14 @@ class ConfirmPOListView {
     populateDocumentsTable(documents) {
         const tbody = document.getElementById('confirm-documents-tbody');
         if (!tbody) return;
-        
+
         tbody.innerHTML = '';
-        
+
         if (!documents || documents.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No documents</td></tr>';
             return;
         }
-        
+
         // Populate all documents (no pagination)
         documents.forEach(doc => {
             const docId = doc.id || doc.ID || 0;
@@ -675,7 +675,7 @@ class ConfirmPOListView {
             const fileSize = doc.fileSize || doc.FileSize || '-';
             const escapedFileName = this.escapeHtml(fileName);
             const escapedFilePath = this.escapeHtml(filePath);
-            
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${escapedFileName}</td>
@@ -696,7 +696,7 @@ class ConfirmPOListView {
     updateAmountTotal() {
         const tbody = document.getElementById('confirm-items-tbody');
         if (!tbody) return;
-        
+
         let totalAmount = 0;
         const rows = tbody.querySelectorAll('tr[data-item-id]');
         rows.forEach(row => {
@@ -711,7 +711,7 @@ class ConfirmPOListView {
                 totalAmount += amount;
             }
         });
-        
+
         const amountTotalEl = document.getElementById('confirm-amount-total');
         if (amountTotalEl) {
             // Format total amount - if 0 or NaN, show 0
@@ -739,18 +739,18 @@ class ConfirmPOListView {
             this.showError('Item row not found');
             return;
         }
-        
+
         const itemId = row.getAttribute('data-item-id');
         if (!itemId) {
             this.showError('Item ID not found. This item cannot be edited.');
             return;
         }
-        
+
         // Get Item ID and Item Name from row (first and second column after Action)
         const cells = row.querySelectorAll('td');
         const displayItemId = cells.length > 1 ? cells[1].textContent?.trim() || '' : '';
         const displayItemName = cells.length > 2 ? cells[2].textContent?.trim() || '' : '';
-        
+
         // Get current values from row
         const description = row.getAttribute('data-original-description') || row.querySelector('.item-description')?.textContent?.trim() || '';
         const unit = row.getAttribute('data-original-unit') || row.querySelector('.item-unit')?.textContent?.trim() || '';
@@ -760,7 +760,7 @@ class ConfirmPOListView {
         const unitPriceText = row.querySelector('.item-unit-price')?.textContent?.trim() || '';
         // Parse unitPrice - remove all thousand separators (both . and ,)
         const unitPrice = parseFloat(unitPriceText.replace(/[.,]/g, '')) || 0;
-        
+
         // Show edit modal (async)
         await this.showEditItemModal(itemId, displayItemId, displayItemName, description, unit, qty, unitPrice, row);
     }
@@ -771,7 +771,7 @@ class ConfirmPOListView {
     async loadUnitsForEditModal(selectedUnit) {
         const unitSelect = document.getElementById('edit-item-unit');
         if (!unitSelect) return;
-        
+
         try {
             // Use API module if available
             let units = [];
@@ -783,16 +783,16 @@ class ConfirmPOListView {
                 const data = await apiCall('Procurement', endpoint, 'GET');
                 units = data.data || data;
             }
-            
+
             if (!Array.isArray(units) || units.length === 0) {
                 unitSelect.innerHTML = '<option value="" disabled selected>Select UoM</option>';
                 console.warn('No units found');
                 return;
             }
-            
+
             // Clear existing options
             unitSelect.innerHTML = '';
-            
+
             // Add default option
             const selectOption = document.createElement('option');
             selectOption.value = '';
@@ -800,7 +800,10 @@ class ConfirmPOListView {
             selectOption.selected = true;
             selectOption.textContent = 'Select UoM';
             unitSelect.appendChild(selectOption);
-            
+
+            const normalizedSelected = (selectedUnit || '').toString().trim().toUpperCase();
+            let matchedSelection = false;
+
             // Add units from API
             units.forEach(unit => {
                 const option = document.createElement('option');
@@ -809,16 +812,30 @@ class ConfirmPOListView {
                 const unitDisplay = unit.Unit || unit.unit || unit.UnitId || unit.unitId || '';
                 option.value = unitValue;
                 option.textContent = unitDisplay;
-                
+
                 // Auto-select if matches current unit (case-insensitive)
-                if (selectedUnit && unitDisplay.toUpperCase() === selectedUnit.toUpperCase()) {
+                const normalizedDisplay = (unitDisplay || '').toString().trim().toUpperCase();
+                const normalizedValue = (unitValue || '').toString().trim().toUpperCase();
+                if (normalizedSelected && (normalizedDisplay === normalizedSelected || normalizedValue === normalizedSelected)) {
                     option.selected = true;
                     selectOption.selected = false;
+                    matchedSelection = true;
                 }
-                
+
                 unitSelect.appendChild(option);
             });
-            
+
+            if (!matchedSelection && normalizedSelected) {
+                // Fallback: try select by value directly
+                const directMatch = Array.from(unitSelect.options).find(opt => {
+                    return opt.value && opt.value.toString().trim().toUpperCase() === normalizedSelected;
+                });
+                if (directMatch) {
+                    directMatch.selected = true;
+                    selectOption.selected = false;
+                }
+            }
+
         } catch (error) {
             console.error('Error loading units:', error);
             unitSelect.innerHTML = '<option value="">Select UoM</option>';
@@ -836,17 +853,17 @@ class ConfirmPOListView {
     async showEditItemModal(itemId, displayItemId, displayItemName, description, unit, qty, unitPrice, row) {
         const modalId = 'editItemModal';
         let existingModal = document.getElementById(modalId);
-        
+
         if (existingModal) {
             existingModal.remove();
         }
-        
+
         // Format unit price - if 0 or NaN, show 0
         const formattedUnitPrice = (isNaN(unitPrice) || unitPrice === 0) ? '0' : unitPrice.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2});
-        
+
         // Normalize unit for comparison (trim and uppercase)
         const normalizedUnit = (unit || '').toString().trim().toUpperCase();
-        
+
         const modalHtml = `
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="editItemModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -902,28 +919,28 @@ class ConfirmPOListView {
                 </div>
             </div>
         `;
-        
+
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = new bootstrap.Modal(document.getElementById(modalId));
-        
+
         // Load units from API
         await this.loadUnitsForEditModal(normalizedUnit);
-        
+
         // Format number inputs
         const qtyInput = document.getElementById('edit-item-qty');
         const unitPriceInput = document.getElementById('edit-item-unit-price');
-        
+
         // Initialize amount calculation
         const amountField = document.getElementById('edit-item-amount');
         const calculateAmount = () => {
             // Parse qty - remove thousand separators and parse
             let qtyValue = qtyInput.value.replace(/[.,]/g, '');
             const qty = parseFloat(qtyValue) || 0;
-            
+
             // Parse unitPrice - remove thousand separators and parse
             let unitPriceValue = unitPriceInput.value.replace(/[.,]/g, '');
             const unitPrice = parseFloat(unitPriceValue) || 0;
-            
+
             const amount = qty * unitPrice;
             if (amountField) {
                 // If amount is 0 or NaN, show 0
@@ -942,12 +959,12 @@ class ConfirmPOListView {
                 }
             }
         };
-        
+
         // Calculate initial amount after a short delay to ensure DOM is ready
         setTimeout(() => {
             calculateAmount();
         }, 100);
-        
+
         // Format quantity input (max 3 decimal places, with thousand separator)
         qtyInput.addEventListener('input', (e) => {
             let value = e.target.value.replace(/[.,]/g, '');
@@ -968,7 +985,7 @@ class ConfirmPOListView {
             }
             e.target.setAttribute('data-prev-value', e.target.value.replace(/[.,]/g, ''));
         });
-        
+
         // Format unit price input (max 2 decimal places, with thousand separator)
         unitPriceInput.addEventListener('input', (e) => {
             let value = e.target.value.replace(/[.,]/g, '');
@@ -989,7 +1006,7 @@ class ConfirmPOListView {
             }
             e.target.setAttribute('data-prev-value', e.target.value.replace(/[.,]/g, ''));
         });
-        
+
         // Save button handler
         const saveBtn = document.getElementById('saveEditItemBtn');
         if (saveBtn) {
@@ -999,7 +1016,7 @@ class ConfirmPOListView {
                     form.reportValidity();
                     return;
                 }
-                
+
                 const newDescription = document.getElementById('edit-item-description').value.trim();
                 const newUnit = document.getElementById('edit-item-unit').value.trim();
                 // Parse qty - remove all thousand separators (both . and ,)
@@ -1007,51 +1024,51 @@ class ConfirmPOListView {
                 // Parse unitPrice - remove all thousand separators (both . and ,)
                 const newUnitPrice = parseFloat(unitPriceInput.value.replace(/[.,]/g, '')) || 0;
                 const newAmount = newQty * newUnitPrice;
-                
+
                 // Format unit price and amount - if 0 or NaN, show 0
                 let formattedUnitPrice = '0';
                 if (!isNaN(newUnitPrice) && newUnitPrice !== 0) {
                     const isWholeNumber = newUnitPrice % 1 === 0;
-                    formattedUnitPrice = isWholeNumber 
+                    formattedUnitPrice = isWholeNumber
                         ? Math.round(newUnitPrice).toLocaleString('id-ID')
                         : newUnitPrice.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2});
                 }
-                
+
                 let formattedAmount = '0';
                 if (!isNaN(newAmount) && newAmount !== 0) {
                     const isWholeNumber = newAmount % 1 === 0;
-                    formattedAmount = isWholeNumber 
+                    formattedAmount = isWholeNumber
                         ? Math.round(newAmount).toLocaleString('id-ID')
                         : newAmount.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2});
                 }
-                
+
                 // Update row
                 row.querySelector('.item-description').textContent = newDescription;
                 row.querySelector('.item-unit').textContent = newUnit;
                 row.querySelector('.item-qty').textContent = newQty.toLocaleString('id-ID');
                 row.querySelector('.item-unit-price').textContent = formattedUnitPrice;
                 row.querySelector('.item-amount').textContent = formattedAmount;
-                
+
                 // Update data attributes
                 row.setAttribute('data-original-description', newDescription);
                 row.setAttribute('data-original-unit', newUnit);
                 row.setAttribute('data-original-qty', newQty.toString());
                 row.setAttribute('data-original-unit-price', newUnitPrice.toString());
                 row.setAttribute('data-original-amount', newAmount.toString());
-                
+
                 // Recalculate total
                 this.updateAmountTotal();
-                
+
                 modal.hide();
             });
         }
-        
+
         // Clean up modal when hidden
         const modalElement = document.getElementById(modalId);
         modalElement.addEventListener('hidden.bs.modal', () => {
             modalElement.remove();
         });
-        
+
         modal.show();
     }
 
@@ -1061,13 +1078,13 @@ class ConfirmPOListView {
     deleteItem(button) {
         const row = button.closest('tr');
         if (!row) return;
-        
+
         const itemId = row.getAttribute('data-item-id');
         if (!itemId) {
             this.showError('Item ID not found');
             return;
         }
-        
+
         // Show confirmation modal
         this.showDeleteItemConfirmationModal(() => {
             // Add to deleted items set
@@ -1075,10 +1092,10 @@ class ConfirmPOListView {
             if (this.manager) {
                 this.manager.deletedItemIds = this.deletedItemIds;
             }
-            
+
             // Remove row from table
             row.remove();
-            
+
             // Recalculate total
             this.updateAmountTotal();
         });
@@ -1090,11 +1107,11 @@ class ConfirmPOListView {
     showDeleteItemConfirmationModal(callback) {
         const modalId = 'deleteItemConfirmationModal';
         let existingModal = document.getElementById(modalId);
-        
+
         if (existingModal) {
             existingModal.remove();
         }
-        
+
         const modalHtml = `
             <div class="modal fade" id="${modalId}" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered">
@@ -1121,10 +1138,10 @@ class ConfirmPOListView {
                 </div>
             </div>
         `;
-        
+
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = new bootstrap.Modal(document.getElementById(modalId));
-        
+
         const confirmBtn = document.getElementById('confirmDeleteItemBtn');
         if (confirmBtn) {
             confirmBtn.addEventListener('click', () => {
@@ -1132,13 +1149,13 @@ class ConfirmPOListView {
                 if (callback) callback();
             });
         }
-        
+
         // Clean up modal when hidden
         const modalElement = document.getElementById(modalId);
         modalElement.addEventListener('hidden.bs.modal', () => {
             modalElement.remove();
         });
-        
+
         modal.show();
     }
 
@@ -1221,16 +1238,16 @@ class ConfirmPOListView {
         if (!this.viewPOAdditional) {
             return '';
         }
-        
+
         const additional = this.viewPOAdditional;
-        
+
         // Get Type ID and Sub Type ID from PO data by looking up from master data
         let typeId = null;
         let subTypeId = null;
-        
+
         const purchType = po.purchType || po.PurchType || '';
         const purchSubType = po.purchSubType || po.PurchSubType || '';
-        
+
         // Load Purchase Types if not already loaded
         // Use shared cache to prevent duplicate API calls
         if (!this.allPurchaseTypes && purchType && this.manager && this.manager.apiModule) {
@@ -1241,60 +1258,60 @@ class ConfirmPOListView {
                 console.error('Error loading purchase types:', error);
             }
         }
-        
+
         // Find Type ID
         // purchType might be formatted display (e.g., "General Category") or ID
         if (this.allPurchaseTypes && purchType) {
             let type = null;
-            
+
             // First, try to find by matching PurchaseRequestType or formatted display
             type = this.allPurchaseTypes.find(t => {
                 const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
                 const category = t.Category || t.category || '';
-                const formattedDisplay = category && typeValue !== category 
-                    ? `${typeValue} ${category}` 
+                const formattedDisplay = category && typeValue !== category
+                    ? `${typeValue} ${category}`
                     : typeValue;
                 return typeValue === purchType || formattedDisplay === purchType;
             });
-            
+
             // If not found, try to parse as ID
             if (!type) {
                 const typeIdInt = parseInt(purchType.trim(), 10);
                 if (!isNaN(typeIdInt) && typeIdInt > 0) {
-                    type = this.allPurchaseTypes.find(t => 
+                    type = this.allPurchaseTypes.find(t =>
                         parseInt(t.ID || t.id || '0', 10) === typeIdInt
                     );
                 }
             }
-            
+
             if (type) {
                 typeId = parseInt(type.ID || type.id || '0', 10);
             }
         }
-        
+
         // Load Purchase Sub Types if Type ID is found
         if (typeId && purchSubType && this.manager && this.manager.apiModule) {
             try {
                 const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
-                
+
                 // purchSubType might be formatted display or ID
                 let subType = null;
-                
+
                 // First, try to find by matching PurchaseRequestSubType
-                subType = subTypes.find(st => 
+                subType = subTypes.find(st =>
                     (st.PurchaseRequestSubType || st.purchaseRequestSubType) === purchSubType
                 );
-                
+
                 // If not found, try to parse as ID
                 if (!subType) {
                     const subTypeIdInt = parseInt(purchSubType.trim(), 10);
                     if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
-                        subType = subTypes.find(st => 
+                        subType = subTypes.find(st =>
                             parseInt(st.ID || st.id || '0', 10) === subTypeIdInt
                         );
                     }
                 }
-                
+
                 if (subType) {
                     subTypeId = parseInt(subType.ID || subType.id || '0', 10);
                 }
@@ -1302,21 +1319,21 @@ class ConfirmPOListView {
                 console.error('Error loading purchase sub types:', error);
             }
         }
-        
+
         // Determine which section should be visible
         const shouldShowBillingTypeSection = typeId === 6 && subTypeId === 2;
-        const shouldShowSonumbSection = 
+        const shouldShowSonumbSection =
             (typeId === 8 && subTypeId === 4) ||
             (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) ||
             (typeId === 4 && subTypeId === 3) ||
             (typeId === 3 && (subTypeId === 4 || subTypeId === 5));
         const shouldShowSubscribeSection = typeId === 5 || typeId === 7;
-        
+
         // Hide section if no Additional section should be shown
         if (!shouldShowBillingTypeSection && !shouldShowSonumbSection && !shouldShowSubscribeSection) {
             return '';
         }
-        
+
         // Helper function to format date
         const formatDate = (dateValue) => {
             if (!dateValue || dateValue === '-') return '-';
@@ -1328,7 +1345,7 @@ class ConfirmPOListView {
                 return dateValue;
             }
         };
-        
+
         // Build summary HTML based on active section
         let summaryHTML = `
             <!-- Additional Information Summary -->
@@ -1340,14 +1357,14 @@ class ConfirmPOListView {
                     <div class="card-body">
                         <div class="row g-3">
         `;
-        
+
         // Billing Type Section (Type ID 6, Sub Type ID 2)
         if (shouldShowBillingTypeSection) {
             const billingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
             const startPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
             const period = additional.period || additional.Period || '-';
             const endPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Billing Type</label>
@@ -1372,7 +1389,7 @@ class ConfirmPOListView {
             const sonumb = additional.sonumb || additional.Sonumb || '-';
             const siteName = additional.siteName || additional.SiteName || '-';
             const siteID = additional.siteID || additional.SiteID || '-';
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Sonumb</label>
@@ -1399,7 +1416,7 @@ class ConfirmPOListView {
             const subscribeStartPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
             const subscribePeriod = additional.period || additional.Period || '-';
             const subscribeEndPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Sonumb</label>
@@ -1441,14 +1458,14 @@ class ConfirmPOListView {
                 ` : ''}
             `;
         }
-        
+
         summaryHTML += `
                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
+
         return summaryHTML;
     }
 
@@ -1458,7 +1475,7 @@ class ConfirmPOListView {
     backToList() {
         const listSection = document.getElementById('listSection');
         const viewSection = document.getElementById('viewConfirmSection');
-        
+
         if (listSection) listSection.style.display = 'block';
         if (viewSection) viewSection.style.display = 'none';
     }

@@ -19,7 +19,7 @@ class PRListTable {
         }
 
         const self = this;
-        
+
         // Build filter function for GetGrid
         const buildFilter = () => {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildFilter) {
@@ -50,24 +50,38 @@ class PRListTable {
                             className: 'btn-warning',
                             title: 'Edit',
                             showIf: (row) => {
-                                const statusId = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
+                                const statusIdRaw = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
+                                const statusId = Number.isFinite(Number(statusIdRaw))
+                                    ? parseInt(statusIdRaw, 10)
+                                    : null;
                                 const requestor = row.requestor ?? row.Requestor ?? '';
-                                
+
                                 // Get current user employee ID from config
                                 const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
-                                
+                                const currentUserIdentifiers = (window.PRListConfig && window.PRListConfig.currentUserIdentifiers) || [];
+
                                 // Show Edit only if:
                                 // 1. Status is 5 or 6 (rejected/draft)
                                 // 2. AND current user is the Requestor
-                                if (statusId === 5 || statusId === 6 || statusId === null) {
-                                    if (currentUserEmployeeID && requestor) {
-                                        const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
+                                if (statusId === 5 || statusId === 6) {
+                                    if (requestor) {
                                         const requestorNormalized = requestor.trim().toLowerCase();
-                                        return currentUserNormalized === requestorNormalized;
+                                        if (currentUserEmployeeID) {
+                                            const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
+                                            if (currentUserNormalized === requestorNormalized) {
+                                                return true;
+                                            }
+                                        }
+                                        if (Array.isArray(currentUserIdentifiers)) {
+                                            return currentUserIdentifiers.some(id => {
+                                                if (!id) return false;
+                                                return id.toString().trim().toLowerCase() === requestorNormalized;
+                                            });
+                                        }
                                     }
                                     return false;
                                 }
-                                
+
                                 return false;
                             }
                         },
@@ -85,8 +99,8 @@ class PRListTable {
                 { data: 'purchReqType', title: 'Purchase Request Type' },
                 { data: 'purchReqSubType', title: 'Purchase Request Sub Type' },
                 { data: 'approvalStatus', title: 'Status' },
-                { 
-                    data: 'pic', 
+                {
+                    data: 'pic',
                     title: 'PIC',
                     render: function(data, type, row) {
                         const picId = data || row.pic || row.PIC || '';
@@ -99,8 +113,8 @@ class PRListTable {
                 },
                 { data: 'totalAmount', title: 'Amount PR', type: 'currency' },
                 { data: 'company', title: 'Company' },
-                { 
-                    data: 'requestor', 
+                {
+                    data: 'requestor',
                     title: 'Requestor',
                     render: function(data, type, row) {
                         const requestorId = data || row.requestor || row.Requestor || '';
@@ -111,8 +125,8 @@ class PRListTable {
                         return `<span class="employee-name" data-employee-id="${escapedId}">${escapedId}</span>`;
                     }
                 },
-                { 
-                    data: 'applicant', 
+                {
+                    data: 'applicant',
                     title: 'Applicant',
                     render: function(data, type, row) {
                         const applicantId = data || row.applicant || row.Applicant || '';
@@ -174,7 +188,7 @@ class PRListTable {
         // Get all employee IDs from the table
         const employeeNameSpans = document.querySelectorAll('#prTable .employee-name');
         if (employeeNameSpans.length === 0) return;
-        
+
         // Collect unique employee IDs
         // Filter out values that look like names (contain spaces) - these are likely already names, not IDs
         const employeeIds = new Set();
@@ -193,12 +207,12 @@ class PRListTable {
                 }
             }
         });
-        
+
         if (employeeIds.size === 0) return;
-        
+
         // Batch lookup all employee names
         const nameMap = await this.manager.employeeCacheModule.batchGetEmployeeNames(Array.from(employeeIds));
-        
+
         // Update all employee name spans
         employeeNameSpans.forEach(span => {
             const employeeId = span.getAttribute('data-employee-id');

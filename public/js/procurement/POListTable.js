@@ -25,7 +25,7 @@ class POListTable {
         await this.loadPurchaseTypesForFormatting();
 
         const self = this;
-        
+
         // Build filter function for GetGrid
         const buildFilter = () => {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildFilter) {
@@ -62,21 +62,25 @@ class POListTable {
                             icon: '<i class="bx bx-printer"></i>',
                             className: 'btn-success',
                             title: 'Print PO Document',
-                            showIf: (row) => row.mstApprovalStatusID === 11
+                            showIf: (row) => {
+                                const statusRaw = row.mstApprovalStatusID || row.MstApprovalStatusID;
+                                const statusId = parseInt(statusRaw, 10);
+                                return statusId === 11;
+                            }
                         }
                     ]
                 },
                 { data: 'purchOrderID', title: 'Purchase Order Number' },
                 { data: 'purchOrderName', title: 'Purchase Order Name' },
-                { 
-                    data: 'purchType', 
+                {
+                    data: 'purchType',
                     title: 'Purchase Type',
                     render: function(data, type, row) {
                         return self.formatPurchaseType(data, row);
                     }
                 },
-                { 
-                    data: 'purchSubType', 
+                {
+                    data: 'purchSubType',
                     title: 'Purchase Sub Type',
                     render: function(data, type, row) {
                         return self.formatPurchaseSubType(data, row);
@@ -88,8 +92,8 @@ class POListTable {
                 { data: 'prNumber', title: 'PR Number' },
                 { data: 'mstVendorVendorName', title: 'Vendor Name' },
                 { data: 'companyName', title: 'Company' },
-                { 
-                    data: 'poAuthor', 
+                {
+                    data: 'poAuthor',
                     title: 'PO Author',
                     render: function(data, type, row) {
                         const poAuthorId = data || row.poAuthor || row.POAuthor || '';
@@ -104,8 +108,8 @@ class POListTable {
                         return `<span class="employee-name" data-employee-id="${escapedId}">${escapedId}</span>`;
                     }
                 },
-                { 
-                    data: 'prRequestor', 
+                {
+                    data: 'prRequestor',
                     title: 'PR Requestor',
                     render: function(data, type, row) {
                         const requestorId = data || row.prRequestor || row.PRRequestor || '';
@@ -131,7 +135,7 @@ class POListTable {
         this.dataTable.on('draw', () => {
             this.updateEmployeeNamesInTable(); // Update employee names
         });
-        
+
         // Initial update after table is drawn
         setTimeout(() => this.updateEmployeeNamesInTable(), 500);
 
@@ -171,7 +175,7 @@ class POListTable {
             this.allPurchaseTypes = this.manager.viewModule.allPurchaseTypes;
             return; // Already loaded, no need to fetch
         }
-        
+
         // Load PurchaseTypes if not already loaded
         // Use shared cache to prevent duplicate API calls
         if (!this.allPurchaseTypes && this.manager && this.manager.apiModule) {
@@ -179,7 +183,7 @@ class POListTable {
                 // Use API module which uses shared cache (ProcurementSharedCache)
                 // This will prevent duplicate API calls even if called from multiple places
                 this.allPurchaseTypes = await this.manager.apiModule.getPurchaseTypes();
-                
+
                 // Share with viewModule if available
                 if (this.manager && this.manager.viewModule) {
                     this.manager.viewModule.allPurchaseTypes = this.allPurchaseTypes;
@@ -189,7 +193,7 @@ class POListTable {
                 this.allPurchaseTypes = [];
             }
         }
-        
+
         // Load PurchaseSubTypes if not already loaded
         // Note: Original code loads all sub types at once, but we'll use Map for efficiency
         // For backward compatibility, we'll also support array format
@@ -198,7 +202,7 @@ class POListTable {
             if (!this.allPurchaseSubTypes) {
                 this.allPurchaseSubTypes = new Map(); // key: typeId, value: subTypes array
             }
-            
+
             // Optionally: Load all sub types at once (like original code) for immediate formatting
             // This is less efficient but ensures all sub types are available for formatting
             // We'll load them on-demand when needed instead
@@ -214,7 +218,7 @@ class POListTable {
         // Get all employee IDs from the table
         const employeeNameSpans = document.querySelectorAll('#poTable .employee-name');
         if (employeeNameSpans.length === 0) return;
-        
+
         // Collect unique employee IDs
         // Filter out values that look like names (contain spaces) - these are likely already names, not IDs
         const employeeIds = new Set();
@@ -228,13 +232,13 @@ class POListTable {
                 }
             }
         });
-        
+
         if (employeeIds.size === 0) return;
-        
+
         // Batch lookup all employee names
         if (this.manager.employeeCacheModule.batchGetEmployeeNames) {
             const nameMap = await this.manager.employeeCacheModule.batchGetEmployeeNames(Array.from(employeeIds));
-            
+
             // Update all employee name spans
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
@@ -255,7 +259,7 @@ class POListTable {
                 const name = await this.manager.employeeCacheModule.getEmployeeNameByEmployId(employeeId);
                 return { employeeId, name };
             });
-            
+
             const results = await Promise.all(lookupPromises);
             const nameMap = new Map();
             results.forEach(({ employeeId, name }) => {
@@ -263,7 +267,7 @@ class POListTable {
                     nameMap.set(employeeId.trim().toLowerCase(), name);
                 }
             });
-            
+
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
                 if (employeeId && employeeId !== '-') {
@@ -289,19 +293,19 @@ class POListTable {
         if (!purchType && purchType !== 0) {
             return escapeHtml ? this.escapeHtml('-') : '-';
         }
-        
+
         // Convert to string if it's a number
         const purchTypeStr = typeof purchType === 'number' ? purchType.toString() : String(purchType || '');
-        
+
         if (purchTypeStr.trim() === '') {
             return escapeHtml ? this.escapeHtml('-') : '-';
         }
-        
+
         // Check if it's already formatted (contains space and not just a number)
         if (purchTypeStr.includes(' ') && isNaN(parseInt(purchTypeStr.trim()))) {
             return escapeHtml ? this.escapeHtml(purchTypeStr) : purchTypeStr;
         }
-        
+
         // If it's a number (ID), try to format it
         const typeId = parseInt(purchTypeStr.trim(), 10);
         if (!isNaN(typeId) && typeId > 0) {
@@ -312,12 +316,12 @@ class POListTable {
                 console.warn('Purchase types not loaded yet for typeId:', typeId);
                 return escapeHtml ? this.escapeHtml(purchTypeStr) : purchTypeStr;
             }
-            
+
             const type = this.allPurchaseTypes.find(t => {
                 const tId = parseInt(t.ID || t.id || '0', 10);
                 return tId === typeId;
             });
-            
+
             if (type) {
                 const prType = type.PurchaseRequestType || type.purchaseRequestType || '';
                 const category = type.Category || type.category || '';
@@ -335,7 +339,7 @@ class POListTable {
                 console.warn('Purchase type not found for typeId:', typeId, 'Available types:', this.allPurchaseTypes.map(t => t.ID || t.id));
             }
         }
-        
+
         // If not found or invalid, return as is (might be ID that hasn't been loaded yet)
         return escapeHtml ? this.escapeHtml(purchTypeStr) : purchTypeStr;
     }
@@ -351,19 +355,19 @@ class POListTable {
         if (!purchSubType && purchSubType !== 0) {
             return escapeHtml ? this.escapeHtml('-') : '-';
         }
-        
+
         // Convert to string if it's a number
         const purchSubTypeStr = typeof purchSubType === 'number' ? purchSubType.toString() : String(purchSubType || '');
-        
+
         if (purchSubTypeStr.trim() === '') {
             return escapeHtml ? this.escapeHtml('-') : '-';
         }
-        
+
         // Check if it's already formatted (not just a number)
         if (isNaN(parseInt(purchSubTypeStr.trim()))) {
             return escapeHtml ? this.escapeHtml(purchSubTypeStr) : purchSubTypeStr;
         }
-        
+
         // If it's a number (ID), try to format it
         const subTypeId = parseInt(purchSubTypeStr.trim(), 10);
         if (!isNaN(subTypeId) && subTypeId > 0 && this.allPurchaseSubTypes) {
@@ -371,12 +375,12 @@ class POListTable {
             // Note: allPurchaseSubTypes is loaded as array in original code, but we'll use Map for efficiency
             // For now, we'll search through all cached sub types
             let foundSubType = null;
-            
+
             // If allPurchaseSubTypes is a Map, iterate through values
             if (this.allPurchaseSubTypes instanceof Map) {
                 for (const subTypes of this.allPurchaseSubTypes.values()) {
                     if (Array.isArray(subTypes)) {
-                        foundSubType = subTypes.find(st => 
+                        foundSubType = subTypes.find(st =>
                             parseInt(st.ID || st.id || '0', 10) === subTypeId
                         );
                         if (foundSubType) break;
@@ -384,17 +388,17 @@ class POListTable {
                 }
             } else if (Array.isArray(this.allPurchaseSubTypes)) {
                 // If it's an array (fallback from original code)
-                foundSubType = this.allPurchaseSubTypes.find(st => 
+                foundSubType = this.allPurchaseSubTypes.find(st =>
                     parseInt(st.ID || st.id || '0', 10) === subTypeId
                 );
             }
-            
+
             if (foundSubType) {
                 const formatted = foundSubType.PurchaseRequestSubType || foundSubType.purchaseRequestSubType || '';
                 return escapeHtml ? this.escapeHtml(formatted) : formatted;
             }
         }
-        
+
         // If not found or invalid, return as is (might be ID that hasn't been loaded yet)
         return escapeHtml ? this.escapeHtml(purchSubTypeStr) : purchSubTypeStr;
     }

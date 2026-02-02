@@ -240,10 +240,14 @@
 @section('scripts')
     @php
         $employeeId = data_get(session('employee'), 'Employ_Id', '');
+        $employeeIdTbgsys = data_get(session('employee'), 'Employ_Id_TBGSYS', '');
+        $username = (string) optional(Auth::user())->Username;
+        $currentIdentifiers = array_values(array_unique(array_filter([$employeeId, $employeeIdTbgsys, $username], fn ($id) => $id !== '')));
     @endphp
     <script>
         window.PRListConfig = {
-            currentUserEmployeeID: @json($employeeId)
+            currentUserEmployeeID: @json($employeeId),
+            currentUserIdentifiers: @json($currentIdentifiers)
         };
     </script>
     @include('shared.scripts.components._PRListScriptsPartial')

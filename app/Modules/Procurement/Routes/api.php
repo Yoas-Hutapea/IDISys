@@ -80,6 +80,8 @@ Route::middleware(['web', 'auth'])
             ->where('prNumber', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestDocuments/{prNumber}/documents', [PurchaseRequestsController::class, 'documents'])
             ->where('prNumber', '.*');
+        Route::get('/PurchaseRequest/PurchaseRequestDocuments/{documentId}/download', [PurchaseRequestsController::class, 'downloadDocument'])
+            ->where('documentId', '.*');
         Route::get('/PurchaseRequest/PurchaseRequestAdditional/{prNumber}', [PurchaseRequestsController::class, 'additional'])
             ->where('prNumber', '.*');
         Route::post('/PurchaseRequest/PurchaseRequestAdditional/batch-check', [PurchaseRequestAdditionalController::class, 'batchCheck']);

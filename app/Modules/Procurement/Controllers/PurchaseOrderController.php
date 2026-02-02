@@ -7,9 +7,142 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Carbon;
 
 class PurchaseOrderController extends Controller
 {
+    public function downloadDocument(Request $request)
+    {
+        $paramEncrypted = (string) $request->query('paramEncrypted', '');
+        if (trim($paramEncrypted) === '') {
+            return response('Parameter is required', 400);
+        }
+
+        $decoded = base64_decode($paramEncrypted, true);
+        if ($decoded === false || $decoded === '') {
+            return response('Invalid parameter encoding', 400);
+        }
+
+        $filter = json_decode($decoded, true);
+        if (!is_array($filter)) {
+            return response('Invalid filter parameters', 400);
+        }
+
+        $id = (int) ($filter['ID'] ?? 0);
+        $poNumber = trim((string) ($filter['PurchOrderID'] ?? ''));
+
+        if ($id === 0 && $poNumber === '') {
+            return response('Invalid filter parameters', 400);
+        }
+
+        $poQuery = DB::table('trxPROPurchaseOrder')->where('IsActive', true);
+        if ($id > 0) {
+            $poQuery->where('ID', $id);
+        } else {
+            $poQuery->where('PurchaseOrderNumber', $poNumber);
+        }
+
+        $po = $poQuery->first();
+        if (!$po) {
+            return response('Purchase Order not found', 404);
+        }
+
+        $poNumber = $po->PurchaseOrderNumber ?? $poNumber;
+
+        $assignVendor = null;
+        if (Schema::hasTable('trxPROPurchaseOrderAssignVendor')) {
+            $assignVendor = DB::table('trxPROPurchaseOrderAssignVendor')
+                ->where('trxPROPurchaseOrderNumber', $poNumber)
+                ->where('IsActive', true)
+                ->first();
+        }
+
+        $topDescription = null;
+        if ($assignVendor && !empty($assignVendor->SeqTOP) && Schema::hasTable('mstFINInvoiceTOP')) {
+            $topDescription = DB::table('mstFINInvoiceTOP')
+                ->where('ID', $assignVendor->SeqTOP)
+                ->where('IsActive', true)
+                ->value('TOPDescription');
+        }
+
+        $itemsQuery = DB::table('trxPROPurchaseOrderItem')
+            ->where('trxPROPurchaseOrderNumber', $poNumber);
+
+        if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+            $itemsQuery->where('IsActive', true);
+        }
+
+        $items = $itemsQuery->orderBy('ID')->get();
+
+        $details = $items->map(function ($item) {
+            $description = $item->ItemDescription ?? null;
+            $name = $item->ItemName ?? null;
+            return [
+                'SubItemName' => $description ?: ($name ?? '-'),
+                'Quantity' => $item->ItemQty ?? 0,
+                'ItemUnit' => $item->ItemUnit ?? '-',
+                'Price' => $item->UnitPrice ?? 0,
+                'TotalAmount' => $item->Amount ?? 0,
+            ];
+        })->values();
+
+        $totalAmount = $po->PurchaseOrderAmount ?? null;
+        if ($totalAmount === null || $totalAmount === '') {
+            $totalAmount = $details->sum(fn ($row) => (float) ($row['TotalAmount'] ?? 0));
+        }
+
+        $vendor = $this->getVendorInfo($po);
+        $company = $this->getCompanyInfo($po);
+
+        $poApprovedDate = $po->UpdatedDate ?? $po->PurchaseOrderDate ?? null;
+        $poApprovedDateFormatted = $this->safeFormatDate($poApprovedDate, 'd-F-Y') ?? now()->format('d-F-Y');
+        $validityDate = $po->ValidityDate ?? null;
+
+        $header = [
+            'ID' => $po->ID ?? null,
+            'PurchOrderID' => $po->PurchaseOrderNumber ?? null,
+            'PurchOrderName' => $po->PurchaseOrderName ?? null,
+            'PODate' => $po->PurchaseOrderDate ?? null,
+            'POApprovedDate' => $poApprovedDate,
+            'POApprovedDateFormatted' => $poApprovedDateFormatted,
+            'POAuthor' => $po->PurchaseOrderAuthor ?? null,
+            'POCreator' => $po->CreatedBy ?? $po->PurchaseOrderAuthor ?? null,
+            'POCreatorEmail' => $this->getEmployeeEmail($po->CreatedBy ?? $po->PurchaseOrderAuthor ?? null),
+            'PRNumber' => $po->trxPROPurchaseRequestNumber ?? null,
+            'PRRequestor' => $po->PurchaseRequestRequestor ?? null,
+            'RequestorPR' => $po->PurchaseRequestRequestor ?? null,
+            'ContractNumber' => $assignVendor->ContractNumber ?? null,
+            'TotalAmountPO' => $totalAmount,
+            'TOPRemarks' => $topDescription ?? ($assignVendor->TOPRemarks ?? null),
+            'StartPeriod' => $assignVendor->StartPeriod ?? null,
+            'EndPeriod' => $assignVendor->EndPeriod ?? null,
+            'StrValidityDate' => $this->safeFormatDate($validityDate, 'd-F-Y'),
+            'ContractPeriod' => $assignVendor->ContractPeriod ?? null,
+            'SONumber' => $po->SONumber ?? null,
+        ];
+
+        $logoBase64 = null;
+        $logoPath = public_path('assets/img/logo.png');
+        if (is_file($logoPath)) {
+            $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+        }
+
+        $terbilang = null;
+        if (is_numeric($totalAmount)) {
+            $terbilang = $this->getTerbilang((float) $totalAmount);
+        }
+
+        return view('procurement.purchase_order.document.PODocument', [
+            'header' => $header,
+            'details' => $details,
+            'vendor' => $vendor,
+            'company' => $company,
+            'logoBase64' => $logoBase64,
+            'qrCodeDataUri' => null,
+            'terbilang' => $terbilang,
+        ]);
+    }
+
     public function show(string $poNumber)
     {
         $decodedNumber = urldecode($poNumber);
@@ -547,10 +680,15 @@ class PurchaseOrderController extends Controller
             }
 
             $activeItems = array_filter($itemsById, function ($item) use ($hasIsActiveColumn, $deletedIds) {
-                if (!$hasIsActiveColumn) {
-                    return !in_array($item->ID ?? null, $deletedIds, true);
+                $itemId = $item->ID ?? null;
+                if (in_array($itemId, $deletedIds, true)) {
+                    return false;
                 }
-                return ($item->IsActive ?? true) === true;
+                if (!$hasIsActiveColumn) {
+                    return true;
+                }
+                $isActive = $item->IsActive ?? null;
+                return (int) $isActive === 1;
             });
 
             $totalAmount = null;
@@ -581,6 +719,9 @@ class PurchaseOrderController extends Controller
                     'Decision' => $decision,
                 ];
 
+                if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedBy')) {
+                    $logData['CreatedBy'] = $employeeId;
+                }
                 if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
                     $logData['CreatedDate'] = $now;
                 }
@@ -679,6 +820,9 @@ class PurchaseOrderController extends Controller
                             'Decision' => $decision,
                         ];
 
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedBy')) {
+                            $logData['CreatedBy'] = $employeeId;
+                        }
                         if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
                             $logData['CreatedDate'] = $now;
                         }
@@ -850,6 +994,9 @@ class PurchaseOrderController extends Controller
                     'Decision' => $decision !== '' ? $decision : ($nextStatusId === 12 ? 'Reject' : 'Approve'),
                 ];
 
+                if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedBy')) {
+                    $logData['CreatedBy'] = $employeeId;
+                }
                 if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
                     $logData['CreatedDate'] = $now;
                 }
@@ -938,6 +1085,9 @@ class PurchaseOrderController extends Controller
                             'Decision' => $decision !== '' ? $decision : ($nextStatusId === 12 ? 'Reject' : 'Approve'),
                         ];
 
+                        if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedBy')) {
+                            $logData['CreatedBy'] = $employeeId;
+                        }
                         if (Schema::hasColumn('logPROPurchaseOrder', 'CreatedDate')) {
                             $logData['CreatedDate'] = $now;
                         }
@@ -1280,20 +1430,28 @@ class PurchaseOrderController extends Controller
         $isFinanceDivisionHead = $positionName !== '' &&
             strcasecmp($positionName, 'Finance & Treasury Division Head') === 0;
 
+        $statusIds = array_map('intval', $statusIds);
+        $statusIds = array_values(array_unique($statusIds));
+
         $allowed = [];
-        foreach ($statusIds as $statusId) {
-            if ($statusId == 9 || $statusId == 10) {
-                if ($isAccountPayableManager && $statusId == 9) {
-                    $allowed[] = 9;
-                } elseif ($isFinanceDivisionHead && $statusId == 10) {
-                    $allowed[] = 10;
-                }
-                continue;
+        if ($isAccountPayableManager) {
+            if (in_array(9, $statusIds, true)) {
+                $allowed[] = 9;
             }
-            $allowed[] = (int) $statusId;
+        } elseif ($isFinanceDivisionHead) {
+            if (in_array(10, $statusIds, true)) {
+                $allowed[] = 10;
+            }
+        } else {
+            foreach ($statusIds as $statusId) {
+                if ($statusId === 9 || $statusId === 10) {
+                    continue;
+                }
+                $allowed[] = $statusId;
+            }
         }
 
-        return array_values(array_unique($allowed));
+        return $allowed;
     }
 
     private function getPositionName(): string
@@ -1332,5 +1490,233 @@ class PurchaseOrderController extends Controller
         }
 
         return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
+    }
+
+    private function safeFormatDate($value, string $format): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->format($format);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function getEmployeeEmail(?string $employeeId): ?string
+    {
+        if (!$employeeId || !Schema::hasTable('mstEmployee')) {
+            return null;
+        }
+
+        $employee = DB::table('mstEmployee')
+            ->where('Employ_Id', $employeeId)
+            ->orWhere('Employ_Id_TBGSYS', $employeeId)
+            ->first();
+
+        if (!$employee) {
+            return null;
+        }
+
+        if (isset($employee->Email)) {
+            return $employee->Email;
+        }
+        if (isset($employee->email)) {
+            return $employee->email;
+        }
+
+        return null;
+    }
+
+    private function getVendorInfo(object $po): array
+    {
+        $vendor = null;
+        if (Schema::hasTable('mstVendor')) {
+            $vendorId = $po->mstVendorVendorID ?? null;
+            if ($vendorId) {
+                $vendor = DB::table('mstVendor')->where('ID', $vendorId)->first();
+            }
+        }
+
+        $getValue = function ($row, array $keys, $default = null) {
+            if (!$row) {
+                return $default;
+            }
+            foreach ($keys as $key) {
+                if (isset($row->$key)) {
+                    return $row->$key;
+                }
+            }
+            return $default;
+        };
+
+        return [
+            'VendorID' => $getValue($vendor, ['VendorID'], $po->mstVendorVendorID ?? '-'),
+            'VendorName' => $getValue($vendor, ['VendorName'], $po->mstVendorVendorName ?? '-'),
+            'VendorAddress' => $getValue($vendor, ['VendorAddress', 'Address', 'Address1', 'VendorAddress1'], '-'),
+            'ContactPerson' => $getValue($vendor, ['ContactPerson', 'PIC', 'ContactPersonName'], '-'),
+            'PhoneNumber' => $getValue($vendor, ['PhoneNumber', 'Phone', 'Telephone'], '-'),
+            'ContactPersonPhoneNumber' => $getValue($vendor, ['ContactPersonPhoneNumber', 'ContactPersonPhone', 'PICPhone'], '-'),
+            'FaxNumber' => $getValue($vendor, ['FaxNumber', 'Fax'], '-'),
+            'EmailCorrespondence' => $getValue($vendor, ['EmailCorrespondence', 'Email', 'EmailAddress'], '-'),
+        ];
+    }
+
+    private function getCompanyInfo(object $po): array
+    {
+        $company = null;
+        if (Schema::hasTable('mstCompany')) {
+            $companyId = null;
+            if (Schema::hasColumn('trxPROPurchaseOrder', 'mstCompanyID')) {
+                $companyId = $po->mstCompanyID ?? null;
+            }
+            if (!$companyId && Schema::hasColumn('trxPROPurchaseOrder', 'CompanyID')) {
+                $companyId = $po->CompanyID ?? null;
+            }
+
+            if ($companyId) {
+                if (is_numeric($companyId)) {
+                    $company = DB::table('mstCompany')->where('ID', (int) $companyId)->first();
+                } else {
+                    $query = DB::table('mstCompany');
+                    $hasCompanyCode = Schema::hasColumn('mstCompany', 'CompanyCode');
+                    if ($hasCompanyCode) {
+                        $query->where('CompanyCode', $companyId);
+                    }
+                    if (Schema::hasColumn('mstCompany', 'CompanyName')) {
+                        $query->orWhere('CompanyName', $companyId);
+                    }
+                    $company = $query->first();
+                }
+            } elseif (!empty($po->CompanyName)) {
+                if (Schema::hasColumn('mstCompany', 'CompanyName')) {
+                    $company = DB::table('mstCompany')->where('CompanyName', $po->CompanyName)->first();
+                }
+            }
+        }
+
+        $getValue = function ($row, array $keys, $default = null) {
+            if (!$row) {
+                return $default;
+            }
+            foreach ($keys as $key) {
+                if (isset($row->$key)) {
+                    return $row->$key;
+                }
+            }
+            return $default;
+        };
+
+        return [
+            'CompanyName' => $getValue($company, ['CompanyName'], $po->CompanyName ?? '-'),
+            'CompanyAddress1' => $getValue($company, ['CompanyAddress1', 'Address1', 'Address'], ''),
+            'CompanyAddress2' => $getValue($company, ['CompanyAddress2', 'Address2'], ''),
+            'CompanyAddress3' => $getValue($company, ['CompanyAddress3', 'Address3'], ''),
+            'PhoneNumber' => $getValue($company, ['PhoneNumber', 'Phone', 'Telephone'], '-'),
+            'Fax' => $getValue($company, ['Fax', 'FaxNumber'], '-'),
+            'NPWP' => $getValue($company, ['NPWP'], '-'),
+        ];
+    }
+
+    private function getTerbilang(float $number): string
+    {
+        if ($number == 0.0) {
+            return 'Nol Rupiah';
+        }
+
+        $integerPart = (int) floor($number);
+        $result = $this->terbilangBeforeComma((string) $integerPart);
+
+        $decimalPart = $number - floor($number);
+        if ($decimalPart > 0) {
+            $decimalStr = number_format($decimalPart, 2, '.', '');
+            $decimalDigits = explode('.', $decimalStr)[1] ?? '';
+            $result .= ' ' . $this->terbilangAfterComma($decimalDigits);
+        }
+
+        return trim($result) . ' Rupiah';
+    }
+
+    private function terbilangBeforeComma(string $numberStr): string
+    {
+        $numberStr = ltrim($numberStr, '0');
+        if ($numberStr === '') {
+            return '';
+        }
+
+        $number = (int) $numberStr;
+        $bilangan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+
+        if ($number < 12) {
+            return $bilangan[$number];
+        }
+        if ($number < 20) {
+            return $bilangan[$number % 10] . ' Belas';
+        }
+        if ($number < 100) {
+            $puluh = intdiv($number, 10);
+            $sisa = $number % 10;
+            return $sisa === 0
+                ? $bilangan[$puluh] . ' Puluh'
+                : $bilangan[$puluh] . ' Puluh ' . $bilangan[$sisa];
+        }
+        if ($number < 200) {
+            $sisa = $number % 100;
+            return $sisa === 0 ? 'Seratus' : 'Seratus ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+        if ($number < 1000) {
+            $ratus = intdiv($number, 100);
+            $sisa = $number % 100;
+            return $sisa === 0
+                ? $bilangan[$ratus] . ' Ratus'
+                : $bilangan[$ratus] . ' Ratus ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+        if ($number < 2000) {
+            $sisa = $number % 1000;
+            return $sisa === 0 ? 'Seribu' : 'Seribu ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+        if ($number < 1000000) {
+            $ribu = intdiv($number, 1000);
+            $sisa = $number % 1000;
+            return $sisa === 0
+                ? $this->terbilangBeforeComma((string) $ribu) . ' Ribu'
+                : $this->terbilangBeforeComma((string) $ribu) . ' Ribu ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+        if ($number < 1000000000) {
+            $juta = intdiv($number, 1000000);
+            $sisa = $number % 1000000;
+            return $sisa === 0
+                ? $this->terbilangBeforeComma((string) $juta) . ' Juta'
+                : $this->terbilangBeforeComma((string) $juta) . ' Juta ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+        if ($number < 1000000000000) {
+            $milyar = intdiv($number, 1000000000);
+            $sisa = $number % 1000000000;
+            return $sisa === 0
+                ? $this->terbilangBeforeComma((string) $milyar) . ' Milyar'
+                : $this->terbilangBeforeComma((string) $milyar) . ' Milyar ' . $this->terbilangBeforeComma((string) $sisa);
+        }
+
+        $triliun = intdiv($number, 1000000000000);
+        $sisa = $number % 1000000000000;
+        return $sisa === 0
+            ? $this->terbilangBeforeComma((string) $triliun) . ' Triliun'
+            : $this->terbilangBeforeComma((string) $triliun) . ' Triliun ' . $this->terbilangBeforeComma((string) $sisa);
+    }
+
+    private function terbilangAfterComma(string $decimalStr): string
+    {
+        if ($decimalStr === '' || $decimalStr === '00') {
+            return '';
+        }
+
+        $number = (int) $decimalStr;
+        if ($number === 0) {
+            return '';
+        }
+
+        return $this->terbilangBeforeComma((string) $number) . ' Sen';
     }
 }

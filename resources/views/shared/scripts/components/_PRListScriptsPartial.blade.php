@@ -182,24 +182,38 @@
                                 className: 'btn-warning',
                                 title: 'Edit',
                                 showIf: (row) => {
-                                    const statusId = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
+                                    const statusIdRaw = row.mstApprovalStatusID ?? row.MstApprovalStatusID ?? null;
+                                    const statusId = Number.isFinite(Number(statusIdRaw))
+                                        ? parseInt(statusIdRaw, 10)
+                                        : null;
                                     const requestor = row.requestor ?? row.Requestor ?? '';
-                                    
+
                                     // Get current user employee ID from config
-                                    const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
-                                    
+                                const currentUserEmployeeID = (window.PRListConfig && window.PRListConfig.currentUserEmployeeID) || '';
+                                const currentUserIdentifiers = (window.PRListConfig && window.PRListConfig.currentUserIdentifiers) || [];
+
                                     // Show Edit only if:
-                                    // 1. Status is 5 or 6 (rejected/draft)
+                                // 1. Status is 5 or 6 (rejected/draft)
                                     // 2. AND current user is the Requestor
-                                    if (statusId === 5 || statusId === 6 || statusId === null) {
-                                        if (currentUserEmployeeID && requestor) {
+                                    if (statusId === 5 || statusId === 6) {
+                                    if (requestor) {
+                                        const requestorNormalized = requestor.trim().toLowerCase();
+                                        if (currentUserEmployeeID) {
                                             const currentUserNormalized = currentUserEmployeeID.trim().toLowerCase();
-                                            const requestorNormalized = requestor.trim().toLowerCase();
-                                            return currentUserNormalized === requestorNormalized;
+                                            if (currentUserNormalized === requestorNormalized) {
+                                                return true;
+                                            }
                                         }
-                                        return false;
+                                        if (Array.isArray(currentUserIdentifiers)) {
+                                            return currentUserIdentifiers.some(id => {
+                                                if (!id) return false;
+                                                return id.toString().trim().toLowerCase() === requestorNormalized;
+                                            });
+                                        }
                                     }
-                                    
+                                    return false;
+                                    }
+
                                     return false;
                                 }
                             },
@@ -364,8 +378,296 @@
         }
 
         async showHistoryModal(prNumber) {
-            // Existing implementation lives in PRListView.js in IDEANET.
-            console.warn('History modal not yet implemented in IDISys.');
+            // Pagination state
+            let historyData = [];
+            let currentPage = 1;
+            const rowsPerPage = 10;
+
+            // Create modal HTML with loading state
+            const modalHtml = `
+                <div class="modal fade" id="historyModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">History - ${this.escapeHtml(prNumber)}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="historyLoading" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-3">Loading approval history...</div>
+                                </div>
+                                <div id="historyContent" style="display: none;">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>PIC</th>
+                                                    <th>Position PIC</th>
+                                                    <th>Activity</th>
+                                                    <th>Decision</th>
+                                                    <th>Remark</th>
+                                                    <th>Activity Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="historyTableBody">
+                                                <!-- History data will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div id="historyPagination" class="d-flex justify-content-between align-items-center mt-3">
+                                        <div id="historyPaginationInfo" class="text-muted"></div>
+                                        <nav>
+                                            <ul class="pagination pagination-sm mb-0" id="historyPaginationControls">
+                                                <!-- Pagination controls will be populated here -->
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                                <div id="historyError" style="display: none;" class="alert alert-danger">
+                                    <p id="historyErrorMessage"></p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal if any
+            const existingModal = document.getElementById('historyModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Add modal to DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+            modal.show();
+
+            // Function to render table rows for current page
+            const renderTable = () => {
+                const tbody = document.getElementById('historyTableBody');
+                if (!tbody) return;
+
+                const totalPages = Math.ceil(historyData.length / rowsPerPage);
+                const startIndex = (currentPage - 1) * rowsPerPage;
+                const endIndex = Math.min(startIndex + rowsPerPage, historyData.length);
+                const pageData = historyData.slice(startIndex, endIndex);
+
+                if (pageData.length > 0) {
+                    const self = this;
+                    tbody.innerHTML = pageData.map(item => {
+                        // Format Activity Date
+                        const rawCreatedDate = item.createdDate || item.CreatedDate || '';
+                        const activityDate = rawCreatedDate ? new Date(rawCreatedDate).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        }) : '-';
+
+                        // Get badge class based on decision
+                        let badgeClass = 'bg-label-secondary';
+                        const rawDecision = item.decision || item.Decision || '';
+                        if (rawDecision) {
+                            const decision = rawDecision.toLowerCase();
+                            if (decision === 'approved' || decision === 'approve' || decision === 'reviewed' || decision === 'confirmed' || decision === 'finished' || decision === 'submitted') {
+                                badgeClass = 'bg-label-success';
+                            } else if (decision === 'reject' || decision === 'rejected') {
+                                badgeClass = 'bg-label-danger';
+                            } else if (decision === 'pending') {
+                                badgeClass = 'bg-label-warning';
+                            }
+                        }
+
+                        // Get data for each column
+                        const pic = item.employeeName || item.EmployeeName || item.mstEmployeeID || item.MstEmployeeID || '-'; // PIC
+                        const positionPIC = item.positionName || item.PositionName || item.mstEmployeePositionID || item.MstEmployeePositionID || '-'; // Position PIC
+                        const activity = item.activity || item.Activity || '-'; // Activity
+                        const decision = item.decision || item.Decision || '-'; // Decision
+                        const remark = item.remark || item.Remark || '-'; // Remark
+
+                        return `
+                            <tr>
+                                <td>${self.escapeHtml(pic)}</td>
+                                <td>${self.escapeHtml(positionPIC)}</td>
+                                <td>${self.escapeHtml(activity)}</td>
+                                <td><span class="badge ${badgeClass}">${self.escapeHtml(decision)}</span></td>
+                                <td>${self.escapeHtml(remark)}</td>
+                                <td>${self.escapeHtml(activityDate)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No data available</td></tr>';
+                }
+
+                // Update pagination info
+                const paginationInfo = document.getElementById('historyPaginationInfo');
+                if (paginationInfo) {
+                    if (historyData.length > 0) {
+                        paginationInfo.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${historyData.length} entries`;
+                    } else {
+                        paginationInfo.textContent = '';
+                    }
+                }
+
+                // Update pagination controls
+                const paginationControls = document.getElementById('historyPaginationControls');
+                if (paginationControls && totalPages > 1) {
+                    let paginationHtml = '';
+
+                    // Previous button
+                    paginationHtml += `
+                        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="#" data-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1" aria-disabled="true"' : ''}>Previous</a>
+                        </li>
+                    `;
+
+                    // Page numbers
+                    const maxVisiblePages = 5;
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                    if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                    }
+
+                    if (startPage > 1) {
+                        paginationHtml += `
+                            <li class="page-item">
+                                <a class="page-link" href="#" data-page="1">1</a>
+                            </li>
+                        `;
+                        if (startPage > 2) {
+                            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                        }
+                    }
+
+                    for (let i = startPage; i <= endPage; i++) {
+                        paginationHtml += `
+                            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                                <a class="page-link" href="#" data-page="${i}">${i}</a>
+                            </li>
+                        `;
+                    }
+
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                        }
+                        paginationHtml += `
+                            <li class="page-item">
+                                <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+                            </li>
+                        `;
+                    }
+
+                    // Next button
+                    paginationHtml += `
+                        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                            <a class="page-link" href="#" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1" aria-disabled="true"' : ''}>Next</a>
+                        </li>
+                    `;
+
+                    paginationControls.innerHTML = paginationHtml;
+
+                    // Attach event listeners
+                    paginationControls.querySelectorAll('a.page-link').forEach(link => {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const page = parseInt(link.getAttribute('data-page'));
+                            if (page && page !== currentPage && page >= 1 && page <= totalPages) {
+                                currentPage = page;
+                                renderTable();
+                            }
+                        });
+                    });
+                } else if (paginationControls) {
+                    paginationControls.innerHTML = '';
+                }
+            };
+
+            try {
+                // Fetch approval history from API
+                const response = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequestApprovals/History/${encodeURIComponent(prNumber)}`, 'GET');
+                historyData = response.data || response;
+
+                // Hide loading, show content
+                const loadingEl = document.getElementById('historyLoading');
+                const contentEl = document.getElementById('historyContent');
+                const errorEl = document.getElementById('historyError');
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'none';
+
+                if (historyData && Array.isArray(historyData) && historyData.length > 0) {
+                    // Resolve employee names for PIC (mstEmployeeID)
+                    try {
+                        const employeeIds = historyData
+                            .map(item => item.mstEmployeeID || item.MstEmployeeID || '')
+                            .filter(id => id && id.toString().trim() !== '');
+
+                        if (employeeIds.length > 0 && window.prListManager && window.prListManager.employeeCacheModule && window.prListManager.employeeCacheModule.batchGetEmployeeNames) {
+                            const nameMap = await window.prListManager.employeeCacheModule.batchGetEmployeeNames(employeeIds);
+                            historyData = historyData.map(item => {
+                                const rawId = item.mstEmployeeID || item.MstEmployeeID || '';
+                                const key = rawId ? rawId.toString().trim().toLowerCase() : '';
+                                const resolvedName = key ? nameMap.get(key) : '';
+                                if (resolvedName) {
+                                    return {
+                                        ...item,
+                                        employeeName: resolvedName,
+                                        EmployeeName: resolvedName
+                                    };
+                                }
+                                return item;
+                            });
+                        }
+                    } catch (nameError) {
+                        console.warn('Failed to resolve PIC employee names:', nameError);
+                    }
+
+                    currentPage = 1;
+                    renderTable();
+                    if (contentEl) contentEl.style.display = 'block';
+                } else {
+                    // No history data
+                    const tbody = document.getElementById('historyTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No approval history found</td></tr>';
+                    }
+                    const paginationInfo = document.getElementById('historyPaginationInfo');
+                    if (paginationInfo) paginationInfo.textContent = '';
+                    const paginationControls = document.getElementById('historyPaginationControls');
+                    if (paginationControls) paginationControls.innerHTML = '';
+                    if (contentEl) contentEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading approval history:', error);
+
+                // Hide loading, show error
+                const loadingEl = document.getElementById('historyLoading');
+                const contentEl = document.getElementById('historyContent');
+                const errorEl = document.getElementById('historyError');
+                const errorMsgEl = document.getElementById('historyErrorMessage');
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'block';
+                if (errorMsgEl) {
+                    errorMsgEl.textContent = `Failed to load approval history: ${error.message || 'Unknown error'}`;
+                }
+            }
         }
 
         async goToPage(page) {

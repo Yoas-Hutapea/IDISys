@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Services\DocumentCounterService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class PurchaseRequestsController extends Controller
 {
@@ -369,19 +370,35 @@ class PurchaseRequestsController extends Controller
 
         $file = $request->file('file');
         $timestamp = now()->format('YmdHis');
-        $filename = $timestamp . '_' . $file->getClientOriginalName();
-        $path = "Procurement/PurchaseRequest/{$decodedNumber}/{$filename}";
+        $originalName = $file->getClientOriginalName();
+        $fileSizeKb = (string) round($file->getSize() / 1024);
+        $filename = $timestamp . '_' . $originalName;
+        $relativeDir = "Procurement/PurchaseRequest/{$decodedNumber}";
+        $relativePath = "{$relativeDir}/{$filename}";
 
-        Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+        $publicStorageRoot = public_path('storage');
+        if (!is_dir($publicStorageRoot)) {
+            @mkdir($publicStorageRoot, 0775, true);
+        }
+
+        if (is_link($publicStorageRoot)) {
+            Storage::disk('public')->putFileAs($relativeDir, $file, $filename);
+        } else {
+            $targetDir = $publicStorageRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
+            if (!is_dir($targetDir)) {
+                @mkdir($targetDir, 0775, true);
+            }
+            $file->move($targetDir, $filename);
+        }
 
         $now = now();
         $userId = (string) optional(Auth::user())->Username ?: 'System';
 
         $id = DB::table('trxPROPurchaseRequestDocument')->insertGetId([
             'trxPROPurchaseRequestNumber' => $decodedNumber,
-            'FileName' => $file->getClientOriginalName(),
-            'FileSize' => (string) round($file->getSize() / 1024),
-            'FilePath' => '/' . $path,
+            'FileName' => $originalName,
+            'FileSize' => $fileSizeKb,
+            'FilePath' => '/' . $relativePath,
             'CreatedBy' => $userId,
             'CreatedDate' => $now,
             'UpdatedBy' => $userId,
@@ -389,7 +406,86 @@ class PurchaseRequestsController extends Controller
             'IsActive' => true,
         ]);
 
-        return response()->json(['id' => $id, 'filePath' => '/' . $path]);
+        return response()->json(['id' => $id, 'filePath' => '/' . $relativePath]);
+    }
+
+    public function downloadDocument(string $documentId)
+    {
+        $document = DB::table('trxPROPurchaseRequestDocument')
+            ->where('ID', $documentId)
+            ->where('IsActive', true)
+            ->first();
+
+        if (!$document) {
+            return response()->json(['message' => 'Document not found'], 404);
+        }
+
+        $fileName = (string) ($document->FileName ?? 'document');
+        $filePath = (string) ($document->FilePath ?? '');
+
+        if ($filePath !== '') {
+            $normalizedPath = ltrim($filePath, '/');
+            if (Storage::disk('public')->exists($normalizedPath)) {
+                return response()->download(Storage::disk('public')->path($normalizedPath), $fileName);
+            }
+
+            $publicStoragePath = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalizedPath));
+            if (is_file($publicStoragePath)) {
+                return response()->download($publicStoragePath, $fileName);
+            }
+        }
+
+        $prNumber = (string) ($document->trxPROPurchaseRequestNumber ?? '');
+        if ($prNumber !== '') {
+            $baseFolder = 'Procurement/PurchaseRequest/' . $prNumber;
+            if (Storage::disk('public')->exists($baseFolder)) {
+                $exactPath = $baseFolder . '/' . $fileName;
+                if (Storage::disk('public')->exists($exactPath)) {
+                    return response()->download(Storage::disk('public')->path($exactPath), $fileName);
+                }
+
+                $files = Storage::disk('public')->files($baseFolder);
+                $matches = array_values(array_filter($files, function ($file) use ($fileName) {
+                    $baseName = basename($file);
+                    return stripos($baseName, $fileName) !== false
+                        || Str::endsWith(strtolower($baseName), strtolower($fileName));
+                }));
+
+                if (!empty($matches)) {
+                    usort($matches, function ($a, $b) {
+                        $disk = Storage::disk('public');
+                        return $disk->lastModified($b) <=> $disk->lastModified($a);
+                    });
+
+                    $selectedPath = $matches[0];
+                    return response()->download(Storage::disk('public')->path($selectedPath), $fileName);
+                }
+            }
+
+            $publicBaseFolder = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baseFolder));
+            if (is_dir($publicBaseFolder)) {
+                $exactPublicPath = $publicBaseFolder . DIRECTORY_SEPARATOR . $fileName;
+                if (is_file($exactPublicPath)) {
+                    return response()->download($exactPublicPath, $fileName);
+                }
+
+                $files = glob($publicBaseFolder . DIRECTORY_SEPARATOR . '*');
+                $matches = array_values(array_filter($files, function ($file) use ($fileName) {
+                    $baseName = basename($file);
+                    return stripos($baseName, $fileName) !== false
+                        || Str::endsWith(strtolower($baseName), strtolower($fileName));
+                }));
+
+                if (!empty($matches)) {
+                    usort($matches, function ($a, $b) {
+                        return filemtime($b) <=> filemtime($a);
+                    });
+                    return response()->download($matches[0], $fileName);
+                }
+            }
+        }
+
+        return response()->json(['message' => 'File not found'], 404);
     }
 
     public function saveAdditional(Request $request)
@@ -591,7 +687,8 @@ class PurchaseRequestsController extends Controller
 
     private function isApprovalGridRequest(Request $request): bool
     {
-        return $request->is('Procurement/PurchaseRequest/PurchaseRequestApprovals/Grid');
+        $path = (string) $request->path();
+        return str_contains($path, 'PurchaseRequestApprovals/Grid');
     }
 
     private function mapRow($row): array

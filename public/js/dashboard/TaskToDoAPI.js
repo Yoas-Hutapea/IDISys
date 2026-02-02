@@ -6,11 +6,11 @@ class TaskToDoAPI {
     constructor() {
         // Use shared cache if available, otherwise create local cache
         this.sharedCache = window.procurementSharedCache || null;
-        
+
         // Cache for API responses (for task-specific data)
         this.cache = new Map();
         this.cacheTimeout = 2 * 60 * 1000; // 2 minutes cache timeout (shorter than other caches since tasks change frequently)
-        
+
         // Pending API calls to prevent duplicate requests
         this.pendingCalls = new Map();
     }
@@ -60,7 +60,7 @@ class TaskToDoAPI {
      */
     async getApprovalTasks() {
         const cacheKey = 'taskToDo_approval';
-        
+
         return await this.getCachedData(cacheKey, async () => {
             const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestApprovals`;
             const response = await apiCall('Procurement', endpoint, 'GET');
@@ -74,7 +74,7 @@ class TaskToDoAPI {
      */
     async getReceiveTasks() {
         const cacheKey = 'taskToDo_receive';
-        
+
         return await this.getCachedData(cacheKey, async () => {
             try {
                 const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestReceives`;
@@ -95,21 +95,21 @@ class TaskToDoAPI {
      */
     async getRejectedTasks(currentUserEmployeeID) {
         const cacheKey = `taskToDo_rejected_${currentUserEmployeeID || 'anonymous'}`;
-        
+
         return await this.getCachedData(cacheKey, async () => {
             try {
                 const endpoint = `/Procurement/PurchaseRequest/PurchaseRequests?statusPR=5`;
                 const response = await apiCall('Procurement', endpoint, 'GET');
                 const data = response.data || response;
                 const allRejectedTasks = Array.isArray(data) ? data : [];
-                
+
                 // Filter to only show rejected PRs where:
                 // 1. Status is 5 (Rejected)
                 // 2. CreatedBy matches current user's EmployeeID (only show PRs created by current user)
                 const rejectedTasks = allRejectedTasks.filter(task => {
                     const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
                     if (statusID !== 5) return false;
-                    
+
                     // Filter by CreatedBy: Only show rejected PRs where CreatedBy matches current user's EmployeeID
                     if (currentUserEmployeeID && currentUserEmployeeID.trim() !== '') {
                         const taskCreatedBy = task.CreatedBy || task.createdBy || '';
@@ -118,7 +118,7 @@ class TaskToDoAPI {
                         return false;
                     }
                 });
-                
+
                 return rejectedTasks;
             } catch (error) {
                 console.warn('Error loading rejected tasks:', error);
@@ -132,7 +132,7 @@ class TaskToDoAPI {
      */
     async getReleaseTasks() {
         const cacheKey = 'taskToDo_release';
-        
+
         return await this.getCachedData(cacheKey, async () => {
             try {
                 const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestReleases`;
@@ -153,7 +153,7 @@ class TaskToDoAPI {
      */
     async getPOTasks() {
         const cacheKey = 'taskToDo_PO_all';
-        
+
         return await this.getCachedData(cacheKey, async () => {
             try {
                 // Fetch all PO statuses in one call: [8, 9, 10, 12]
@@ -165,7 +165,7 @@ class TaskToDoAPI {
                 };
                 const response = await apiCall('Procurement', '/Procurement/PurchaseOrder/PurchaseOrders/Grid', 'POST', poRequest);
                 const data = response.data || response;
-                
+
                 let allPOTasks = [];
                 // First, try to get data array
                 if (data.data && Array.isArray(data.data) && data.data.length > 0) {
@@ -181,7 +181,7 @@ class TaskToDoAPI {
                         allPOTasks = [];
                     }
                 }
-                
+
                 return allPOTasks;
             } catch (error) {
                 console.warn('Error loading PO tasks:', error);
@@ -198,22 +198,32 @@ class TaskToDoAPI {
         try {
             // Get all PO tasks from cache (single API call shared across all users)
             const allPOTasks = await this.getPOTasks();
-            
+
             // Filter for confirm PO tasks (status 8 or 12)
             const confirmPOTasks = allPOTasks.filter(task => {
-                const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                const statusID = parseInt(statusIDRaw, 10);
                 return statusID === 8 || statusID === 12;
             });
-            
-            // Filter by CreatedBy: Only show PO tasks where CreatedBy matches current user's EmployeeID
+
+            // Filter by CreatedBy when available: Only show PO tasks where CreatedBy matches current user's EmployeeID
             if (currentUserEmployeeID && currentUserEmployeeID.trim() !== '') {
+                const hasCreatedByField = confirmPOTasks.some(task =>
+                    Object.prototype.hasOwnProperty.call(task, 'CreatedBy') ||
+                    Object.prototype.hasOwnProperty.call(task, 'createdBy')
+                );
+                if (!hasCreatedByField) {
+                    // Backend already filters by CreatedBy for status 8/12,
+                    // so allow tasks through when field is not included in response.
+                    return confirmPOTasks;
+                }
                 return confirmPOTasks.filter(task => {
                     const taskCreatedBy = task.CreatedBy || task.createdBy || '';
                     return taskCreatedBy === currentUserEmployeeID;
                 });
-            } else {
-                return [];
             }
+
+            return [];
         } catch (error) {
             console.warn('Error loading confirm PO tasks:', error);
             return [];
@@ -228,10 +238,11 @@ class TaskToDoAPI {
         try {
             // Get all PO tasks from cache (single API call shared across all users)
             const allPOTasks = await this.getPOTasks();
-            
+
             // Filter for approval PO tasks (status 9 or 10)
             return allPOTasks.filter(task => {
-                const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                const statusID = parseInt(statusIDRaw, 10);
                 return statusID === 9 || statusID === 10;
             });
         } catch (error) {

@@ -34,32 +34,38 @@ class TaskToDoView {
         // Status 8 or 12 = Confirm Purchase Order (user who created PO only, filtered by CreatedBy matching current user's EmployeeID)
         // Status 9 or 10 = Approval Purchase Order (status 9: Account Payable, Treasury & Revenue Assurance Manager only, status 10: Finance & Treasury Division Head only)
         const approvalTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID !== 4 && statusID !== 5 && statusID !== 7 && statusID !== 8 && statusID !== 12 && statusID !== 9 && statusID !== 10;
         });
-        
+
         const receiveTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID === 4;
         });
-        
+
         const rejectedTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID === 5;
         });
 
         const releaseTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID === 7;
         });
 
         const confirmPOTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID === 8 || statusID === 12;
         });
 
         const approvalPOTasks = tasks.filter(task => {
-            const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+            const statusID = parseInt(statusIDRaw, 10);
             return statusID === 9 || statusID === 10;
         });
 
