@@ -16,6 +16,17 @@
         }
         return number_format((float) $value, 0, '.', ',');
     };
+
+    $formatHeaderDate = function ($value, string $format = 'd-F-Y') {
+        if (!$value) {
+            return null;
+        }
+        try {
+            return \Illuminate\Support\Carbon::parse($value)->format($format);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    };
 @endphp
 
 <html>
@@ -311,7 +322,10 @@
                         <td class="bnone" colspan="10" style="font-weight:bold; font-size: 15px; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; text-align: center; border-top: 0px; border-bottom: 0px">{{ $header['PurchOrderID'] ?? '-' }}</td>
                     </tr>
                     <tr class="bnone" style="border-top: 0px; border-bottom: 0px">
-                        <td class="bnone" colspan="10" style="text-align: left; border-top: 0px; border-bottom: 0px"><span class="txtLeftBold">Place/Date    :    </span><span class="txtLeftMid">Jakarta, {{ $header['POApprovedDateFormatted'] ?? now()->format('d-F-Y') }}</span></td>
+                        @php
+                            $approvedDateDisplay = $formatHeaderDate($header['POApprovedDate'] ?? null, 'd-F-Y') ?? now()->format('d-F-Y');
+                        @endphp
+                        <td class="bnone" colspan="10" style="text-align: left; border-top: 0px; border-bottom: 0px"><span class="txtLeftBold">Place/Date    :    </span><span class="txtLeftMid">Jakarta, {{ $approvedDateDisplay }}</span></td>
                     </tr>
                     <tr class="bnone" style="border-top: 0px; border-bottom: 0px">
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="5%"></td>

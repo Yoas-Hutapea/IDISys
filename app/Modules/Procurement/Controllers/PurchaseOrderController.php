@@ -49,22 +49,6 @@ class PurchaseOrderController extends Controller
 
         $poNumber = $po->PurchaseOrderNumber ?? $poNumber;
 
-        $assignVendor = null;
-        if (Schema::hasTable('trxPROPurchaseOrderAssignVendor')) {
-            $assignVendor = DB::table('trxPROPurchaseOrderAssignVendor')
-                ->where('trxPROPurchaseOrderNumber', $poNumber)
-                ->where('IsActive', true)
-                ->first();
-        }
-
-        $topDescription = null;
-        if ($assignVendor && !empty($assignVendor->SeqTOP) && Schema::hasTable('mstFINInvoiceTOP')) {
-            $topDescription = DB::table('mstFINInvoiceTOP')
-                ->where('ID', $assignVendor->SeqTOP)
-                ->where('IsActive', true)
-                ->value('TOPDescription');
-        }
-
         $itemsQuery = DB::table('trxPROPurchaseOrderItem')
             ->where('trxPROPurchaseOrderNumber', $poNumber);
 
@@ -75,10 +59,8 @@ class PurchaseOrderController extends Controller
         $items = $itemsQuery->orderBy('ID')->get();
 
         $details = $items->map(function ($item) {
-            $description = $item->ItemDescription ?? null;
-            $name = $item->ItemName ?? null;
             return [
-                'SubItemName' => $description ?: ($name ?? '-'),
+                'SubItemName' => $item->ItemName ?? '-',
                 'Quantity' => $item->ItemQty ?? 0,
                 'ItemUnit' => $item->ItemUnit ?? '-',
                 'Price' => $item->UnitPrice ?? 0,
@@ -91,12 +73,89 @@ class PurchaseOrderController extends Controller
             $totalAmount = $details->sum(fn ($row) => (float) ($row['TotalAmount'] ?? 0));
         }
 
-        $vendor = $this->getVendorInfo($po);
-        $company = $this->getCompanyInfo($po);
+        $assignVendor = null;
+        if (Schema::hasTable('trxPROPurchaseOrderAssignVendor')) {
+            $assignVendor = DB::table('trxPROPurchaseOrderAssignVendor')
+                ->where('trxPROPurchaseOrderNumber', $poNumber)
+                ->where('IsActive', true)
+                ->first();
+        }
 
-        $poApprovedDate = $po->UpdatedDate ?? $po->PurchaseOrderDate ?? null;
-        $poApprovedDateFormatted = $this->safeFormatDate($poApprovedDate, 'd-F-Y') ?? now()->format('d-F-Y');
-        $validityDate = $po->ValidityDate ?? null;
+        $topRemarks = null;
+        if ($assignVendor && !empty($assignVendor->SeqTOP) && Schema::hasTable('mstFINInvoiceTOP')) {
+            $topQuery = DB::table('mstFINInvoiceTOP')->where('IsActive', true);
+            if (Schema::hasColumn('mstFINInvoiceTOP', 'TOPCount')) {
+                $topQuery->where('TOPCount', $assignVendor->SeqTOP);
+            } else {
+                $topQuery->where('ID', $assignVendor->SeqTOP);
+            }
+            $topRow = $topQuery->first();
+            if ($topRow) {
+                if (isset($topRow->TOPRemarks)) {
+                    $topRemarks = $topRow->TOPRemarks;
+                } elseif (isset($topRow->TOPDescription)) {
+                    $topRemarks = $topRow->TOPDescription;
+                }
+            }
+        }
+
+        $vendor = $this->getVendorInfoForDocument($po);
+        $company = $this->getCompanyInfoForDocument($po);
+
+        $creatorInfo = $this->getEmployeeInfo($po->CreatedBy ?? null);
+        $authorInfo = $this->getEmployeeInfo($po->PurchaseOrderAuthor ?? null);
+        $requestorInfo = $this->getEmployeeInfo($po->PurchaseRequestRequestor ?? null);
+
+        $poApprovedDate = null;
+        if ((int) ($po->mstApprovalStatusID ?? 0) === 11 && Schema::hasTable('logPROPurchaseOrder')) {
+            $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+            if ($prNumber !== '') {
+                $logQuery = DB::table('logPROPurchaseOrder')
+                    ->where('trxPROPurchaseRequestNumber', $prNumber)
+                    ->where('mstApprovalStatusID', '11');
+                if (Schema::hasColumn('logPROPurchaseOrder', 'IsActive')) {
+                    $logQuery->where('IsActive', true);
+                }
+                $logRow = $logQuery->orderByDesc('CreatedDate')->first();
+                if ($logRow && isset($logRow->CreatedDate)) {
+                    $poApprovedDate = $logRow->CreatedDate;
+                }
+            }
+        }
+
+        $soNumber = null;
+        if (Schema::hasTable('trxPROPurchaseRequestAdditional')) {
+            $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+            if ($prNumber !== '') {
+                $additionalQuery = DB::table('trxPROPurchaseRequestAdditional')
+                    ->where('trxPROPurchaseRequestNumber', $prNumber);
+                if (Schema::hasColumn('trxPROPurchaseRequestAdditional', 'IsActive')) {
+                    $additionalQuery->where('IsActive', true);
+                }
+                $additionalRow = $additionalQuery->first();
+                if ($additionalRow && isset($additionalRow->Sonumb)) {
+                    $soNumber = $additionalRow->Sonumb;
+                }
+            }
+        }
+
+        if (!$soNumber && Schema::hasTable('trxFINInvoice')) {
+            $invoiceRow = DB::table('trxFINInvoice')
+                ->where('trxPROPurchaseOrderNumber', $poNumber)
+                ->first();
+            if ($invoiceRow && isset($invoiceRow->SONumber)) {
+                $soNumber = $invoiceRow->SONumber;
+            }
+        }
+
+        $validityDate = null;
+        if (!empty($po->EndPeriod)) {
+            $validityDate = $this->safeAddYears($po->EndPeriod, 1);
+        } elseif (!empty($po->PurchaseOrderDate)) {
+            $validityDate = $this->safeAddYears($po->PurchaseOrderDate, 1);
+        }
+
+        $dateLock = $po->EndPeriod ?? null;
 
         $header = [
             'ID' => $po->ID ?? null,
@@ -104,21 +163,23 @@ class PurchaseOrderController extends Controller
             'PurchOrderName' => $po->PurchaseOrderName ?? null,
             'PODate' => $po->PurchaseOrderDate ?? null,
             'POApprovedDate' => $poApprovedDate,
-            'POApprovedDateFormatted' => $poApprovedDateFormatted,
-            'POAuthor' => $po->PurchaseOrderAuthor ?? null,
-            'POCreator' => $po->CreatedBy ?? $po->PurchaseOrderAuthor ?? null,
-            'POCreatorEmail' => $this->getEmployeeEmail($po->CreatedBy ?? $po->PurchaseOrderAuthor ?? null),
+            'POAuthor' => $authorInfo['name'] ?? ($po->PurchaseOrderAuthor ?? null),
+            'POCreator' => $creatorInfo['name'] ?? ($po->CreatedBy ?? null),
+            'POCreatorEmail' => $creatorInfo['email'] ?? null,
             'PRNumber' => $po->trxPROPurchaseRequestNumber ?? null,
             'PRRequestor' => $po->PurchaseRequestRequestor ?? null,
-            'RequestorPR' => $po->PurchaseRequestRequestor ?? null,
+            'RequestorPR' => $requestorInfo['name'] ?? ($po->PurchaseRequestRequestor ?? null),
             'ContractNumber' => $assignVendor->ContractNumber ?? null,
             'TotalAmountPO' => $totalAmount,
-            'TOPRemarks' => $topDescription ?? ($assignVendor->TOPRemarks ?? null),
-            'StartPeriod' => $assignVendor->StartPeriod ?? null,
-            'EndPeriod' => $assignVendor->EndPeriod ?? null,
-            'StrValidityDate' => $this->safeFormatDate($validityDate, 'd-F-Y'),
+            'TOPRemarks' => $topRemarks ?? ($assignVendor->DescriptionVendor ?? null),
+            'StartPeriod' => $po->StartPeriod ?? null,
+            'EndPeriod' => $po->EndPeriod ?? null,
+            'StrStartDate' => $this->safeFormatDate($po->StartPeriod ?? null, 'd-M-Y'),
+            'StrEndDate' => $this->safeFormatDate($po->EndPeriod ?? null, 'd-M-Y'),
+            'StrValidityDate' => $this->safeFormatDate($validityDate, 'd-M-Y'),
+            'StrDateLock' => $this->safeFormatDate($dateLock, 'd-M-Y'),
             'ContractPeriod' => $assignVendor->ContractPeriod ?? null,
-            'SONumber' => $po->SONumber ?? null,
+            'SONumber' => $soNumber,
         ];
 
         $logoBase64 = null;
@@ -132,13 +193,16 @@ class PurchaseOrderController extends Controller
             $terbilang = $this->getTerbilang((float) $totalAmount);
         }
 
+        $downloadUrl = url('/Procurement/PurchaseOrder/Document/DownloadDocument') . '?paramEncrypted=' . urlencode($paramEncrypted);
+        $qrCodeDataUri = 'https://quickchart.io/qr?text=' . urlencode($downloadUrl) . '&size=200';
+
         return view('procurement.purchase_order.document.PODocument', [
             'header' => $header,
             'details' => $details,
             'vendor' => $vendor,
             'company' => $company,
             'logoBase64' => $logoBase64,
-            'qrCodeDataUri' => null,
+            'qrCodeDataUri' => $qrCodeDataUri,
             'terbilang' => $terbilang,
         ]);
     }
@@ -1505,10 +1569,23 @@ class PurchaseOrderController extends Controller
         }
     }
 
-    private function getEmployeeEmail(?string $employeeId): ?string
+    private function safeAddYears($value, int $years)
+    {
+        if (!$value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->addYears($years);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function getEmployeeInfo(?string $employeeId): array
     {
         if (!$employeeId || !Schema::hasTable('mstEmployee')) {
-            return null;
+            return [];
         }
 
         $employee = DB::table('mstEmployee')
@@ -1517,106 +1594,84 @@ class PurchaseOrderController extends Controller
             ->first();
 
         if (!$employee) {
-            return null;
+            return [];
         }
 
+        $name = null;
+        if (isset($employee->name)) {
+            $name = $employee->name;
+        } elseif (isset($employee->Name)) {
+            $name = $employee->Name;
+        }
+
+        $email = null;
         if (isset($employee->Email)) {
-            return $employee->Email;
+            $email = $employee->Email;
+        } elseif (isset($employee->email)) {
+            $email = $employee->email;
         }
-        if (isset($employee->email)) {
-            return $employee->email;
-        }
-
-        return null;
-    }
-
-    private function getVendorInfo(object $po): array
-    {
-        $vendor = null;
-        if (Schema::hasTable('mstVendor')) {
-            $vendorId = $po->mstVendorVendorID ?? null;
-            if ($vendorId) {
-                $vendor = DB::table('mstVendor')->where('ID', $vendorId)->first();
-            }
-        }
-
-        $getValue = function ($row, array $keys, $default = null) {
-            if (!$row) {
-                return $default;
-            }
-            foreach ($keys as $key) {
-                if (isset($row->$key)) {
-                    return $row->$key;
-                }
-            }
-            return $default;
-        };
 
         return [
-            'VendorID' => $getValue($vendor, ['VendorID'], $po->mstVendorVendorID ?? '-'),
-            'VendorName' => $getValue($vendor, ['VendorName'], $po->mstVendorVendorName ?? '-'),
-            'VendorAddress' => $getValue($vendor, ['VendorAddress', 'Address', 'Address1', 'VendorAddress1'], '-'),
-            'ContactPerson' => $getValue($vendor, ['ContactPerson', 'PIC', 'ContactPersonName'], '-'),
-            'PhoneNumber' => $getValue($vendor, ['PhoneNumber', 'Phone', 'Telephone'], '-'),
-            'ContactPersonPhoneNumber' => $getValue($vendor, ['ContactPersonPhoneNumber', 'ContactPersonPhone', 'PICPhone'], '-'),
-            'FaxNumber' => $getValue($vendor, ['FaxNumber', 'Fax'], '-'),
-            'EmailCorrespondence' => $getValue($vendor, ['EmailCorrespondence', 'Email', 'EmailAddress'], '-'),
+            'name' => $name,
+            'email' => $email,
         ];
     }
 
-    private function getCompanyInfo(object $po): array
+    private function getVendorInfoForDocument(object $po): array
     {
-        $company = null;
-        if (Schema::hasTable('mstCompany')) {
-            $companyId = null;
-            if (Schema::hasColumn('trxPROPurchaseOrder', 'mstCompanyID')) {
-                $companyId = $po->mstCompanyID ?? null;
-            }
-            if (!$companyId && Schema::hasColumn('trxPROPurchaseOrder', 'CompanyID')) {
-                $companyId = $po->CompanyID ?? null;
-            }
-
-            if ($companyId) {
-                if (is_numeric($companyId)) {
-                    $company = DB::table('mstCompany')->where('ID', (int) $companyId)->first();
-                } else {
-                    $query = DB::table('mstCompany');
-                    $hasCompanyCode = Schema::hasColumn('mstCompany', 'CompanyCode');
-                    if ($hasCompanyCode) {
-                        $query->where('CompanyCode', $companyId);
-                    }
-                    if (Schema::hasColumn('mstCompany', 'CompanyName')) {
-                        $query->orWhere('CompanyName', $companyId);
-                    }
-                    $company = $query->first();
+        $vendor = null;
+        if (Schema::hasTable('mstVendor')) {
+            $vendorId = trim((string) ($po->mstVendorVendorID ?? ''));
+            if ($vendorId !== '' && Schema::hasColumn('mstVendor', 'VendorID')) {
+                $vendorQuery = DB::table('mstVendor')->where('VendorID', $vendorId);
+                if (Schema::hasColumn('mstVendor', 'IsActive')) {
+                    $vendorQuery->where('IsActive', true);
                 }
-            } elseif (!empty($po->CompanyName)) {
-                if (Schema::hasColumn('mstCompany', 'CompanyName')) {
-                    $company = DB::table('mstCompany')->where('CompanyName', $po->CompanyName)->first();
-                }
+                $vendor = $vendorQuery->first();
             }
         }
 
-        $getValue = function ($row, array $keys, $default = null) {
-            if (!$row) {
-                return $default;
+        return [
+            'VendorID' => $vendor->VendorID ?? ($po->mstVendorVendorID ?? '-'),
+            'VendorName' => $vendor->VendorName ?? ($po->mstVendorVendorName ?? '-'),
+            'VendorAddress' => $vendor->NPWPAddress
+                ?? $vendor->RecipientAddress
+                ?? '-',
+            'ContactPerson' => $vendor->CP ?? '-',
+            'PhoneNumber' => $vendor->Telephone ?? '-',
+            'ContactPersonPhoneNumber' => $vendor->CPPhone ?? '-',
+            'FaxNumber' => $vendor->Fax ?? '-',
+            'EmailCorrespondence' => $vendor->EmailCorresspondence ?? '-',
+        ];
+    }
+
+    private function getCompanyInfoForDocument(object $po): array
+    {
+        $company = null;
+        if (Schema::hasTable('mstCompany')) {
+            $companyId = trim((string) ($po->CompanyID ?? ''));
+
+            if ($companyId !== '' && Schema::hasColumn('mstCompany', 'CompanyID')) {
+                $company = DB::table('mstCompany')
+                    ->where('CompanyID', $companyId)
+                    ->first();
+            } elseif ($companyId !== '' && is_numeric($companyId)) {
+                $company = DB::table('mstCompany')
+                    ->where('ID', (int) $companyId)
+                    ->first();
             }
-            foreach ($keys as $key) {
-                if (isset($row->$key)) {
-                    return $row->$key;
-                }
-            }
-            return $default;
-        };
+        }
 
         return [
-            'CompanyName' => $getValue($company, ['CompanyName'], $po->CompanyName ?? '-'),
-            'CompanyAddress1' => $getValue($company, ['CompanyAddress1', 'Address1', 'Address'], ''),
-            'CompanyAddress2' => $getValue($company, ['CompanyAddress2', 'Address2'], ''),
-            'CompanyAddress3' => $getValue($company, ['CompanyAddress3', 'Address3'], ''),
-            'PhoneNumber' => $getValue($company, ['PhoneNumber', 'Phone', 'Telephone'], '-'),
-            'Fax' => $getValue($company, ['Fax', 'FaxNumber'], '-'),
-            'NPWP' => $getValue($company, ['NPWP'], '-'),
+            'CompanyName' => $company->CompanyName
+                ?? $company->Company
+                ?? ($po->CompanyName ?? '-'),
+            'CompanyAddress1' => $company->CompanyAddress1 ?? null,
+            'CompanyAddress2' => $company->CompanyAddress2 ?? null,
+            'CompanyAddress3' => $company->CompanyAddress ?? null,
+            'PhoneNumber' => $company->TelpNumber ?? null,
+            'Fax' => $company->Fax ?? null,
+            'NPWP' => $company->NPWP ?? null,
         ];
     }
 
