@@ -1181,8 +1181,16 @@ class PurchaseOrderController extends Controller
     public function purchaseOrderItemsGrid(Request $request)
     {
         $draw = (int) $request->input('draw', 0);
-        $start = (int) $request->input('start', 0);
-        $length = (int) $request->input('length', 10);
+        $startInput = $request->input('start');
+        if ($startInput === null) {
+            $startInput = $request->input('Start');
+        }
+        $lengthInput = $request->input('length');
+        if ($lengthInput === null) {
+            $lengthInput = $request->input('Length');
+        }
+        $start = (int) ($startInput ?? 0);
+        $length = (int) ($lengthInput ?? 10);
 
         $baseQuery = $this->basePurchaseOrderItemsQuery($request);
         $recordsTotal = (clone $baseQuery)->count('item.ID');
@@ -1236,8 +1244,16 @@ class PurchaseOrderController extends Controller
     public function grid(Request $request)
     {
         $draw = (int) $request->input('draw', 0);
-        $start = (int) $request->input('start', 0);
-        $length = (int) $request->input('length', 10);
+        $startInput = $request->input('start');
+        if ($startInput === null) {
+            $startInput = $request->input('Start');
+        }
+        $lengthInput = $request->input('length');
+        if ($lengthInput === null) {
+            $lengthInput = $request->input('Length');
+        }
+        $start = (int) ($startInput ?? 0);
+        $length = (int) ($lengthInput ?? 10);
 
         $baseQuery = $this->applyStatusFilters($this->baseQuery(), $request);
         $recordsTotal = (clone $baseQuery)->count('po.ID');

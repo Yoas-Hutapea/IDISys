@@ -548,20 +548,6 @@ class ProcurementWizardSave {
         }
     }
 
-    async saveDraftDocumentsIfDirty(prNumber) {
-        const documentsSaved = localStorage.getItem('procurementDraftDocumentsSaved') === 'true';
-        if (documentsSaved) {
-            return;
-        }
-
-        const documentTable = document.querySelector('#documentTable tbody');
-        if (!documentTable) {
-            return;
-        }
-
-        await this.saveDraftDocumentsOnly(prNumber);
-    }
-
     /**
      * Save approval only
      */
@@ -659,11 +645,9 @@ class ProcurementWizardSave {
 
                 const items = this.getItemsFromTable();
                 const additionalInfo = (additionalStep && additionalStep.style.display !== 'none') ? ', additional data, ' : ', ';
-                await this.saveDraftDocumentsIfDirty(prNumber);
                 this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information${additionalInfo}and ${items.length} item(s) have been saved. PR Number: ${prNumber}`, 5000);
             } else {
                 const additionalInfo = (additionalStep && additionalStep.style.display !== 'none') ? ' and additional data' : '';
-                await this.saveDraftDocumentsIfDirty(prNumber);
                 this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information${additionalInfo} has been saved. PR Number: ${prNumber}`, 5000);
             }
         } catch (error) {
@@ -856,14 +840,6 @@ class ProcurementWizardSave {
                 return;
             }
 
-            try {
-                await this.saveDraftDocumentsIfDirty(prNumber);
-            } catch (error) {
-                console.error('Error saving documents:', error);
-                this.wizard.showValidationMessage('Error saving documents: ' + error.message);
-                return;
-            }
-
             const itemCount = itemRows.length > 0 ? this.getItemsFromTable().length : 0;
             let messageParts = [];
             messageParts.push('Basic information');
@@ -921,14 +897,6 @@ class ProcurementWizardSave {
             }
 
             await this.saveDraftAdditionalOnly(prNumber);
-
-            try {
-                await this.saveDraftDocumentsIfDirty(prNumber);
-            } catch (error) {
-                console.error('Error saving documents:', error);
-                this.wizard.showValidationMessage('Error saving documents: ' + error.message);
-                return;
-            }
 
             this.wizard.createAlert('success', `<strong>Draft Saved!</strong> Basic information and additional data have been saved. PR Number: ${prNumber}`, 5000);
 
