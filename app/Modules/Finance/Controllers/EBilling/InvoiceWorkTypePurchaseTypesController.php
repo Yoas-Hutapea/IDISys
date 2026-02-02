@@ -15,6 +15,8 @@ class InvoiceWorkTypePurchaseTypesController extends Controller
         $table = $this->resolveTable([
             'mstFINInvoiceWorkTypePurchaseType',
             'mstFINInvoiceWorkTypePurchaseTypes',
+            'idxFINInvoiceWorkTypePurchaseType',
+            'idxFINInvoiceWorkTypePurchaseTypes',
         ]);
 
         if (!$table) {
@@ -35,6 +37,8 @@ class InvoiceWorkTypePurchaseTypesController extends Controller
         $table = $this->resolveTable([
             'mstFINInvoiceWorkTypePurchaseType',
             'mstFINInvoiceWorkTypePurchaseTypes',
+            'idxFINInvoiceWorkTypePurchaseType',
+            'idxFINInvoiceWorkTypePurchaseTypes',
         ]);
 
         if (!$table) {
@@ -55,6 +59,8 @@ class InvoiceWorkTypePurchaseTypesController extends Controller
         $table = $this->resolveTable([
             'mstFINInvoiceWorkTypePurchaseType',
             'mstFINInvoiceWorkTypePurchaseTypes',
+            'idxFINInvoiceWorkTypePurchaseType',
+            'idxFINInvoiceWorkTypePurchaseTypes',
         ]);
 
         if (!$table) {
@@ -88,6 +94,8 @@ class InvoiceWorkTypePurchaseTypesController extends Controller
         $table = $this->resolveTable([
             'mstFINInvoiceWorkTypePurchaseType',
             'mstFINInvoiceWorkTypePurchaseTypes',
+            'idxFINInvoiceWorkTypePurchaseType',
+            'idxFINInvoiceWorkTypePurchaseTypes',
         ]);
 
         if (!$table) {

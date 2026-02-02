@@ -276,7 +276,7 @@ class InvoicesController extends Controller
         $this->setIfColumn($table, $data, ['PurchOrderID', 'PurchaseOrderNumber', 'trxPROPurchaseOrderNumber'], $request->input('purchOrderID'));
         $this->setIfColumn($table, $data, ['CompanyID', 'mstCompanyID'], $request->input('companyID'));
         $this->setIfColumn($table, $data, ['WorkTypeID', 'mstFINInvoiceWorkTypeID'], $request->input('workTypeID'));
-        $this->setIfColumn($table, $data, ['ProductTypeID'], $request->input('productTypeID'));
+        $this->setIfColumn($table, $data, ['ProductTypeID', 'ProcuctTypeID'], $request->input('productTypeID', 0));
         $this->setIfColumn($table, $data, ['VendorID', 'mstVendorVendorID'], $request->input('vendorID'));
         $this->setIfColumn($table, $data, ['trxFINInvoiceTOPID', 'mstFINInvoiceTOPID'], $request->input('trxFINInvoiceTOPID'));
         $this->setIfColumn($table, $data, ['TermPosition'], $request->input('termPosition'));

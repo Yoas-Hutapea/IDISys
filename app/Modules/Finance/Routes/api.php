@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Modules\Finance\Controllers\Master\TermOfPaymentsController;
+use App\Modules\Finance\Controllers\Master\TaxesController;
 use App\Modules\Finance\Controllers\EBilling\InvoiceDocumentChecklistsController;
 use App\Modules\Finance\Controllers\EBilling\InvoiceWorkTypesController;
 use App\Modules\Finance\Controllers\EBilling\InvoiceWorkTypePurchaseTypesController;
@@ -13,6 +14,7 @@ Route::middleware(['web', 'auth'])
     ->group(function () {
         Route::prefix('Master')->group(function () {
             Route::get('/TermOfPayments', [TermOfPaymentsController::class, 'index']);
+            Route::get('/Taxes', [TaxesController::class, 'index']);
         });
 
         Route::prefix('EBilling')->group(function () {

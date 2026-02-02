@@ -622,6 +622,8 @@ class InvoiceCreatePO {
                 return;
             }
 
+            const fallbackWorkType = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
+
             // Get PurchaseTypeID and PurchaseSubTypeID from PO data
             let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
             let purchaseSubTypeID = poData.purchaseSubTypeID || poData.PurchaseSubTypeID || poData.mstPROPurchaseSubTypeID || poData.MstPROPurchaseSubTypeID;
@@ -665,7 +667,7 @@ class InvoiceCreatePO {
             // If we still don't have IDs, cannot proceed
             if (!purchaseTypeID || !purchaseSubTypeID) {
                 console.warn('PurchaseTypeID or PurchaseSubTypeID not found, cannot load WorkType from mapping');
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 return;
             }
 
@@ -675,7 +677,7 @@ class InvoiceCreatePO {
 
             if (isNaN(purchaseTypeID) || isNaN(purchaseSubTypeID)) {
                 console.warn('Invalid PurchaseTypeID or PurchaseSubTypeID');
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 return;
             }
 
@@ -692,7 +694,13 @@ class InvoiceCreatePO {
 
             if (matchedMapping) {
                 // Get WorkType from mapping
-                const workType = matchedMapping.workType || matchedMapping.WorkType || '';
+                const workType = matchedMapping.workType
+                    || matchedMapping.WorkType
+                    || matchedMapping.workTypeDescription
+                    || matchedMapping.WorkTypeDescription
+                    || matchedMapping.description
+                    || matchedMapping.Description
+                    || '';
                 $('#txtWorkType').val(workType);
 
                 // Store WorkTypeID for later use
@@ -701,12 +709,13 @@ class InvoiceCreatePO {
                 }
             } else {
                 // No mapping found
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 console.warn(`No WorkType mapping found for PurchaseTypeID=${purchaseTypeID} and PurchaseSubTypeID=${purchaseSubTypeID}`);
             }
         } catch (error) {
             console.error('Failed to load WorkType from mapping:', error);
-            $('#txtWorkType').val('');
+            const fallbackWorkType = poData?.purchType || poData?.PurchType || poData?.purchaseType || poData?.PurchaseType || '';
+            $('#txtWorkType').val(fallbackWorkType);
         }
     }
 
@@ -718,6 +727,8 @@ class InvoiceCreatePO {
             if (!this.manager || !this.manager.apiModule) {
                 return;
             }
+
+            const fallbackWorkType = poData.purchType || poData.PurchType || poData.purchaseType || poData.PurchaseType || '';
 
             // Get PurchaseTypeID and PurchaseSubTypeID from PO data
             let purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID;
@@ -762,7 +773,7 @@ class InvoiceCreatePO {
             // If we still don't have IDs, cannot proceed
             if (!purchaseTypeID || !purchaseSubTypeID) {
                 console.warn('PurchaseTypeID or PurchaseSubTypeID not found, cannot load WorkType from mapping');
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 return;
             }
 
@@ -772,7 +783,7 @@ class InvoiceCreatePO {
 
             if (isNaN(purchaseTypeID) || isNaN(purchaseSubTypeID)) {
                 console.warn('Invalid PurchaseTypeID or PurchaseSubTypeID');
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 return;
             }
 
@@ -788,7 +799,13 @@ class InvoiceCreatePO {
 
             if (matchedMapping) {
                 // Get WorkType from mapping
-                const workType = matchedMapping.workType || matchedMapping.WorkType || '';
+                const workType = matchedMapping.workType
+                    || matchedMapping.WorkType
+                    || matchedMapping.workTypeDescription
+                    || matchedMapping.WorkTypeDescription
+                    || matchedMapping.description
+                    || matchedMapping.Description
+                    || '';
                 $('#txtWorkType').val(workType);
 
                 // Store WorkTypeID for later use
@@ -797,12 +814,13 @@ class InvoiceCreatePO {
                 }
             } else {
                 // No mapping found
-                $('#txtWorkType').val('');
+                $('#txtWorkType').val(fallbackWorkType);
                 console.warn(`No WorkType mapping found for PurchaseTypeID=${purchaseTypeID} and PurchaseSubTypeID=${purchaseSubTypeID}`);
             }
         } catch (error) {
             console.error('Failed to load WorkType from mapping:', error);
-            $('#txtWorkType').val('');
+            const fallbackWorkType = poData?.purchType || poData?.PurchType || poData?.purchaseType || poData?.PurchaseType || '';
+            $('#txtWorkType').val(fallbackWorkType);
         }
     }
 
