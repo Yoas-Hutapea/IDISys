@@ -104,6 +104,12 @@
             }
 
             await this.loadMasterData();
+
+            setTimeout(() => {
+                if (this.filterModule && this.filterModule.updateDateRangeInfo) {
+                    this.filterModule.updateDateRangeInfo();
+                }
+            }, 200);
         }
 
         async loadMasterData() {

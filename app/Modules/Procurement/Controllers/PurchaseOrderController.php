@@ -1499,12 +1499,22 @@ class PurchaseOrderController extends Controller
 
         $allowed = [];
         if ($isAccountPayableManager) {
-            if (in_array(9, $statusIds, true)) {
-                $allowed[] = 9;
+            foreach ($statusIds as $statusId) {
+                if ($statusId === 10) {
+                    continue;
+                }
+                if ($statusId === 9 || ($statusId !== 9 && $statusId !== 10)) {
+                    $allowed[] = $statusId;
+                }
             }
         } elseif ($isFinanceDivisionHead) {
-            if (in_array(10, $statusIds, true)) {
-                $allowed[] = 10;
+            foreach ($statusIds as $statusId) {
+                if ($statusId === 9) {
+                    continue;
+                }
+                if ($statusId === 10 || ($statusId !== 9 && $statusId !== 10)) {
+                    $allowed[] = $statusId;
+                }
             }
         } else {
             foreach ($statusIds as $statusId) {
