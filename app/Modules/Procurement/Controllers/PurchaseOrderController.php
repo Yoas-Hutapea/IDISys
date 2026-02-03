@@ -583,6 +583,11 @@ class PurchaseOrderController extends Controller
         if ($cancelReason !== null && Schema::hasColumn('trxPROPurchaseOrderAmortization', 'CancelReason')) {
             $updatePayload['CancelReason'] = $cancelReason;
         }
+        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'Status')) {
+            $updatePayload['Status'] = 'Canceled';
+        } elseif (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'status')) {
+            $updatePayload['status'] = 'Canceled';
+        }
         if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
             $updatePayload['UpdatedDate'] = $now;
         }
@@ -620,14 +625,52 @@ class PurchaseOrderController extends Controller
             }
         };
 
+        $applyAutoCancel = function (string $type, int $maxPeriod, string $autoReason) use ($purchOrderId, $poColumn, $periodColumn, $updatePayload) {
+            if ($maxPeriod <= 0) {
+                return;
+            }
+
+            $query = DB::table('trxPROPurchaseOrderAmortization')
+                ->where($poColumn, $purchOrderId)
+                ->where($periodColumn, '>', $maxPeriod);
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'AmortizationType')) {
+                $query->where('AmortizationType', $type);
+            }
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled')) {
+                $query->where(function ($q) {
+                    $q->whereNull('IsCanceled')->orWhere('IsCanceled', false);
+                });
+            }
+
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'InvoiceNumber')) {
+                $query->where(function ($q) {
+                    $q->whereNull('InvoiceNumber')->orWhere('InvoiceNumber', '');
+                });
+            }
+
+            if (!empty($updatePayload)) {
+                $payload = $updatePayload;
+                if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'CancelReason')) {
+                    $payload['CancelReason'] = $autoReason;
+                }
+                $query->update($payload);
+            }
+        };
+
         DB::beginTransaction();
         try {
             if (is_array($termPositions) && !empty($termPositions)) {
                 $applyCancel('Term', $termPositions);
+                $maxTerm = max(array_map('intval', $termPositions));
+                $applyAutoCancel('Term', $maxTerm, "Auto-canceled because period {$maxTerm} was canceled");
             }
 
             if (is_array($periodNumbers) && !empty($periodNumbers)) {
                 $applyCancel('Period', $periodNumbers);
+                $maxPeriod = max(array_map('intval', $periodNumbers));
+                $applyAutoCancel('Period', $maxPeriod, "Auto-canceled because period {$maxPeriod} was canceled");
             }
 
             DB::commit();

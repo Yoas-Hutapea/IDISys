@@ -15,6 +15,39 @@ class InvoiceCreateTerm {
         }
     }
 
+    collectSubmittedPositions(invoices) {
+        const submitted = new Set();
+        if (!Array.isArray(invoices)) {
+            return submitted;
+        }
+
+        invoices.forEach(inv => {
+            const termPos = inv.termPosition ?? inv.TermPosition ?? null;
+            if (termPos == null) {
+                return;
+            }
+
+            if (typeof termPos === 'number' && termPos > 0) {
+                submitted.add(termPos);
+                return;
+            }
+
+            if (typeof termPos === 'string') {
+                const matches = termPos.match(/\d+/g);
+                if (matches) {
+                    matches.forEach(match => {
+                        const value = parseInt(match, 10);
+                        if (value > 0) {
+                            submitted.add(value);
+                        }
+                    });
+                }
+            }
+        });
+
+        return submitted;
+    }
+
     /**
      * Load Term of Payment Grid (Optimized - uses pre-fetched existingInvoices and amortizations from database)
      */
@@ -84,19 +117,26 @@ class InvoiceCreateTerm {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                                'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // Determine eligible term number from amortization data
-            let eligibleTermNumber = 0;
-            const sortedTerms = [...termAmortizations].sort((a, b) => {
-                const aNum = a.periodNumber || 0;
-                const bNum = b.periodNumber || 0;
-                return aNum - bNum;
-            });
-            for (const amort of sortedTerms) {
-                const isCanceled = amort.isCanceled || false;
-                const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
-                if (!isCanceled && !hasInvoice) {
-                    eligibleTermNumber = amort.periodNumber || 0;
-                    break;
+            // Check existing invoices to determine eligible term number
+            let submittedTerms = new Set();
+            let eligibleTermNumber = 1;
+            
+            // Use pre-fetched existingInvoices if available, otherwise fetch
+            let invoices = existingInvoices;
+            if (!invoices && poNumber && this.manager && this.manager.apiModule) {
+                try {
+                    invoices = await this.manager.apiModule.getInvoiceDetails(poNumber);
+                } catch (error) {
+                    console.warn('Failed to check existing invoices for eligible term:', error);
+                    invoices = [];
+                }
+            }
+            
+            if (invoices && invoices.length > 0) {
+                submittedTerms = this.collectSubmittedPositions(invoices);
+                if (submittedTerms.size > 0) {
+                    const maxTermPosition = Math.max(...submittedTerms);
+                    eligibleTermNumber = maxTermPosition + 1;
                 }
             }
 
@@ -104,12 +144,12 @@ class InvoiceCreateTerm {
 
             // Generate rows for each term from database
             termAmortizations.forEach((amort) => {
-                const termNumber = amort.periodNumber;
+                const termNumber = parseInt(amort.periodNumber, 10) || 0;
                 const termValue = amort.termValue || 0;
                 const termMonth = monthNames[termNumber - 1] || `Term ${termNumber}`;
                 const invoiceAmount = amort.invoiceAmount || 0;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
 
                 let status = '';
                 let statusClass = '';
@@ -253,19 +293,24 @@ class InvoiceCreateTerm {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                                'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // Determine eligible term number from amortization data
-            let eligibleTermNumber = 0;
-            const sortedTerms = [...termAmortizations].sort((a, b) => {
-                const aNum = a.periodNumber || 0;
-                const bNum = b.periodNumber || 0;
-                return aNum - bNum;
-            });
-            for (const amort of sortedTerms) {
-                const isCanceled = amort.isCanceled || false;
-                const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
-                if (!isCanceled && !hasInvoice) {
-                    eligibleTermNumber = amort.periodNumber || 0;
-                    break;
+            // Check existing invoices to determine eligible term number
+            let submittedTerms = new Set();
+            let eligibleTermNumber = 1;
+            
+            if (poNumber && this.manager && this.manager.apiModule) {
+                try {
+                    const existingInvoices = await this.manager.apiModule.getInvoiceDetails(poNumber);
+                    
+                    if (existingInvoices && existingInvoices.length > 0) {
+                        submittedTerms = this.collectSubmittedPositions(existingInvoices);
+                        if (submittedTerms.size > 0) {
+                            const maxTermPosition = Math.max(...submittedTerms);
+                            eligibleTermNumber = maxTermPosition + 1;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to check existing invoices for eligible term:', error);
+                    eligibleTermNumber = 1;
                 }
             }
 
@@ -273,11 +318,11 @@ class InvoiceCreateTerm {
 
             // Generate rows for each term from database
             termAmortizations.forEach((amort) => {
-                const termNumber = amort.periodNumber;
+                const termNumber = parseInt(amort.periodNumber, 10) || 0;
                 const termValue = amort.termValue || 0;
                 const termMonth = monthNames[termNumber - 1] || `Term ${termNumber}`;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
 
                 let status = '';
                 let statusClass = '';
@@ -620,7 +665,7 @@ class InvoiceCreateTerm {
                                        ${canSelect ? '' : 'disabled'}
                                        title="${canSelect ? 'Select Period' : 'Please select previous periods first'}">
                             ` : `
-                                <span class="badge ${isCanceled ? 'bg-label-danger' : 'bg-label-success'}">${isCanceled ? 'Canceled' : 'Submitted'}</span>
+                                <span class="badge ${isCanceled ? 'bg-label-danger' : 'bg-label-success'}">${isCanceled ? 'Canceled' : 'Invoice Submitted'}</span>
                             `}
                             <button class="btn btn-sm btn-icon btn-outline-info btn-approval-log-period"
                                     data-period-number="${periodNumber}"
