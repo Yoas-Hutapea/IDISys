@@ -9,6 +9,16 @@ class ReceiveListView {
         this.viewPRDocuments = [];
         this.viewPRAdditional = null;
         this.currentPRNumber = null;
+        // Ensure global viewed documents set exists
+        if (typeof window !== 'undefined') {
+            if (typeof window.__viewedDocuments === 'undefined') {
+                try {
+                    window.__viewedDocuments = new Set();
+                } catch (e) {
+                    window.__viewedDocuments = [];
+                }
+            }
+        }
     }
 
     /**
@@ -392,13 +402,22 @@ class ReceiveListView {
                     const escapedFileName = this.escapeHtml(fileName);
                     const escapedFilePath = this.escapeHtml(filePath);
 
+                    // Determine viewed status
+                    const viewedFlag = (typeof window !== 'undefined' && window.__viewedDocuments && typeof window.__viewedDocuments.has === 'function')
+                        ? window.__viewedDocuments.has(String(docId))
+                        : (Array.isArray(window.__viewedDocuments) ? window.__viewedDocuments.includes(String(docId)) : false);
+
                     return `
                         <tr>
-                            <td>${escapedFileName}</td>
+                            <td>
+                                ${escapedFileName}
+                                <span class="badge bg-success ms-2 doc-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'inline-block' : 'none'}">Viewed</span>
+                                <span class="badge bg-secondary ms-2 doc-not-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'none' : 'inline-block'}">Not Viewed</span>
+                            </td>
                             <td>${this.escapeHtml(fileSize)}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-sm btn-outline-primary" title="Download" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                                    <i class="icon-base bx bx-download"></i>
+                                <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                                    <i class="icon-base bx bx-show"></i>
                                 </button>
                             </td>
                         </tr>
@@ -1164,17 +1183,97 @@ class ReceiveListView {
                 downloadUrl = baseUrl + endpoint;
             }
 
-            // Create a temporary anchor element to trigger download
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName || 'document';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Ensure global preview state exists
+            if (typeof window.__currentDocumentPreview === 'undefined') {
+                window.__currentDocumentPreview = {
+                    id: null,
+                    fileName: '',
+                    filePath: '',
+                    downloadUrl: null
+                };
+            }
+            if (typeof window.__viewedDocuments === 'undefined') {
+                window.__viewedDocuments = new Set();
+            }
+
+            // Save current preview info
+            window.__currentDocumentPreview.id = documentId;
+            window.__currentDocumentPreview.fileName = fileName || 'document';
+            window.__currentDocumentPreview.filePath = filePath;
+            window.__currentDocumentPreview.downloadUrl = downloadUrl;
+
+            // Mark document as viewed and update UI badge
+            try {
+                if (typeof window.__viewedDocuments === 'undefined') {
+                    try { window.__viewedDocuments = new Set(); } catch (e) { window.__viewedDocuments = []; }
+                }
+                if (window.__viewedDocuments && typeof window.__viewedDocuments.add === 'function') {
+                    window.__viewedDocuments.add(String(documentId));
+                } else if (Array.isArray(window.__viewedDocuments)) {
+                    if (!window.__viewedDocuments.includes(String(documentId))) {
+                        window.__viewedDocuments.push(String(documentId));
+                    }
+                }
+
+                // Update badge display for this document row
+                const idStr = String(documentId);
+                const viewedEls = document.querySelectorAll('.doc-viewed-badge[data-doc-id="' + idStr + '"]');
+                const notViewedEls = document.querySelectorAll('.doc-not-viewed-badge[data-doc-id="' + idStr + '"]');
+                viewedEls.forEach(e => { e.style.display = 'inline-block'; });
+                notViewedEls.forEach(e => { e.style.display = 'none'; });
+            } catch (e) {
+                // ignore UI update errors
+            }
+
+            // Populate modal
+            const filenameEl = document.getElementById('documentPreviewFilename');
+            const frame = document.getElementById('documentPreviewFrame');
+            const modalEl = document.getElementById('documentPreviewModal');
+            if (filenameEl) filenameEl.textContent = window.__currentDocumentPreview.fileName;
+            if (frame) frame.src = downloadUrl;
+
+            // Show Bootstrap modal if available, otherwise open in new tab
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                // Ensure modal is a direct child of body to avoid stacking-context/z-index issues
+                try {
+                    if (modalEl.parentNode !== document.body) {
+                        document.body.appendChild(modalEl);
+                    }
+                } catch (e) {
+                    console.warn('Could not append modal to body:', e);
+                }
+
+                const modalInstance = new bootstrap.Modal(modalEl);
+                modalInstance.show();
+            } else if (downloadUrl) {
+                window.open(downloadUrl, '_blank');
+            }
+
+            // Define global helper for downloading from modal if not present
+            if (typeof window.downloadDocumentFromModal === 'undefined') {
+                window.downloadDocumentFromModal = function () {
+                    try {
+                        const info = window.__currentDocumentPreview;
+                        if (!info || !info.downloadUrl) {
+                            alert('No document selected');
+                            return;
+                        }
+                        const link = document.createElement('a');
+                        link.href = info.downloadUrl;
+                        link.download = info.fileName || 'document';
+                        link.target = '_blank';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (error) {
+                        console.error('Error downloading document from modal:', error);
+                        alert('Failed to download document: ' + (error.message || 'Unknown error'));
+                    }
+                };
+            }
         } catch (error) {
-            console.error('Error downloading document:', error);
-            this.showAlertModal('Failed to download document: ' + (error.message || 'Unknown error'), 'danger');
+            console.error('Error opening document preview:', error);
+            this.showAlertModal('Failed to open document: ' + (error.message || 'Unknown error'), 'danger');
         }
     }
 

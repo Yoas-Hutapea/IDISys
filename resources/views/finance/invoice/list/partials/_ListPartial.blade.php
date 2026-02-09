@@ -1,5 +1,32 @@
 <div class="list-partial-content">
     <div class="table-responsive">
+        <style>
+            .list-partial-content .table {
+                table-layout: auto;
+                width: auto;
+                min-width: 100%;
+            }
+            .list-partial-content .table th,
+            .list-partial-content .table td {
+                white-space: nowrap;
+                vertical-align: middle;
+                text-align: center;
+            }
+            .list-partial-content .table th:nth-child(1) { width: 150px; }
+            .list-partial-content .table th:nth-child(6),
+            .list-partial-content .table td:nth-child(6) { text-align: center; }
+            .list-partial-content .table th:nth-child(22),
+            .list-partial-content .table td:nth-child(22) { text-align: right; }
+            .list-partial-content .table td .employee-name {
+                display: inline-block;
+                width: 180px;
+                max-width: 30vw;
+                white-space: nowrap;
+                overflow: visible;
+                text-overflow: clip;
+                margin: 0 auto;
+            }
+        </style>
         <table class="table table-striped table-hover" id="invoiceTable">
             <thead class="table-light dark:table-dark">
                 <tr>

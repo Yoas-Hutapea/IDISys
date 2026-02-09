@@ -1,6 +1,31 @@
 {{-- List Partial for Purchase Order List --}}
 <div class="list-partial-content">
     <div class="table-responsive">
+        <style>
+            .list-partial-content .table {
+                table-layout: auto;
+                width: auto;
+                min-width: 100%;
+            }
+            .list-partial-content .table th,
+            .list-partial-content .table td {
+                white-space: nowrap;
+                vertical-align: middle;
+                text-align: center;
+            }
+            .list-partial-content .table th:nth-child(1) { width: 120px; }
+            .list-partial-content .table th:nth-child(7),
+            .list-partial-content .table td:nth-child(7) { text-align: right; }
+            .list-partial-content .table td .employee-name {
+                display: inline-block;
+                width: 160px;
+                max-width: 30vw;
+                white-space: nowrap;
+                overflow: visible;
+                text-overflow: clip;
+                margin: 0 auto;
+            }
+        </style>
         <table class="table table-striped table-hover" id="poTable">
             <thead class="table-light dark:table-dark">
                 <tr>

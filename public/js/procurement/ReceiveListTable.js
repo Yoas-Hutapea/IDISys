@@ -19,7 +19,7 @@ class ReceiveListTable {
         }
 
         const self = this;
-        
+
         // Build filter function for GetGrid
         const buildFilter = () => {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildFilter) {
@@ -65,26 +65,30 @@ class ReceiveListTable {
                 { data: 'purchReqName', title: 'Purchase Request Name' },
                 { data: 'purchReqType', title: 'Purchase Request Type' },
                 { data: 'purchReqSubType', title: 'Purchase Request Sub Type' },
-                { 
-                    data: 'approvalStatus', 
+                {
+                    data: 'approvalStatus',
                     title: 'Status',
                     render: function(data, type, row) {
-                        const approvalStatusID = row.mstApprovalStatusID || row.MstApprovalStatusID || null;
-                        let statusText = data || row.approvalStatus || row.ApprovalStatus || 'Draft';
-                        
-                        // If mstApprovalStatusID = 4, show "Waiting Receive Purchase Request"
-                        if (approvalStatusID === 4) {
-                            statusText = 'Waiting Receive Purchase Request';
-                        }
-                        
-                        return self.escapeHtml(statusText);
+                    // Normalize approval status ID to integer for reliable comparisons
+                    const approvalStatusIDRaw = row.mstApprovalStatusID || row.MstApprovalStatusID || null;
+                    const approvalStatusID = Number.isFinite(Number(approvalStatusIDRaw)) ? parseInt(approvalStatusIDRaw, 10) : null;
+                    let statusText = data || row.approvalStatus || row.ApprovalStatus || 'Draft';
+
+                    // If mstApprovalStatusID = 4, show "Waiting Receive Purchase Request"
+                    if (approvalStatusID === 4) {
+                        statusText = 'Waiting Receive Purchase Request';
+                    }
+
+                    return self.escapeHtml(statusText);
                     }
                 },
-                { 
-                    data: 'pic', 
+                {
+                    data: 'pic',
                     title: 'PIC',
                     render: function(data, type, row) {
-                        const approvalStatusID = row.mstApprovalStatusID || row.MstApprovalStatusID || null;
+                        // Normalize approval status ID to integer for reliable comparisons
+                        const approvalStatusIDRaw = row.mstApprovalStatusID || row.MstApprovalStatusID || null;
+                        const approvalStatusID = Number.isFinite(Number(approvalStatusIDRaw)) ? parseInt(approvalStatusIDRaw, 10) : null;
                         // If status is "Waiting Receive Purchase Request" (ID = 4), show "-"
                         if (approvalStatusID === 4) {
                             return '-';
@@ -97,8 +101,8 @@ class ReceiveListTable {
                 },
                 { data: 'totalAmount', title: 'Amount PR', type: 'currency' },
                 { data: 'company', title: 'Company' },
-                { 
-                    data: 'requestor', 
+                {
+                    data: 'requestor',
                     title: 'Requestor',
                     render: function(data, type, row) {
                         const requestorId = data || row.requestor || row.Requestor || '';
@@ -107,8 +111,8 @@ class ReceiveListTable {
                         return `<span class="employee-name" data-employee-id="${escapedId}">${escapedId}</span>`;
                     }
                 },
-                { 
-                    data: 'applicant', 
+                {
+                    data: 'applicant',
                     title: 'Applicant',
                     render: function(data, type, row) {
                         const applicantId = data || row.applicant || row.Applicant || '';
@@ -165,7 +169,7 @@ class ReceiveListTable {
         // Get all employee IDs from the table
         const employeeNameSpans = document.querySelectorAll('#receiveTable .employee-name');
         if (employeeNameSpans.length === 0) return;
-        
+
         // Collect unique employee IDs
         const employeeIds = new Set();
         employeeNameSpans.forEach(span => {
@@ -174,13 +178,13 @@ class ReceiveListTable {
                 employeeIds.add(employeeId);
             }
         });
-        
+
         if (employeeIds.size === 0) return;
-        
+
         // Batch lookup all employee names
         if (this.manager.employeeCacheModule.batchGetEmployeeNames) {
             const nameMap = await this.manager.employeeCacheModule.batchGetEmployeeNames(Array.from(employeeIds));
-            
+
             // Update all employee name spans
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
@@ -198,7 +202,7 @@ class ReceiveListTable {
                 const name = await this.manager.employeeCacheModule.getEmployeeNameByEmployId(employeeId);
                 return { employeeId, name };
             });
-            
+
             const results = await Promise.all(lookupPromises);
             const nameMap = new Map();
             results.forEach(({ employeeId, name }) => {
@@ -206,7 +210,7 @@ class ReceiveListTable {
                     nameMap.set(employeeId.trim().toLowerCase(), name);
                 }
             });
-            
+
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
                 if (employeeId && employeeId !== '-') {

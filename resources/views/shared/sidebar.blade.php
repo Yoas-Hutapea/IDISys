@@ -102,7 +102,7 @@
                         </li>
                         <li class="menu-item">
                             <a href="/Procurement/PurchaseRequest/Release" class="menu-link">
-                                <div data-i18n="Release PR">Release PR</div>
+                                <div data-i18n="Release PR">Release Draft PO</div>
                             </a>
                         </li>
                     </ul>

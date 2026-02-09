@@ -26,7 +26,7 @@
             <div class="row mt-3">
                 <div class="col-12 text-end">
                     <label class="form-label fw-semibold me-2">Amount Total:</label>
-                    <input type="text" class="form-control d-inline-block" id="approval-amount-total" value="0" disabled style="width: 200px;">
+                    <input type="text" class="form-control d-inline-block text-end" id="approval-amount-total" value="0" disabled style="width: 200px; text-align: right;">
                 </div>
             </div>
         </div>
