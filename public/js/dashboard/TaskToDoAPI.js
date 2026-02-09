@@ -93,8 +93,20 @@ class TaskToDoAPI {
      * Note: Even if user is Procurement Staff or Procurement Team Leader (who can see all PRs in list),
      * rejected tasks should only show PRs where CreatedBy matches current user's EmployeeID
      */
-    async getRejectedTasks(currentUserEmployeeID) {
-        const cacheKey = `taskToDo_rejected_${currentUserEmployeeID || 'anonymous'}`;
+    async getRejectedTasks(currentUserEmployeeID, currentUserIdentifiers = []) {
+        const normalizedUserIds = new Set();
+        if (currentUserEmployeeID && currentUserEmployeeID.trim() !== '') {
+            normalizedUserIds.add(currentUserEmployeeID.trim().toLowerCase());
+        }
+        if (Array.isArray(currentUserIdentifiers)) {
+            currentUserIdentifiers.forEach(id => {
+                if (id && id.toString().trim() !== '') {
+                    normalizedUserIds.add(id.toString().trim().toLowerCase());
+                }
+            });
+        }
+
+        const cacheKey = `taskToDo_rejected_${Array.from(normalizedUserIds).join('|') || 'anonymous'}`;
 
         return await this.getCachedData(cacheKey, async () => {
             try {
@@ -105,18 +117,26 @@ class TaskToDoAPI {
 
                 // Filter to only show rejected PRs where:
                 // 1. Status is 5 (Rejected)
-                // 2. CreatedBy matches current user's EmployeeID (only show PRs created by current user)
+                // 2. Requestor/Applicant/CreatedBy matches current user's identifiers
                 const rejectedTasks = allRejectedTasks.filter(task => {
-                    const statusID = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                    const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
+                    const statusID = parseInt(statusIDRaw, 10);
                     if (statusID !== 5) return false;
 
-                    // Filter by CreatedBy: Only show rejected PRs where CreatedBy matches current user's EmployeeID
-                    if (currentUserEmployeeID && currentUserEmployeeID.trim() !== '') {
-                        const taskCreatedBy = task.CreatedBy || task.createdBy || '';
-                        return taskCreatedBy === currentUserEmployeeID;
-                    } else {
+                    if (normalizedUserIds.size === 0) {
                         return false;
                     }
+
+                    const taskIds = [
+                        task.CreatedBy, task.createdBy,
+                        task.Requestor, task.requestor,
+                        task.Applicant, task.applicant,
+                        task.PIC, task.pic
+                    ]
+                        .map(id => (id || '').toString().trim().toLowerCase())
+                        .filter(id => id !== '');
+
+                    return taskIds.some(id => normalizedUserIds.has(id));
                 });
 
                 return rejectedTasks;
@@ -147,18 +167,14 @@ class TaskToDoAPI {
     }
 
     /**
-     * Get all PO tasks (status 8, 9, 10, 12) in a single API call
-     * This optimizes performance by reducing from 2 API calls to 1
-     * Cache key is shared (no user-specific) since data is the same for all users
+     * Get PO tasks by status IDs (used by confirm/approval tasks)
+     * Note: Keep confirm (8,12) separate from approval (9,10) to avoid CreatedBy filter
      */
-    async getPOTasks() {
-        const cacheKey = 'taskToDo_PO_all';
-
+    async getPOTasksByStatus(statusIds, cacheKey) {
         return await this.getCachedData(cacheKey, async () => {
             try {
-                // Fetch all PO statuses in one call: [8, 9, 10, 12]
                 const poRequest = {
-                    mstApprovalStatusIDs: [8, 9, 10, 12],
+                    mstApprovalStatusIDs: statusIds,
                     length: 1000, // Get up to 1000 records for counting
                     start: 0,
                     draw: 1
@@ -166,23 +182,24 @@ class TaskToDoAPI {
                 const response = await apiCall('Procurement', '/Procurement/PurchaseOrder/PurchaseOrders/Grid', 'POST', poRequest);
                 const data = response.data || response;
 
-                let allPOTasks = [];
                 // First, try to get data array
                 if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-                    allPOTasks = data.data;
-                } else if (Array.isArray(data)) {
-                    allPOTasks = data;
-                } else {
-                    // If no data array but we have count, use count to create placeholder tasks
-                    const count = data.RecordsFiltered || data.RecordsTotal || 0;
-                    if (count > 0) {
-                        // We can't create placeholders here since we don't know which status they belong to
-                        // Just return empty array and let the count be handled by the individual methods
-                        allPOTasks = [];
-                    }
+                    return data.data;
+                }
+                if (Array.isArray(data)) {
+                    return data;
                 }
 
-                return allPOTasks;
+                // If no data array but we have count, use count to create placeholder tasks
+                const count = data.recordsFiltered || data.recordsTotal || data.RecordsFiltered || data.RecordsTotal || 0;
+                if (count > 0) {
+                    const statusId = Array.isArray(statusIds) && statusIds.length > 0 ? statusIds[0] : null;
+                    return Array.from({ length: count }, () => ({
+                        mstApprovalStatusID: statusId
+                    }));
+                }
+
+                return [];
             } catch (error) {
                 console.warn('Error loading PO tasks:', error);
                 return [];
@@ -196,15 +213,9 @@ class TaskToDoAPI {
      */
     async getConfirmPOTasks(currentUserEmployeeID) {
         try {
-            // Get all PO tasks from cache (single API call shared across all users)
-            const allPOTasks = await this.getPOTasks();
-
-            // Filter for confirm PO tasks (status 8 or 12)
-            const confirmPOTasks = allPOTasks.filter(task => {
-                const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
-                const statusID = parseInt(statusIDRaw, 10);
-                return statusID === 8 || statusID === 12;
-            });
+            // Fetch confirm PO tasks only (status 8 or 12)
+            const cacheKey = `taskToDo_PO_confirm_${currentUserEmployeeID || 'anonymous'}`;
+            const confirmPOTasks = await this.getPOTasksByStatus([8, 12], cacheKey);
 
             // Filter by CreatedBy when available: Only show PO tasks where CreatedBy matches current user's EmployeeID
             if (currentUserEmployeeID && currentUserEmployeeID.trim() !== '') {
@@ -234,17 +245,11 @@ class TaskToDoAPI {
      * Get approval PO tasks (status 9 and 10)
      * Uses cached data from getPOTasks() to avoid duplicate API calls
      */
-    async getApprovalPOTasks() {
+    async getApprovalPOTasks(currentUserEmployeeID) {
         try {
-            // Get all PO tasks from cache (single API call shared across all users)
-            const allPOTasks = await this.getPOTasks();
-
-            // Filter for approval PO tasks (status 9 or 10)
-            return allPOTasks.filter(task => {
-                const statusIDRaw = task.mstApprovalStatusID || task.MstApprovalStatusID;
-                const statusID = parseInt(statusIDRaw, 10);
-                return statusID === 9 || statusID === 10;
-            });
+            // Fetch approval PO tasks only (status 9 or 10)
+            const cacheKey = `taskToDo_PO_approval_${currentUserEmployeeID || 'anonymous'}`;
+            return await this.getPOTasksByStatus([9, 10], cacheKey);
         } catch (error) {
             console.warn('Error loading approval PO tasks:', error);
             return [];
@@ -254,7 +259,7 @@ class TaskToDoAPI {
     /**
      * Get all tasks (combines all task types)
      */
-    async getAllTasks(currentUserEmployeeID) {
+    async getAllTasks(currentUserEmployeeID, currentUserIdentifiers = []) {
         try {
             // Fetch all task types in parallel for better performance
             const [
@@ -267,10 +272,10 @@ class TaskToDoAPI {
             ] = await Promise.all([
                 this.getApprovalTasks(),
                 this.getReceiveTasks(),
-                this.getRejectedTasks(currentUserEmployeeID),
+                this.getRejectedTasks(currentUserEmployeeID, currentUserIdentifiers),
                 this.getReleaseTasks(),
                 this.getConfirmPOTasks(currentUserEmployeeID),
-                this.getApprovalPOTasks()
+                this.getApprovalPOTasks(currentUserEmployeeID)
             ]);
 
             // Combine all tasks

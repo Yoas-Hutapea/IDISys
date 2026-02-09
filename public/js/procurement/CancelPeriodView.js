@@ -261,6 +261,87 @@ class CancelPeriodView {
     }
 
     /**
+     * Populate additional information (PR Additional) into view
+     */
+    populateAdditionalInformation(prAdditional) {
+        try {
+            if (!prAdditional) {
+                $('#cancel-site-id').text('-');
+                $('#cancel-site-name').text('-');
+                $('#cancel-regional-id').text('-');
+                $('#cancel-regional-name').text('-');
+                $('#cancel-payment-top').text('-');
+                $('#cancel-status-invoice').text('-');
+                $('#cancelPeriodStartPeriod').text('-');
+                $('#cancelPeriodEndPeriod').text('-');
+                $('#cancelPeriodPeriodCount').text('-');
+                $('#cancel-is-generate').text('-');
+                $('#cancel-created-date').text('-');
+                $('#cancel-created-by').text('-');
+                $('#cancel-updated-date').text('-');
+                $('#cancel-updated-by').text('-');
+                $('#cancel-description').text('-');
+                $('#cancelPeriodBillingType').text('-');
+                $('#cancelPeriodTotalMonthPeriod').text('-');
+                $('#cancelPeriodAmortizationType').text('-');
+                return;
+            }
+
+            const startPeriod = prAdditional.startPeriod || prAdditional.StartPeriod || '';
+            const endPeriod = prAdditional.endPeriod || prAdditional.EndPeriod || '';
+            const period = prAdditional.period || prAdditional.Period || '';
+            const billingTypeID = prAdditional.billingTypeID || prAdditional.BillingTypeID || '';
+            const amortizationType = prAdditional.amortizationType || prAdditional.AmortizationType || '';
+            // Basic mapping
+            $('#cancel-site-id').text(prAdditional.siteID || prAdditional.SiteID || prAdditional.mstSiteID || prAdditional.MstSiteID || '-');
+            $('#cancel-site-name').text(prAdditional.siteName || prAdditional.SiteName || prAdditional.mstSiteName || prAdditional.MstSiteName || '-');
+            $('#cancel-regional-id').text(prAdditional.regionalID || prAdditional.RegionalID || '-');
+            $('#cancel-regional-name').text(prAdditional.regionalName || prAdditional.RegionalName || '-');
+            $('#cancel-payment-top').text(prAdditional.topDescription || prAdditional.TOPDescription || prAdditional.paymentTOP || prAdditional.PaymentTOP || '-');
+            $('#cancel-status-invoice').text(prAdditional.statusInvoice || prAdditional.StatusInvoice || '-');
+
+            $('#cancelPeriodStartPeriod').text(startPeriod ? this.formatDate(startPeriod) : '-');
+            $('#cancelPeriodEndPeriod').text(endPeriod ? this.formatDate(endPeriod) : '-');
+            $('#cancelPeriodPeriodCount').text(period || '-');
+            $('#cancel-is-generate').text(prAdditional.isGenerate || prAdditional.IsGenerate ? 'Yes' : 'No');
+            $('#cancel-created-date').text(prAdditional.createdDate ? this.formatDate(prAdditional.createdDate) : (prAdditional.CreatedDate ? this.formatDate(prAdditional.CreatedDate) : '-'));
+            $('#cancel-created-by').text(prAdditional.createdBy || prAdditional.CreatedBy || '-');
+            $('#cancel-updated-date').text(prAdditional.updatedDate ? this.formatDate(prAdditional.updatedDate) : (prAdditional.UpdatedDate ? this.formatDate(prAdditional.UpdatedDate) : '-'));
+            $('#cancel-updated-by').text(prAdditional.updatedBy || prAdditional.UpdatedBy || '-');
+            $('#cancel-description').text(prAdditional.description || prAdditional.Description || '-');
+            $('#cancelPeriodAmortizationType').text(amortizationType || '-');
+
+            // Billing type name / total month period - try to fetch from API response if present
+            if (prAdditional.billingTypeName) {
+                $('#cancelPeriodBillingType').text(prAdditional.billingTypeName);
+            } else if (billingTypeID) {
+                // Attempt to load billing type name via API (best-effort; not blocking)
+                apiCall('Procurement', `/Procurement/Master/BillingTypes?isActive=true`, 'GET')
+                    .then(resp => {
+                        const list = Array.isArray(resp) ? resp : (resp.data || resp.Data || []);
+                        const bt = list.find(x => (x.id || x.ID) === billingTypeID);
+                        if (bt) {
+                            $('#cancelPeriodBillingType').text(bt.name || bt.Name || bt.billingTypeName || bt.BillingTypeName || '-');
+                            $('#cancelPeriodTotalMonthPeriod').text(bt.totalMonthPeriod || bt.TotalMonthPeriod || '-');
+                        } else {
+                            $('#cancelPeriodBillingType').text('-');
+                            $('#cancelPeriodTotalMonthPeriod').text('-');
+                        }
+                    })
+                    .catch(() => {
+                        $('#cancelPeriodBillingType').text('-');
+                        $('#cancelPeriodTotalMonthPeriod').text('-');
+                    });
+            } else {
+                $('#cancelPeriodBillingType').text('-');
+                $('#cancelPeriodTotalMonthPeriod').text('-');
+            }
+        } catch (e) {
+            console.error('Error populating additional information:', e);
+        }
+    }
+
+    /**
      * Check and load period of payment
      * Uses the same logic as Invoice Create
      */
@@ -276,6 +357,9 @@ class CancelPeriodView {
             if (!prAdditional) {
                 return false;
             }
+            
+            // Populate additional information section
+            this.populateAdditionalInformation(prAdditional);
             
             // Check if StartPeriod or EndPeriod exists (same as Invoice Create)
             const startPeriod = prAdditional.startPeriod || prAdditional.StartPeriod;
@@ -914,6 +998,14 @@ class CancelPeriodView {
         $('#cancelPeriodCurrency').val('');
         $('#cancelPeriodVendorStatus').val('');
         
+        // Clear additional information fields
+        $('#cancelPeriodStartPeriod').text('');
+        $('#cancelPeriodEndPeriod').text('');
+        $('#cancelPeriodPeriodCount').text('');
+        $('#cancelPeriodBillingType').text('');
+        $('#cancelPeriodTotalMonthPeriod').text('');
+        $('#cancelPeriodAmortizationType').text('');
+
         // Clear tables
         document.getElementById('cancelPeriodItemListBody').innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No PO selected</td></tr>';
         document.getElementById('cancelPeriodTermOfPaymentBody').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No PO selected</td></tr>';

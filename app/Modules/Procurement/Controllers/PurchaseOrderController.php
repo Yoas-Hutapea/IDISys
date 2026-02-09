@@ -1590,7 +1590,13 @@ class PurchaseOrderController extends Controller
     private function getPositionName(): string
     {
         $employee = session('employee');
-        return $employee?->PositionName ?? $employee?->JobTitleName ?? '';
+        $positionName = $employee?->PositionName ?? $employee?->JobTitleName ?? '';
+        $positionName = trim((string) $positionName);
+        if ($positionName === '') {
+            return '';
+        }
+
+        return preg_replace('/\s+/', ' ', $positionName) ?? '';
     }
 
     private function getCurrentEmployeeId(): string

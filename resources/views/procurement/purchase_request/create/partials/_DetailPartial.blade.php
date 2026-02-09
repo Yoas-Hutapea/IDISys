@@ -28,7 +28,7 @@
         <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-end">
                 <label class="form-label me-2 mb-0">Amount Total:</label>
-                <input type="text" class="form-control form-control-sm" id="amountTotal" value="0" disabled style="width: 150px;">
+                <input type="text" class="form-control form-control-sm text-end" id="amountTotal" value="0" disabled style="width: 150px; text-align: right;">
             </div>
         </div>
     </div>
@@ -47,8 +47,8 @@
                             <th>UoM</th>
                             <th>Currency</th>
                             <th>Qty</th>
-                            <th>Unit Price</th>
-                            <th>Amount</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Amount</th>
                         </tr>
                     </thead>
                     <tbody>

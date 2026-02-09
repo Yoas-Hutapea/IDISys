@@ -198,6 +198,7 @@
                 <div id="viewCancelPeriodData" style="display: none;">
                     @include('procurement.purchase_order.cancel_period.partials._POInformationPartial')
                     @include('procurement.purchase_order.cancel_period.partials._VendorInformationPartial')
+                    @include('procurement.purchase_order.cancel_period.partials._AdditionalInformationPartial')
                     @include('procurement.purchase_order.cancel_period.partials._ItemListPartial')
                     @include('procurement.purchase_order.cancel_period.partials._TermOfPaymentPartial')
                     @include('procurement.purchase_order.cancel_period.partials._PeriodOfPaymentPartial')

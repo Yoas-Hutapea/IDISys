@@ -611,7 +611,13 @@ class PurchaseRequestsController extends Controller
         if (empty($allowedCreatedBy)) {
             return $query->whereRaw('1 = 0');
         }
-        $query->whereIn('pr.CreatedBy', $allowedCreatedBy);
+
+        // Allow PRs where CreatedBy OR Requestor OR Applicant matches allowed IDs.
+        $query->where(function ($createdQuery) use ($allowedCreatedBy) {
+            $createdQuery->whereIn('pr.CreatedBy', $allowedCreatedBy)
+                ->orWhereIn('pr.Requestor', $allowedCreatedBy)
+                ->orWhereIn('pr.Applicant', $allowedCreatedBy);
+        });
 
         return $query;
     }

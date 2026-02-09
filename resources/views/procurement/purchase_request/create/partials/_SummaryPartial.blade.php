@@ -73,8 +73,8 @@
                                     <th>Description</th>
                                     <th>UoM</th>
                                     <th>Quantity</th>
-                                    <th>Unit Price</th>
-                                    <th>Amount</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -85,7 +85,7 @@
                     <div class="row mt-3">
                         <div class="col-12 text-end">
                             <label class="form-label fw-semibold me-2">Amount Total:</label>
-                            <input type="text" class="form-control d-inline-block" id="review-amount-total" value="30,500,000" disabled style="width: 200px;">
+                            <input type="text" class="form-control d-inline-block text-end" id="review-amount-total" value="30,500,000" disabled style="width: 200px; text-align: right;">
                         </div>
                     </div>
                 </div>

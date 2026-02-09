@@ -180,8 +180,8 @@ class ProcurementWizardItems {
             <td>${escapeHtml(unit)}</td>
             <td>${escapeHtml(currency)}</td>
             <td>${escapeHtml(formatNumber(quantity, 3))}</td>
-            <td>${escapeHtml(formatNumber(unitPrice, 2))}</td>
-            <td>${escapeHtml(formatNumber(amount, 2))}</td>
+            <td class="text-end">${escapeHtml(formatNumber(unitPrice, 2))}</td>
+            <td class="text-end">${escapeHtml(formatNumber(amount, 2))}</td>
         `;
         
         // Add hover effect for Edit and Delete buttons
@@ -269,8 +269,8 @@ class ProcurementWizardItems {
             <td>${escapeHtml(unit)}</td>
             <td>${escapeHtml(currency)}</td>
             <td>${escapeHtml(formatNumber(quantity, 3))}</td>
-            <td>${escapeHtml(formatNumber(unitPrice, 2))}</td>
-            <td>${escapeHtml(formatNumber(amount, 2))}</td>
+            <td class="text-end">${escapeHtml(formatNumber(unitPrice, 2))}</td>
+            <td class="text-end">${escapeHtml(formatNumber(amount, 2))}</td>
         `;
         
         // Add hover effect for Edit and Delete buttons

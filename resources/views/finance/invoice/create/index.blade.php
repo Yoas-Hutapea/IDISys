@@ -201,17 +201,23 @@
             </div>
         </div>
 
-        <form id="invoiceForm" novalidate>
-            @include('finance.invoice.create.partials._POInformationPartial')
-            @include('finance.invoice.create.partials._VendorInformationPartial')
-            @include('finance.invoice.create.partials._ItemListPartial')
-            @include('finance.invoice.create.partials._TermOfPaymentPartial')
-            @include('finance.invoice.create.partials._PeriodOfPaymentPartial')
-            @include('finance.invoice.create.partials._InvoiceBasicInformationPartial')
-            @include('finance.invoice.create.partials._InvoiceAmountSummaryPartial')
-            @include('finance.invoice.create.partials._DocumentChecklistPartial')
-            @include('finance.invoice.create.partials._SubmitButtonsPartial')
-        </form>
+        @include('finance.invoice.create.partials._POInformationPartial')
+        @include('finance.invoice.create.partials._VendorInformationPartial')
+        @include('finance.invoice.create.partials._ItemListPartial')
+
+        @include('finance.invoice.create.partials._TermOfPaymentPartial')
+        @include('finance.invoice.create.partials._PeriodOfPaymentPartial')
+
+        <!-- Invoice Information (hidden until term/period selected) -->
+        <div id="invoiceInformationSection" style="display: none;">
+            <form id="invoiceForm" novalidate>
+                @include('finance.invoice.create.partials._InvoiceBasicInformationPartial')
+                @include('finance.invoice.create.partials._InvoiceAmountSummaryPartial')
+            </form>
+        </div>
+
+        @include('finance.invoice.create.partials._DocumentChecklistPartial')
+        @include('finance.invoice.create.partials._SubmitButtonsPartial')
 
         @include('finance.invoice.create.partials._ChoosePOModalPartial')
     </div>

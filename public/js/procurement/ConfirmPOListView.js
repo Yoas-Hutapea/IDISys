@@ -531,6 +531,29 @@ class ConfirmPOListView {
             element.value = value || '';
         }
     }
+    /**
+     * Parse a numeric string that may be formatted in different locale styles.
+     * Supports:
+     * - "123456.78" (dot decimal)
+     * - "1.234.567,89" (id-ID: dot thousand, comma decimal)
+     * - "1,234,567.89" (en-US: comma thousand, dot decimal)
+     */
+    parseLocaleNumber(value) {
+        if (value === null || value === undefined || value === '') return 0;
+        let s = String(value).toString().trim();
+        // If contains both dot and comma, assume dot = thousand separator and comma = decimal (id-ID)
+        if (s.indexOf('.') > -1 && s.indexOf(',') > -1) {
+            s = s.replace(/\./g, '').replace(/,/g, '.');
+        } else if (s.indexOf(',') > -1 && s.indexOf('.') === -1) {
+            // Only comma present -> assume comma is decimal separator
+            s = s.replace(/,/g, '.');
+        } else {
+            // Only dot present or neither -> keep dot as decimal separator, remove stray commas
+            s = s.replace(/,/g, '');
+        }
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
 
     /**
      * Populate Items Table
@@ -556,9 +579,7 @@ class ConfirmPOListView {
             if (amount === null || amount === undefined || amount === '') {
                 return '0';
             }
-            // Remove all thousand separators (dots and commas) before parsing
-            const cleanAmount = String(amount).replace(/[.,]/g, '');
-            const numAmount = parseFloat(cleanAmount);
+            const numAmount = this.parseLocaleNumber(amount);
             if (isNaN(numAmount) || numAmount === 0) {
                 return '0';
             }
@@ -575,10 +596,8 @@ class ConfirmPOListView {
         // Calculate total amount
         let totalAmount = 0;
         items.forEach(item => {
-            // Remove all thousand separators before parsing
-            const amountStr = String(item.amount || item.Amount || 0);
-            const cleanAmount = amountStr.replace(/[.,]/g, '');
-            const amount = parseFloat(cleanAmount) || 0;
+            const amountVal = item.amount ?? item.Amount ?? 0;
+            const amount = this.parseLocaleNumber(amountVal);
             totalAmount += amount;
         });
 
@@ -701,15 +720,9 @@ class ConfirmPOListView {
         const rows = tbody.querySelectorAll('tr[data-item-id]');
         rows.forEach(row => {
             const amountText = row.querySelector('.item-amount')?.textContent?.trim() || '';
-            // Parse amount - remove all thousand separators (dots and commas) before parsing
-            // If text is "0" or empty, treat as 0
-            if (amountText === '0' || amountText === '') {
-                totalAmount += 0;
-            } else {
-                const cleanAmount = amountText.replace(/[.,]/g, '');
-                const amount = parseFloat(cleanAmount) || 0;
-                totalAmount += amount;
-            }
+            // Parse amount using locale-aware parser
+            const amount = this.parseLocaleNumber(amountText);
+            totalAmount += amount;
         });
 
         const amountTotalEl = document.getElementById('confirm-amount-total');
@@ -755,11 +768,11 @@ class ConfirmPOListView {
         const description = row.getAttribute('data-original-description') || row.querySelector('.item-description')?.textContent?.trim() || '';
         const unit = row.getAttribute('data-original-unit') || row.querySelector('.item-unit')?.textContent?.trim() || '';
         const qtyText = row.querySelector('.item-qty')?.textContent?.trim() || '0';
-        // Parse qty - remove all thousand separators (both . and ,)
-        const qty = parseFloat(qtyText.replace(/[.,]/g, '')) || 0;
+        // Parse qty using locale-aware parser
+        const qty = this.parseLocaleNumber(qtyText) || 0;
         const unitPriceText = row.querySelector('.item-unit-price')?.textContent?.trim() || '';
-        // Parse unitPrice - remove all thousand separators (both . and ,)
-        const unitPrice = parseFloat(unitPriceText.replace(/[.,]/g, '')) || 0;
+        // Parse unitPrice using locale-aware parser
+        const unitPrice = this.parseLocaleNumber(unitPriceText) || 0;
 
         // Show edit modal (async)
         await this.showEditItemModal(itemId, displayItemId, displayItemName, description, unit, qty, unitPrice, row);

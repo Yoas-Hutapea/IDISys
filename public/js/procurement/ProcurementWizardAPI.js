@@ -1,7 +1,7 @@
 /**
  * Procurement Wizard API Module
  * Handles all API calls for loading and saving data
- * 
+ *
  * This module extracts all API-related methods from the main ProcurementWizard class
  * to reduce the main file size and improve maintainability.
  */
@@ -24,7 +24,7 @@ class ProcurementWizardAPI {
         const companyDropdownItems = document.getElementById('companyDropdownItems');
         const companySelectedText = document.getElementById('companySelectedText');
         const companySearchInput = document.getElementById('companySearchInput');
-        
+
         if (!companyHiddenInput || !companyDropdownItems) return;
 
         // Show loading state
@@ -67,7 +67,7 @@ class ProcurementWizardAPI {
             if (companySearchInput) {
                 const newSearchInput = companySearchInput.cloneNode(true);
                 companySearchInput.parentNode.replaceChild(newSearchInput, companySearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
                     this.wizard.renderDropdownWithSearch({
@@ -128,7 +128,7 @@ class ProcurementWizardAPI {
         const applicantDropdownItems = document.getElementById('applicantDropdownItems');
         const applicantSelectedText = document.getElementById('applicantSelectedText');
         const applicantSearchInput = document.getElementById('applicantSearchInput');
-        
+
         if (!applicantHiddenInput || !applicantDropdownItems) return;
 
         // Show loading state
@@ -153,7 +153,7 @@ class ProcurementWizardAPI {
                 applicants.forEach(applicant => {
                     const applicantValue = applicant.OnBehalfID || applicant.onBehalfID || applicant.Name || applicant.name;
                     const applicantText = applicant.Name || applicant.name || applicant.OnBehalfID || applicant.onBehalfID;
-                    
+
                     // Only add if not duplicate
                     if (applicantValue && applicantText && !addedApplicants.has(applicantValue.toLowerCase()) && !addedApplicants.has(applicantText.toLowerCase())) {
                         allApplicants.push({
@@ -206,7 +206,7 @@ class ProcurementWizardAPI {
             if (applicantSearchInput) {
                 const newSearchInput = applicantSearchInput.cloneNode(true);
                 applicantSearchInput.parentNode.replaceChild(newSearchInput, applicantSearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
                     this.wizard.renderDropdownWithSearch({
@@ -245,11 +245,11 @@ class ProcurementWizardAPI {
             // Auto-select current logged-in user as applicant
             if (currentUserEmployeeID && applicantHiddenInput && applicantSelectedText) {
                 // Find the applicant in the list
-                const currentUserApplicant = allApplicants.find(a => 
+                const currentUserApplicant = allApplicants.find(a =>
                     a.value.toLowerCase() === currentUserEmployeeID.toLowerCase() ||
                     a.text.toLowerCase() === currentUserFullName.toLowerCase()
                 );
-                
+
                 if (currentUserApplicant) {
                     applicantHiddenInput.value = currentUserApplicant.value;
                     applicantSelectedText.textContent = currentUserApplicant.text;
@@ -272,7 +272,7 @@ class ProcurementWizardAPI {
         const purchaseRequestTypeDropdownItems = document.getElementById('purchaseRequestTypeDropdownItems');
         const purchaseRequestTypeSelectedText = document.getElementById('purchaseRequestTypeSelectedText');
         const purchaseRequestTypeSearchInput = document.getElementById('purchaseRequestTypeSearchInput');
-        
+
         if (!purchaseRequestTypeHiddenInput || !purchaseRequestTypeDropdownItems) return;
 
         // Show loading state
@@ -306,16 +306,16 @@ class ProcurementWizardAPI {
             const formatPurchaseTypeText = (type) => {
                 const prType = type.PurchaseRequestType || type.purchaseRequestType || type.Name || type.name || '';
                 const category = type.Category || type.category || '';
-                
+
                 if (!category) {
                     return prType;
                 }
-                
+
                 // If PurchaseRequestType and Category are the same, just show one
                 if (prType.toLowerCase() === category.toLowerCase()) {
                     return prType;
                 }
-                
+
                 // Otherwise, combine them: "PurchaseRequestType Category"
                 return `${prType} ${category}`;
             };
@@ -344,11 +344,11 @@ class ProcurementWizardAPI {
                         const category = item.Category || item.category || '';
                         categoryField.value = category;
                     }
-                    
+
                     // Store current purchase request type ID
                     const typeId = value ? parseInt(value) : null;
                     this.wizard.currentPurchaseRequestTypeID = typeId;
-                    
+
                     // Clear sub type when type changes
                     const purchaseRequestSubTypeField = document.getElementById('PurchaseRequestSubType');
                     const purchaseRequestSubTypeSelectedText = document.getElementById('purchaseRequestSubTypeSelectedText');
@@ -359,12 +359,12 @@ class ProcurementWizardAPI {
                         purchaseRequestSubTypeSelectedText.textContent = 'Select Purchase Request Sub Type';
                     }
                     this.wizard.currentPurchaseRequestSubTypeID = null;
-                    
+
                     // When purchase type is selected, load purchase sub types
                     if (this.wizard.loadPurchaseSubTypesFromApi) {
                         this.wizard.loadPurchaseSubTypesFromApi(value);
                     }
-                    
+
                     // Check if Additional step should be shown (for Type ID 5 or 7, no Sub Type needed)
                     if (this.wizard.checkAndToggleAdditionalStep) {
                         this.wizard.checkAndToggleAdditionalStep();
@@ -376,28 +376,28 @@ class ProcurementWizardAPI {
             if (purchaseRequestTypeSearchInput) {
                 const newSearchInput = purchaseRequestTypeSearchInput.cloneNode(true);
                 purchaseRequestTypeSearchInput.parentNode.replaceChild(newSearchInput, purchaseRequestTypeSearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
-                    
+
                     // Helper function to format purchase type display text with category
                     const formatPurchaseTypeText = (type) => {
                         const prType = type.PurchaseRequestType || type.purchaseRequestType || type.Name || type.name || '';
                         const category = type.Category || type.category || '';
-                        
+
                         if (!category) {
                             return prType;
                         }
-                        
+
                         // If PurchaseRequestType and Category are the same, just show one
                         if (prType.toLowerCase() === category.toLowerCase()) {
                             return prType;
                         }
-                        
+
                         // Otherwise, combine them: "PurchaseRequestType Category"
                         return `${prType} ${category}`;
                     };
-                    
+
                     this.wizard.renderDropdownWithSearch({
                         items: purchaseTypes,
                         searchTerm: searchTerm,
@@ -421,11 +421,11 @@ class ProcurementWizardAPI {
                                 const category = item.Category || item.category || '';
                                 categoryField.value = category;
                             }
-                            
+
                             // Store current purchase request type ID
                             const typeId = value ? parseInt(value) : null;
                             this.wizard.currentPurchaseRequestTypeID = typeId;
-                            
+
                             // Clear sub type when type changes
                             const purchaseRequestSubTypeField = document.getElementById('PurchaseRequestSubType');
                             const purchaseRequestSubTypeSelectedText = document.getElementById('purchaseRequestSubTypeSelectedText');
@@ -436,12 +436,12 @@ class ProcurementWizardAPI {
                                 purchaseRequestSubTypeSelectedText.textContent = 'Select Purchase Request Sub Type';
                             }
                             this.wizard.currentPurchaseRequestSubTypeID = null;
-                            
+
                             // When purchase type is selected, load purchase sub types
                             if (this.wizard.loadPurchaseSubTypesFromApi) {
                                 this.wizard.loadPurchaseSubTypesFromApi(value);
                             }
-                            
+
                             // Check if Additional step should be shown (for Type ID 5 or 7, no Sub Type needed)
                             if (this.wizard.checkAndToggleAdditionalStep) {
                                 this.wizard.checkAndToggleAdditionalStep();
@@ -482,7 +482,7 @@ class ProcurementWizardAPI {
         const purchaseRequestSubTypeDropdownItems = document.getElementById('purchaseRequestSubTypeDropdownItems');
         const purchaseRequestSubTypeSelectedText = document.getElementById('purchaseRequestSubTypeSelectedText');
         const purchaseRequestSubTypeSearchInput = document.getElementById('purchaseRequestSubTypeSearchInput');
-        
+
         if (!purchaseRequestSubTypeHiddenInput || !purchaseRequestSubTypeDropdownItems) return;
 
         // If no type ID provided, try to get from PurchaseRequestType field
@@ -556,7 +556,7 @@ class ProcurementWizardAPI {
                     // Store current purchase request sub type ID
                     const subTypeId = value ? parseInt(value) : null;
                     this.wizard.currentPurchaseRequestSubTypeID = subTypeId;
-                    
+
                     // Check if Additional step should be shown after Sub Type is selected
                     if (this.wizard.checkAndToggleAdditionalStep) {
                         this.wizard.checkAndToggleAdditionalStep();
@@ -568,7 +568,7 @@ class ProcurementWizardAPI {
             if (purchaseRequestSubTypeSearchInput) {
                 const newSearchInput = purchaseRequestSubTypeSearchInput.cloneNode(true);
                 purchaseRequestSubTypeSearchInput.parentNode.replaceChild(newSearchInput, purchaseRequestSubTypeSearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
                     this.wizard.renderDropdownWithSearch({
@@ -587,7 +587,7 @@ class ProcurementWizardAPI {
                             // Store current purchase request sub type ID
                             const subTypeId = value ? parseInt(value) : null;
                             this.wizard.currentPurchaseRequestSubTypeID = subTypeId;
-                            
+
                             // Check if Additional step should be shown after Sub Type is selected
                             if (this.wizard.checkAndToggleAdditionalStep) {
                                 this.wizard.checkAndToggleAdditionalStep();
@@ -663,7 +663,7 @@ class ProcurementWizardAPI {
             if (this.wizard.initializeBillingTypeDropdown) {
                 this.wizard.initializeBillingTypeDropdown();
             }
-            
+
             // Also populate and initialize Subscribe Billing Type dropdown
             if (this.wizard.initializeSubscribeBillingTypeDropdown) {
                 this.wizard.initializeSubscribeBillingTypeDropdown();
@@ -700,7 +700,7 @@ class ProcurementWizardAPI {
             const purchaseRequestType = purchaseRequestTypeSelect ? purchaseRequestTypeSelect.value : null;
             const purchaseRequestTypeCategory = purchaseRequestTypeCategorySelect ? purchaseRequestTypeCategorySelect.value : null;
             const purchaseRequestSubType = purchaseRequestSubTypeSelect ? purchaseRequestSubTypeSelect.value : null;
-            
+
             // Build endpoint
             let endpoint = '/Procurement/Master/Inventories?isActive=true';
             if (itemName && itemName.trim()) {
@@ -715,7 +715,7 @@ class ProcurementWizardAPI {
             if (purchaseRequestSubType) {
                 endpoint += `&purchaseRequestSubType=${encodeURIComponent(purchaseRequestSubType)}`;
             }
-            
+
             // Use apiHelper to call the API
             const data = await apiCall('Procurement', endpoint, 'GET');
             let items = data.data || data;
@@ -731,7 +731,7 @@ class ProcurementWizardAPI {
                     const invItemName = (item.ItemName || item.itemName || item.Item || item.item || '').toString().toLowerCase();
                     const invPoolName = (item.PoolName || item.poolName || item.Pool || item.pool || '').toString().toLowerCase();
                     const invCOAId = (item.mstPROItemCOAId || item.mstPROItemCOAID || item.MstPROItemCOAId || item.mstproitemcoaid || item.COAId || item.coaId || '').toString().toLowerCase();
-                    
+
                     // Filter by Item ID
                     if (itemId && itemId.trim()) {
                         const searchItemId = itemId.trim().toLowerCase();
@@ -739,7 +739,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by Item Name
                     if (itemName && itemName.trim()) {
                         const searchItemName = itemName.trim().toLowerCase();
@@ -747,7 +747,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by Prod Pool
                     if (prodPool && prodPool.trim()) {
                         const searchProdPool = prodPool.trim().toLowerCase();
@@ -755,7 +755,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by COA
                     if (coa && coa.trim()) {
                         const searchCOA = coa.trim().toLowerCase();
@@ -763,7 +763,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     return true;
                 });
             }
@@ -790,10 +790,10 @@ class ProcurementWizardAPI {
                 const mstPROInventoryItemID = item.ID || item.id || item.Id || null;
                 // Get mstPROPurchaseItemUnitId for auto-select unit
                 const mstPROPurchaseItemUnitId = item.mstPROPurchaseItemUnitId || item.mstPROPurchaseItemUnitID || item.MstPROPurchaseItemUnitId || null;
-                
+
                 // Create row and cells using DOM methods to avoid template literal issues
                 const row = document.createElement('tr');
-                
+
                 // Action cell with button
                 const actionCell = document.createElement('td');
                 actionCell.style.textAlign = 'center';
@@ -812,7 +812,7 @@ class ProcurementWizardAPI {
                 selectBtn.addEventListener('click', () => {
                     window.selectItem(invItemId, invItemName, mstPROInventoryItemID || null, mstPROPurchaseItemUnitId || null);
                 });
-                
+
                 // Add hover effect: change from solid to outline on hover
                 selectBtn.addEventListener('mouseenter', function() {
                     this.className = this.className.replace(/\bbtn-primary\b/g, 'btn-outline-primary');
@@ -820,29 +820,29 @@ class ProcurementWizardAPI {
                 selectBtn.addEventListener('mouseleave', function() {
                     this.className = this.className.replace(/\bbtn-outline-primary\b/g, 'btn-primary');
                 });
-                
+
                 actionCell.appendChild(selectBtn);
-                
+
                 // Other cells
                 const itemIdCell = document.createElement('td');
                 itemIdCell.textContent = invItemId;
-                
+
                 const itemNameCell = document.createElement('td');
                 itemNameCell.textContent = invItemName;
-                
+
                 const poolCell = document.createElement('td');
                 poolCell.textContent = poolName;
-                
+
                 const coaCell = document.createElement('td');
                 coaCell.textContent = coaId;
-                
+
                 // Append cells to row
                 row.appendChild(actionCell);
                 row.appendChild(itemIdCell);
                 row.appendChild(itemNameCell);
                 row.appendChild(poolCell);
                 row.appendChild(coaCell);
-                
+
                 tableBody.appendChild(row);
             });
 
@@ -883,7 +883,7 @@ class ProcurementWizardAPI {
     async loadSites() {
         const tbody = document.getElementById('chooseSiteTableBody');
         const emptyMessage = document.getElementById('chooseSiteEmpty');
-        
+
         if (!tbody) return;
 
         // Get search filters
@@ -891,11 +891,11 @@ class ProcurementWizardAPI {
         const searchSiteID = document.getElementById('searchSiteID')?.value || '';
         const searchSiteName = document.getElementById('searchSiteName')?.value || '';
         const searchOperator = document.getElementById('searchOperator')?.value || '';
-        
+
         // Get rows per page
         const rowsPerPageSelect = document.getElementById('siteRowsPerPage');
         const rowsPerPage = rowsPerPageSelect ? parseInt(rowsPerPageSelect.value) : 10;
-        
+
         // Show loading
         tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div> Loading sites...</td></tr>';
         if (emptyMessage) emptyMessage.style.display = 'none';
@@ -940,7 +940,7 @@ class ProcurementWizardAPI {
                     <td>${this.wizard.escapeHtml ? this.wizard.escapeHtml(site.SiteName || site.siteName || '') : (site.SiteName || site.siteName || '')}</td>
                     <td>${this.wizard.escapeHtml ? this.wizard.escapeHtml(site.OperatorName || site.operatorName || '') : (site.OperatorName || site.operatorName || '')}</td>
                     <td style="text-align: center;">
-                        <button type="button" class="btn btn-sm btn-primary select-site-btn action-btn" 
+                        <button type="button" class="btn btn-sm btn-primary select-site-btn action-btn"
                                 data-sonumb="${this.wizard.escapeHtml ? this.wizard.escapeHtml(site.Sonumb || site.sonumb || '') : (site.Sonumb || site.sonumb || '')}"
                                 data-site-id="${this.wizard.escapeHtml ? this.wizard.escapeHtml(site.SiteID || site.siteID || site.SiteId || site.siteId || '') : (site.SiteID || site.siteID || site.SiteId || site.siteId || '')}"
                                 data-site-name="${this.wizard.escapeHtml ? this.wizard.escapeHtml(site.SiteName || site.siteName || '') : (site.SiteName || site.siteName || '')}"
@@ -949,21 +949,21 @@ class ProcurementWizardAPI {
                         </button>
                     </td>
                 `;
-                
+
                 // Add click event to select button
                 const selectBtn = row.querySelector('.select-site-btn');
                 if (selectBtn) {
                     selectBtn.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        
+
                         const sonumb = selectBtn.getAttribute('data-sonumb');
                         const siteId = selectBtn.getAttribute('data-site-id');
                         const siteName = selectBtn.getAttribute('data-site-name');
-                        
+
                         // Get site ID from site object (use ID or sonumb as ID)
                         const id = site.ID || site.id || site.SonumbID || site.sonumbID || sonumb || null;
-                        
+
                         if (this.wizard.selectSite) {
                             this.wizard.selectSite(id, sonumb, siteId, siteName);
                         } else if (this.wizard.siteModule && this.wizard.siteModule.selectSite) {
@@ -972,7 +972,7 @@ class ProcurementWizardAPI {
                             console.error('selectSite function not available');
                         }
                     });
-                    
+
                     // Add hover effect: change from solid to outline on hover
                     selectBtn.addEventListener('mouseenter', function() {
                         this.className = this.className.replace(/\bbtn-primary\b/g, 'btn-outline-primary');
@@ -981,7 +981,7 @@ class ProcurementWizardAPI {
                         this.className = this.className.replace(/\bbtn-outline-primary\b/g, 'btn-primary');
                     });
                 }
-                
+
                 tbody.appendChild(row);
             });
 
@@ -1013,22 +1013,22 @@ class ProcurementWizardAPI {
         if (this.sharedCache && this.sharedCache.getEmployeeNameByEmployId) {
             return this.sharedCache.getEmployeeNameByEmployId(employId);
         }
-        
+
         // Fallback to local cache
         if (!employId || employId === '-') return '';
-        
+
         // Check cache first
         const cacheKey = employId.trim().toLowerCase();
         if (this.employeeNameCache.has(cacheKey)) {
             return this.employeeNameCache.get(cacheKey);
         }
-        
+
         // Check if lookup is already pending
         if (this.pendingEmployeeLookups.has(cacheKey)) {
             // Wait for pending lookup to complete
             return await this.pendingEmployeeLookups.get(cacheKey);
         }
-        
+
         // Create promise for this lookup
         const lookupPromise = (async () => {
             try {
@@ -1036,14 +1036,14 @@ class ProcurementWizardAPI {
                 const endpoint = `/Procurement/Master/Employees?searchTerm=${encodeURIComponent(employId)}`;
                 const data = await apiCall('Procurement', endpoint, 'GET');
                 const employees = data.data || data;
-                
+
                 if (Array.isArray(employees) && employees.length > 0) {
                     // Find employee with exact matching Employ_Id (case-insensitive)
                     const employee = employees.find(emp => {
                         const empId = emp.Employ_Id || emp.employ_Id || emp.EmployId || emp.employeeId || '';
                         return empId.trim().toLowerCase() === employId.trim().toLowerCase();
                     });
-                    
+
                     if (employee) {
                         const name = employee.Name || employee.name || employee.Employ_Id || employee.employ_Id || '';
                         // Cache the result
@@ -1051,7 +1051,7 @@ class ProcurementWizardAPI {
                         return name;
                     }
                 }
-                
+
                 // Cache empty result to avoid repeated lookups
                 this.employeeNameCache.set(cacheKey, '');
                 return '';
@@ -1065,10 +1065,10 @@ class ProcurementWizardAPI {
                 this.pendingEmployeeLookups.delete(cacheKey);
             }
         })();
-        
+
         // Store pending lookup
         this.pendingEmployeeLookups.set(cacheKey, lookupPromise);
-        
+
         return await lookupPromise;
     }
 
@@ -1099,7 +1099,7 @@ class ProcurementWizardAPI {
             const purchaseRequestType = purchaseRequestTypeSelect ? purchaseRequestTypeSelect.value : null;
             const purchaseRequestTypeCategory = purchaseRequestTypeCategorySelect ? purchaseRequestTypeCategorySelect.value : null;
             const purchaseRequestSubType = purchaseRequestSubTypeSelect ? purchaseRequestSubTypeSelect.value : null;
-            
+
             // Build endpoint - API may only support itemName, so we'll load all and filter client-side
             let endpoint = '/Procurement/Master/Inventories?isActive=true';
             // Only use itemName in API call if provided (API likely supports this)
@@ -1117,7 +1117,7 @@ class ProcurementWizardAPI {
             if (purchaseRequestSubType) {
                 endpoint += `&purchaseRequestSubType=${encodeURIComponent(purchaseRequestSubType)}`;
             }
-            
+
             // Use apiHelper to call the API
             const data = await apiCall('Procurement', endpoint, 'GET');
             let items = data.data || data;
@@ -1134,7 +1134,7 @@ class ProcurementWizardAPI {
                     const invItemName = (item.ItemName || item.itemName || item.Item || item.item || '').toString().toLowerCase();
                     const invPoolName = (item.PoolName || item.poolName || item.Pool || item.pool || '').toString().toLowerCase();
                     const invCOAId = (item.mstPROItemCOAId || item.mstPROItemCOAID || item.MstPROItemCOAId || item.mstproitemcoaid || item.COAId || item.coaId || '').toString().toLowerCase();
-                    
+
                     // Filter by Item ID
                     if (itemId && itemId.trim()) {
                         const searchItemId = itemId.trim().toLowerCase();
@@ -1142,7 +1142,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by Item Name (always filter client-side for consistency)
                     if (itemName && itemName.trim()) {
                         const searchItemName = itemName.trim().toLowerCase();
@@ -1150,7 +1150,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by Prod Pool
                     if (prodPool && prodPool.trim()) {
                         const searchProdPool = prodPool.trim().toLowerCase();
@@ -1158,7 +1158,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     // Filter by COA
                     if (coa && coa.trim()) {
                         const searchCOA = coa.trim().toLowerCase();
@@ -1166,7 +1166,7 @@ class ProcurementWizardAPI {
                             return false;
                         }
                     }
-                    
+
                     return true;
                 });
             }
@@ -1193,10 +1193,10 @@ class ProcurementWizardAPI {
                 const mstPROInventoryItemID = item.ID || item.id || item.Id || null;
                 // Get mstPROPurchaseItemUnitId for auto-select unit
                 const mstPROPurchaseItemUnitId = item.mstPROPurchaseItemUnitId || item.mstPROPurchaseItemUnitID || item.MstPROPurchaseItemUnitId || null;
-                
+
                 // Create row and cells using DOM methods to avoid template literal issues
                 const row = document.createElement('tr');
-                
+
                 // Action cell with button
                 const actionCell = document.createElement('td');
                 actionCell.style.textAlign = 'center';
@@ -1215,7 +1215,7 @@ class ProcurementWizardAPI {
                 selectBtn.addEventListener('click', () => {
                     window.selectItem(invItemId, invItemName, mstPROInventoryItemID || null, mstPROPurchaseItemUnitId || null);
                 });
-                
+
                 // Add hover effect: change from solid to outline on hover
                 selectBtn.addEventListener('mouseenter', function() {
                     this.className = this.className.replace(/\bbtn-primary\b/g, 'btn-outline-primary');
@@ -1223,29 +1223,29 @@ class ProcurementWizardAPI {
                 selectBtn.addEventListener('mouseleave', function() {
                     this.className = this.className.replace(/\bbtn-outline-primary\b/g, 'btn-primary');
                 });
-                
+
                 actionCell.appendChild(selectBtn);
-                
+
                 // Other cells
                 const itemIdCell = document.createElement('td');
                 itemIdCell.textContent = invItemId;
-                
+
                 const itemNameCell = document.createElement('td');
                 itemNameCell.textContent = invItemName;
-                
+
                 const poolCell = document.createElement('td');
                 poolCell.textContent = poolName;
-                
+
                 const coaCell = document.createElement('td');
                 coaCell.textContent = coaId;
-                
+
                 // Append cells to row
                 row.appendChild(actionCell);
                 row.appendChild(itemIdCell);
                 row.appendChild(itemNameCell);
                 row.appendChild(poolCell);
                 row.appendChild(coaCell);
-                
+
                 tableBody.appendChild(row);
             });
 
@@ -1286,7 +1286,7 @@ class ProcurementWizardAPI {
         const unitDropdownItems = document.getElementById('unitDropdownItems');
         const unitSelectedText = document.getElementById('unitSelectedText');
         const unitSearchInput = document.getElementById('unitSearchInput');
-        
+
         if (!unitHiddenInput || !unitDropdownItems) return;
 
         // Show loading state
@@ -1320,7 +1320,7 @@ class ProcurementWizardAPI {
                 // Remove existing event listeners by cloning
                 const newSearchInput = unitSearchInput.cloneNode(true);
                 unitSearchInput.parentNode.replaceChild(newSearchInput, unitSearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
                     if (this.wizard.itemsModule && this.wizard.itemsModule.renderUnitDropdown) {
@@ -1361,7 +1361,7 @@ class ProcurementWizardAPI {
         const currencyDropdownItems = document.getElementById('currencyDropdownItems');
         const currencySelectedText = document.getElementById('currencySelectedText');
         const currencySearchInput = document.getElementById('currencySearchInput');
-        
+
         if (!currencyHiddenInput || !currencyDropdownItems) return;
 
         // Show loading state
@@ -1437,7 +1437,7 @@ class ProcurementWizardAPI {
             if (currencySearchInput) {
                 const newSearchInput = currencySearchInput.cloneNode(true);
                 currencySearchInput.parentNode.replaceChild(newSearchInput, currencySearchInput);
-                
+
                 newSearchInput.addEventListener('input', (e) => {
                     const searchTerm = e.target.value.toLowerCase().trim();
                     const self = this;
@@ -1505,7 +1505,7 @@ class ProcurementWizardAPI {
             }
 
             // Auto-fill: Select 'IDR' currency if available
-            const idrCurrency = currencies.find(c => 
+            const idrCurrency = currencies.find(c =>
                 (c.CurrencyCode || c.currencyCode || '').toUpperCase() === 'IDR'
             );
             if (idrCurrency && currencyHiddenInput && currencySelectedText) {

@@ -599,8 +599,8 @@ class PRListView {
                             <td>${escapedFileName}</td>
                             <td>${this.escapeHtml(fileSize)}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-sm btn-outline-primary" title="Download" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                                    <i class="icon-base bx bx-download"></i>
+                                <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                                    <i class="icon-base bx bx-show"></i>
                                 </button>
                             </td>
                         </tr>
@@ -764,5 +764,114 @@ class PRListView {
 // Make available globally
 if (typeof window !== 'undefined') {
     window.PRListView = PRListView;
+}
+
+// Global state for current previewed document
+window.__currentDocumentPreview = {
+    id: null,
+    fileName: '',
+    filePath: '',
+    downloadUrl: null
+};
+
+/**
+ * Global downloadDocument function kept for backward compatibility.
+ * Instead of forcing immediate download, open a preview modal and allow user to download from there.
+ * Called using .call(this, documentId) in many places where `this` is the button element.
+ */
+function downloadDocument(documentId, fileName) {
+    try {
+        const button = (this && this.nodeName === 'BUTTON') ? this : null;
+        const fileNameAttr = (button && button.getAttribute('data-file-name')) || fileName || '';
+        const filePath = (button && button.getAttribute('data-file-path')) || '';
+
+        let downloadUrl = null;
+        if (filePath && typeof apiStorage === 'function') {
+            try {
+                downloadUrl = apiStorage('Procurement', filePath);
+            } catch (error) {
+                console.warn('Error using apiStorage, falling back to download endpoint:', error);
+            }
+        }
+
+        if (!downloadUrl) {
+            if (typeof API_URLS === 'undefined') {
+                alert('API configuration not found');
+                return;
+            }
+            if (typeof window.normalizedApiUrls === 'undefined') {
+                window.normalizedApiUrls = {};
+                for (const key in API_URLS) {
+                    if (API_URLS.hasOwnProperty(key)) {
+                        window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
+                    }
+                }
+            }
+            const apiType = 'procurement';
+            const baseUrl = window.normalizedApiUrls[apiType];
+            if (!baseUrl) {
+                alert('API configuration not found for Procurement');
+                return;
+            }
+            const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
+            downloadUrl = baseUrl + endpoint;
+        }
+
+        // Save current preview info
+        window.__currentDocumentPreview.id = documentId;
+        window.__currentDocumentPreview.fileName = fileNameAttr || 'document';
+        window.__currentDocumentPreview.filePath = filePath;
+        window.__currentDocumentPreview.downloadUrl = downloadUrl;
+
+        // Populate modal
+        const filenameEl = document.getElementById('documentPreviewFilename');
+        const frame = document.getElementById('documentPreviewFrame');
+        const modalEl = document.getElementById('documentPreviewModal');
+        if (filenameEl) filenameEl.textContent = window.__currentDocumentPreview.fileName;
+        if (frame) frame.src = downloadUrl;
+
+        // Show Bootstrap modal if available, otherwise open in new tab
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            // Ensure modal is a direct child of body to avoid stacking-context/z-index issues
+            try {
+                if (modalEl.parentNode !== document.body) {
+                    document.body.appendChild(modalEl);
+                }
+            } catch (e) {
+                console.warn('Could not append modal to body:', e);
+            }
+
+            const modalInstance = new bootstrap.Modal(modalEl);
+            modalInstance.show();
+        } else if (downloadUrl) {
+            window.open(downloadUrl, '_blank');
+        }
+    } catch (error) {
+        console.error('Error opening document preview:', error);
+        alert('Failed to open document: ' + error.message);
+    }
+}
+
+/**
+ * Trigger actual download from modal's Download button
+ */
+function downloadDocumentFromModal() {
+    try {
+        const info = window.__currentDocumentPreview;
+        if (!info || !info.downloadUrl) {
+            alert('No document selected');
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = info.downloadUrl;
+        link.download = info.fileName || 'document';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (error) {
+        console.error('Error downloading document from modal:', error);
+        alert('Failed to download document: ' + error.message);
+    }
 }
 

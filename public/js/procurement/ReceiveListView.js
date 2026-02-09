@@ -20,24 +20,24 @@ class ReceiveListView {
         if (this.manager) {
             this.manager.currentPRNumber = prNumber;
         }
-        
+
         try {
             this.showViewReceiveLoading();
             this.hideListSection();
-            
+
             // Load PR data using API module
             if (!this.manager || !this.manager.apiModule) {
                 throw new Error('API module not available');
             }
 
             const pr = await this.manager.apiModule.getPRDetails(prNumber);
-            
+
             if (!pr) {
                 this.showError('Purchase Request not found');
                 this.showListSection();
                 return;
             }
-            
+
             await this.loadPRDetailsForView(prNumber, pr);
             await this.populateViewReceive(pr);
             this.showViewReceiveSection();
@@ -55,7 +55,7 @@ class ReceiveListView {
     hideListSection() {
         const filterSection = document.querySelector('.filter-section');
         const listSection = document.getElementById('listSection');
-        
+
         if (filterSection) filterSection.style.display = 'none';
         if (listSection) listSection.style.display = 'none';
     }
@@ -67,7 +67,7 @@ class ReceiveListView {
         const filterSection = document.querySelector('.filter-section');
         const listSection = document.getElementById('listSection');
         const viewReceiveSection = document.getElementById('viewReceiveSection');
-        
+
         if (filterSection) filterSection.style.display = 'block';
         if (listSection) listSection.style.display = 'block';
         if (viewReceiveSection) viewReceiveSection.style.display = 'none';
@@ -90,10 +90,10 @@ class ReceiveListView {
         const viewReceiveSection = document.getElementById('viewReceiveSection');
         const loadingDiv = document.getElementById('viewReceiveLoading');
         const dataDiv = document.getElementById('viewReceiveData');
-        
+
         if (loadingDiv) loadingDiv.style.display = 'block';
         if (dataDiv) dataDiv.style.display = 'none';
-        
+
         if (viewReceiveSection) {
             viewReceiveSection.style.display = 'block';
         }
@@ -104,13 +104,13 @@ class ReceiveListView {
      */
     requiresAdditionalSection(typeId, subTypeId) {
         if (!typeId) return false;
-        
+
         // Type ID 5 or 7: Subscribe section (no Sub Type required)
         if (typeId === 5 || typeId === 7) return true;
-        
+
         // Type ID 6 && Sub Type ID 2: Billing Type section
         if (typeId === 6 && subTypeId === 2) return true;
-        
+
         // Sonumb Section conditions
         // Type ID 8 && Sub Type ID 4
         if (typeId === 8 && subTypeId === 4) return true;
@@ -120,7 +120,7 @@ class ReceiveListView {
         if (typeId === 4 && subTypeId === 3) return true;
         // Type ID 3 && (Sub Type ID 4 || 5)
         if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
-        
+
         return false;
     }
 
@@ -155,88 +155,88 @@ class ReceiveListView {
         let shouldLoadAdditional = false;
         let typeId = null;
         let subTypeId = null;
-        
+
         if (pr) {
             // First, try to get Type ID and SubType ID directly from PR data (preferred method)
             const directTypeID = pr.mstPurchaseTypeID || pr.MstPurchaseTypeID;
             const directSubTypeID = pr.mstPurchaseSubTypeID || pr.MstPurchaseSubTypeID;
-            
+
             if (directTypeID) {
                 const typeIdInt = parseInt(directTypeID.toString().trim(), 10);
                 if (!isNaN(typeIdInt) && typeIdInt > 0) {
                     typeId = typeIdInt;
                 }
             }
-            
+
             if (directSubTypeID) {
                 const subTypeIdInt = parseInt(directSubTypeID.toString().trim(), 10);
                 if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
                     subTypeId = subTypeIdInt;
                 }
             }
-            
+
             // Fallback: If Type ID or SubType ID not found directly, try lookup from formatted strings
             if (!typeId || !subTypeId) {
                 const purchReqType = pr.purchReqType || pr.PurchReqType || '';
                 const purchReqSubType = pr.purchReqSubType || pr.PurchReqSubType || '';
-                
+
                 // Load Purchase Types using API module (with shared caching)
                 if (purchReqType) {
                     try {
                         const allPurchaseTypes = await this.manager.apiModule.getPurchaseTypes();
-                        
+
                         // Find Type ID if not already found
                         if (!typeId && allPurchaseTypes && purchReqType) {
                             let type = null;
-                            
+
                             // First, try to find by matching PurchaseRequestType or formatted display
                             type = allPurchaseTypes.find(t => {
                                 const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
                                 const category = t.Category || t.category || '';
-                                const formattedDisplay = category && typeValue !== category 
-                                    ? `${typeValue} ${category}` 
+                                const formattedDisplay = category && typeValue !== category
+                                    ? `${typeValue} ${category}`
                                     : typeValue;
                                 return typeValue === purchReqType || formattedDisplay === purchReqType;
                             });
-                            
+
                             // If not found, try to parse as ID
                             if (!type) {
                                 const typeIdInt = parseInt(purchReqType.trim(), 10);
                                 if (!isNaN(typeIdInt) && typeIdInt > 0) {
-                                    type = allPurchaseTypes.find(t => 
+                                    type = allPurchaseTypes.find(t =>
                                         parseInt(t.ID || t.id || '0', 10) === typeIdInt
                                     );
                                 }
                             }
-                            
+
                             if (type) {
                                 typeId = parseInt(type.ID || type.id || '0', 10);
                             }
                         }
-                        
+
                         // Load Purchase Sub Types if Type ID is found and SubType ID not found
                         if (typeId && !subTypeId && purchReqSubType) {
                             try {
                                 const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
-                                
+
                                 // purchReqSubType might be formatted display or ID
                                 let subType = null;
-                                
+
                                 // First, try to find by matching PurchaseRequestSubType
-                                subType = subTypes.find(st => 
+                                subType = subTypes.find(st =>
                                     (st.PurchaseRequestSubType || st.purchaseRequestSubType) === purchReqSubType
                                 );
-                                
+
                                 // If not found, try to parse as ID
                                 if (!subType) {
                                     const subTypeIdInt = parseInt(purchReqSubType.trim(), 10);
                                     if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
-                                        subType = subTypes.find(st => 
+                                        subType = subTypes.find(st =>
                                             parseInt(st.ID || st.id || '0', 10) === subTypeIdInt
                                         );
                                     }
                                 }
-                                
+
                                 if (subType) {
                                     subTypeId = parseInt(subType.ID || subType.id || '0', 10);
                                 }
@@ -249,11 +249,11 @@ class ReceiveListView {
                     }
                 }
             }
-            
+
             // Check if Additional Section is required
             shouldLoadAdditional = this.requiresAdditionalSection(typeId, subTypeId);
         }
-        
+
         // Load additional data only if required (using API module with caching)
         if (shouldLoadAdditional) {
             try {
@@ -262,7 +262,7 @@ class ReceiveListView {
             } catch (error) {
                 // If 404 error or "not found" message, it's okay - additional data doesn't exist for this PR
                 const errorMessage = error.message || error.toString() || '';
-                if (errorMessage.includes('not found') || errorMessage.includes('404') || 
+                if (errorMessage.includes('not found') || errorMessage.includes('404') ||
                     (error.statusCode === 404) || (error.response && error.response.status === 404)) {
                     console.log('Additional data not found for PR:', prNumber, '- This is expected if PR does not have Additional data yet');
                     this.viewPRAdditional = null;
@@ -284,7 +284,7 @@ class ReceiveListView {
     async populateViewReceive(pr) {
         const loadingDiv = document.getElementById('viewReceiveLoading');
         const dataDiv = document.getElementById('viewReceiveData');
-        
+
         if (loadingDiv) loadingDiv.style.display = 'none';
         if (dataDiv) dataDiv.style.display = 'block';
 
@@ -294,7 +294,7 @@ class ReceiveListView {
         const reviewedById = pr.reviewedBy || pr.ReviewedBy || '';
         const approvedById = pr.approvedBy || pr.ApprovedBy || '';
         const confirmedById = pr.confirmedBy || pr.ConfirmedBy || '';
-        
+
         // Use shared cache or employee cache module if available
         let employeeCache = null;
         if (window.procurementSharedCache && window.procurementSharedCache.getEmployeeNameByEmployId) {
@@ -304,7 +304,7 @@ class ReceiveListView {
         } else if (window.prListManager && window.prListManager.employeeCacheModule && window.prListManager.employeeCacheModule.getEmployeeNameByEmployId) {
             employeeCache = window.prListManager.employeeCacheModule;
         }
-        
+
         const requestorName = requestorId && employeeCache ? await employeeCache.getEmployeeNameByEmployId(requestorId) : '';
         const applicantName = applicantId && employeeCache ? await employeeCache.getEmployeeNameByEmployId(applicantId) : '';
         const reviewedByName = reviewedById && employeeCache ? await employeeCache.getEmployeeNameByEmployId(reviewedById) : '';
@@ -325,7 +325,7 @@ class ReceiveListView {
         const purchReqNameEl = document.getElementById('view-purchase-request-name');
         const remarksEl = document.getElementById('view-remarks');
         const amountTotalEl = document.getElementById('view-amount-total');
-        
+
         if (requestorEl) requestorEl.value = requestorName || requestorId || '-';
         if (applicantEl) applicantEl.value = applicantName || applicantId || '-';
         if (companyEl) companyEl.value = pr.company || pr.Company || '-';
@@ -341,7 +341,7 @@ class ReceiveListView {
         const reviewedByEl = document.getElementById('view-reviewed-by');
         const approvedByEl = document.getElementById('view-approved-by');
         const confirmedByEl = document.getElementById('view-confirmed-by');
-        
+
         if (approvalRequestorEl) approvalRequestorEl.value = requestorName || requestorId || '-';
         if (approvalApplicantEl) approvalApplicantEl.value = applicantName || applicantId || '-';
         if (reviewedByEl) reviewedByEl.value = reviewedByName || reviewedById || '-';
@@ -361,7 +361,7 @@ class ReceiveListView {
                     const currencyCode = item.ItemCurrency || item.itemCurrency || item.CurrencyCode || item.currencyCode || '-';
                     const unitPrice = item.ItemUnitPrice ?? item.itemUnitPrice ?? item.UnitPrice ?? item.unitPrice ?? null;
                     const amount = item.Amount ?? item.amount ?? null;
-                    
+
                     return `
                         <tr>
                             <td>${this.escapeHtml(itemId)}</td>
@@ -391,7 +391,7 @@ class ReceiveListView {
                     const fileSize = doc.fileSize || doc.FileSize || '-';
                     const escapedFileName = this.escapeHtml(fileName);
                     const escapedFilePath = this.escapeHtml(filePath);
-                    
+
                     return `
                         <tr>
                             <td>${escapedFileName}</td>
@@ -447,68 +447,68 @@ class ReceiveListView {
         if (!this.viewPRAdditional) {
             return '';
         }
-        
+
         const additional = this.viewPRAdditional;
-        
+
         // Get Type ID and Sub Type ID from PR data by looking up from master data
         let typeId = null;
         let subTypeId = null;
-        
+
         const purchReqType = pr.purchReqType || pr.PurchReqType || '';
         const purchReqSubType = pr.purchReqSubType || pr.PurchReqSubType || '';
-        
+
         // Load Purchase Types using API module (with caching)
         if (purchReqType && this.manager && this.manager.apiModule) {
             try {
                 const allPurchaseTypes = await this.manager.apiModule.getPurchaseTypes();
-                
+
                 // Find Type ID
                 if (allPurchaseTypes && purchReqType) {
                     let type = null;
-                    
+
                     type = allPurchaseTypes.find(t => {
                         const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
                         const category = t.Category || t.category || '';
-                        const formattedDisplay = category && typeValue !== category 
-                            ? `${typeValue} ${category}` 
+                        const formattedDisplay = category && typeValue !== category
+                            ? `${typeValue} ${category}`
                             : typeValue;
                         return typeValue === purchReqType || formattedDisplay === purchReqType;
                     });
-                    
+
                     if (!type) {
                         const typeIdInt = parseInt(purchReqType.trim(), 10);
                         if (!isNaN(typeIdInt) && typeIdInt > 0) {
-                            type = allPurchaseTypes.find(t => 
+                            type = allPurchaseTypes.find(t =>
                                 parseInt(t.ID || t.id || '0', 10) === typeIdInt
                             );
                         }
                     }
-                    
+
                     if (type) {
                         typeId = parseInt(type.ID || type.id || '0', 10);
                     }
                 }
-                
+
                 // Load Purchase Sub Types if Type ID is found
                 if (typeId && purchReqSubType && this.manager && this.manager.apiModule) {
                     try {
                         const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
-                        
+
                         let subType = null;
-                        
-                        subType = subTypes.find(st => 
+
+                        subType = subTypes.find(st =>
                             (st.PurchaseRequestSubType || st.purchaseRequestSubType) === purchReqSubType
                         );
-                        
+
                         if (!subType) {
                             const subTypeIdInt = parseInt(purchReqSubType.trim(), 10);
                             if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
-                                subType = subTypes.find(st => 
+                                subType = subTypes.find(st =>
                                     parseInt(st.ID || st.id || '0', 10) === subTypeIdInt
                                 );
                             }
                         }
-                        
+
                         if (subType) {
                             subTypeId = parseInt(subType.ID || subType.id || '0', 10);
                         }
@@ -520,21 +520,21 @@ class ReceiveListView {
                 console.error('Error loading purchase types:', error);
             }
         }
-        
+
         // Determine which section should be visible
         const shouldShowBillingTypeSection = typeId === 6 && subTypeId === 2;
-        const shouldShowSonumbSection = 
+        const shouldShowSonumbSection =
             (typeId === 8 && subTypeId === 4) ||
             (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) ||
             (typeId === 4 && subTypeId === 3) ||
             (typeId === 3 && (subTypeId === 4 || subTypeId === 5));
         const shouldShowSubscribeSection = typeId === 5 || typeId === 7;
-        
+
         // Hide section if no Additional section should be shown
         if (!shouldShowBillingTypeSection && !shouldShowSonumbSection && !shouldShowSubscribeSection) {
             return '';
         }
-        
+
         // Helper function to format date
         const formatDate = (dateValue) => {
             if (!dateValue || dateValue === '-') return '-';
@@ -546,17 +546,17 @@ class ReceiveListView {
                 return dateValue;
             }
         };
-        
+
         // Build summary HTML based on active section
         let summaryHTML = '<div class="row g-3">';
-        
+
         // Billing Type Section (Type ID 6, Sub Type ID 2)
         if (shouldShowBillingTypeSection) {
             const billingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
             const startPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
             const period = additional.period || additional.Period || '-';
             const endPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Billing Type</label>
@@ -581,7 +581,7 @@ class ReceiveListView {
             const sonumb = additional.sonumb || additional.Sonumb || '-';
             const siteName = additional.siteName || additional.SiteName || '-';
             const siteID = additional.siteID || additional.SiteID || '-';
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Sonumb</label>
@@ -608,7 +608,7 @@ class ReceiveListView {
             const subscribeStartPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
             const subscribePeriod = additional.period || additional.Period || '-';
             const subscribeEndPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
-            
+
             summaryHTML += `
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Sonumb</label>
@@ -650,9 +650,9 @@ class ReceiveListView {
                 ` : ''}
             `;
         }
-        
+
         summaryHTML += '</div>';
-        
+
         return summaryHTML;
     }
 
@@ -662,12 +662,12 @@ class ReceiveListView {
     async populateAdditionalSection(pr) {
         const additionalSection = document.getElementById('view-additional-section');
         const additionalBody = document.getElementById('view-additional-body');
-        
+
         if (!additionalSection || !additionalBody) return;
-        
+
         // Get additional information HTML
         const additionalHTML = await this.getAdditionalInformationSummaryHTML(pr);
-        
+
         if (additionalHTML && additionalHTML.trim() !== '') {
             additionalBody.innerHTML = additionalHTML;
             additionalSection.style.display = 'block';
@@ -752,7 +752,7 @@ class ReceiveListView {
         const statusID = decision === 'Receive' ? 7 : 5; // 7 for Receive, 5 for Reject
         const activity = decision === 'Receive' ? 'Receive Purchase Request' : 'Reject Purchase Request';
         const actionText = decision === 'Receive' ? 'RECEIVE' : 'REJECT';
-        const successMessage = decision === 'Receive' 
+        const successMessage = decision === 'Receive'
             ? 'Purchase Request has been received successfully'
             : 'Purchase Request has been rejected successfully';
 
@@ -822,10 +822,10 @@ class ReceiveListView {
 
         // Show bulk receive modal
         const result = await this.showBulkReceiveModal();
-        
+
         if (result && result.confirmed) {
             const { decision, remarks } = result;
-            
+
             if (decision !== 'Receive' && decision !== 'Reject') {
                 this.showAlertModal('Invalid decision selected', 'warning');
                 return;
@@ -876,13 +876,13 @@ class ReceiveListView {
         return new Promise((resolve) => {
             const modalId = 'bulkReceiveModal';
             let existingModal = document.getElementById(modalId);
-            
+
             if (existingModal) {
                 existingModal.remove();
             }
-            
+
             const selectedCount = this.manager && this.manager.selectedPRNumbers ? this.manager.selectedPRNumbers.size : 0;
-            
+
             const modalHtml = `
                 <div class="modal fade" id="${modalId}" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
@@ -897,7 +897,7 @@ class ReceiveListView {
                                     <label class="form-label fw-semibold">Decision<span class="text-danger">*</span></label>
                                     <select class="form-select" id="bulkReceiveDecision">
                                         <option value="" disabled selected>Select Decision</option>
-                                        <option value="Receive">Receive</option>
+                                        <option value="Receive">Approve</option>
                                         <option value="Reject">Reject</option>
                                     </select>
                                     <div id="bulkReceiveDecisionError" class="text-danger mt-1" style="display: none;"></div>
@@ -920,15 +920,15 @@ class ReceiveListView {
                     </div>
                 </div>
             `;
-            
+
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             const modal = new bootstrap.Modal(document.getElementById(modalId));
-            
+
             const confirmBtn = document.getElementById('confirmBulkReceiveBtn');
             const cancelBtn = document.querySelector(`#${modalId} .btn-label-secondary`);
             const decisionSelect = document.getElementById('bulkReceiveDecision');
             const remarksTextarea = document.getElementById('bulkReceiveRemarks');
-            
+
             // Add event listeners to clear errors when user starts typing/selecting
             if (decisionSelect) {
                 decisionSelect.addEventListener('change', () => {
@@ -948,14 +948,14 @@ class ReceiveListView {
                     }
                 });
             }
-            
+
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', () => {
                     const decisionSelect = document.getElementById('bulkReceiveDecision');
                     const remarksTextarea = document.getElementById('bulkReceiveRemarks');
                     const decisionError = document.getElementById('bulkReceiveDecisionError');
                     const remarksError = document.getElementById('bulkReceiveRemarksError');
-                    
+
                     // Clear previous error messages
                     if (decisionError) {
                         decisionError.style.display = 'none';
@@ -965,9 +965,9 @@ class ReceiveListView {
                         remarksError.style.display = 'none';
                         remarksError.textContent = '';
                     }
-                    
+
                     let hasError = false;
-                    
+
                     // Validate Decision
                     const decision = decisionSelect ? decisionSelect.value : '';
                     if (!decision || decision.trim() === '') {
@@ -980,7 +980,7 @@ class ReceiveListView {
                         }
                         hasError = true;
                     }
-                    
+
                     // Validate Remarks
                     const remarks = remarksTextarea ? remarksTextarea.value.trim() : '';
                     if (!remarks || remarks === '') {
@@ -993,29 +993,29 @@ class ReceiveListView {
                         }
                         hasError = true;
                     }
-                    
+
                     if (hasError) {
                         return;
                     }
-                    
+
                     modal.hide();
                     resolve({ confirmed: true, decision, remarks });
                 });
             }
-            
+
             if (cancelBtn) {
                 cancelBtn.addEventListener('click', () => {
                     modal.hide();
                     resolve({ confirmed: false });
                 });
             }
-            
+
             const modalElement = document.getElementById(modalId);
             modalElement.addEventListener('hidden.bs.modal', () => {
                 modalElement.remove();
                 resolve({ confirmed: false });
             });
-            
+
             modal.show();
         });
     }
@@ -1163,7 +1163,7 @@ class ReceiveListView {
                 const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
                 downloadUrl = baseUrl + endpoint;
             }
-            
+
             // Create a temporary anchor element to trigger download
             const link = document.createElement('a');
             link.href = downloadUrl;

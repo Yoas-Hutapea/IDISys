@@ -14,7 +14,7 @@
                     <label class="form-label fw-semibold">Decision<span class="text-danger">*</span></label>
                     <select class="form-select" id="receiveDecision" name="receiveDecision">
                         <option value="" disabled selected>Select Decision</option>
-                        <option value="Receive">Receive</option>
+                        <option value="Receive">Approve</option>
                         <option value="Reject">Reject</option>
                     </select>
                     <div id="receiveDecisionError" class="text-danger mt-1" style="display: none;"></div>

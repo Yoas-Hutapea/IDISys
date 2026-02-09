@@ -47,7 +47,7 @@
             this.currentSiteModalMode = 'normal'; // Track which mode the site modal is opened in
             // Billing Types data cache
             this.billingTypes = []; // Store billing types loaded from API
-            
+
             // Initialize modules
             if (typeof ProcurementWizardAPI !== 'undefined') {
                 this.apiModule = new ProcurementWizardAPI(this);
@@ -82,7 +82,7 @@
             if (typeof ProcurementWizardUserSearch !== 'undefined') {
                 this.userSearchModule = new ProcurementWizardUserSearch(this);
             }
-            
+
             this.init();
         }
 
@@ -113,7 +113,7 @@
             this.showStep(this.stepOrder[this.currentStepIndex]);
             this.bindEvents();
             this.updateStepVisuals();
-            
+
             // Load companies, applicants, and purchase types on initialization
             // Wait for all dropdowns to be populated before checking for existing PR
             if (this.apiModule) {
@@ -130,7 +130,7 @@
                     this.loadPurchaseTypesFromApi()
                 ]);
             }
-            
+
             // Check if we need to load existing PR data (for editing draft PR)
             // This will only run after all dropdowns are populated
             await this.checkAndLoadExistingPR();
@@ -141,7 +141,7 @@
                 // Check URL parameter first
                 const urlParams = new URLSearchParams(window.location.search);
                 const prNumberFromUrl = urlParams.get('prNumber');
-                
+
                 // If no prNumber in URL, this is a new Create PR - clear draft state
                 if (!prNumberFromUrl) {
                     localStorage.removeItem('procurementDraft');
@@ -150,12 +150,12 @@
                     localStorage.removeItem('procurementDraftDocumentsSaved');
                     return;
                 }
-                
+
                 // Check localStorage
                 const draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
                 const prNumber = prNumberFromUrl || draft.purchReqNumber;
                 const loadExisting = draft.loadExisting || !!prNumberFromUrl;
-                
+
                 if (loadExisting && prNumber) {
                     await this.loadExistingPRData(prNumber);
                 }
@@ -168,16 +168,16 @@
 
         async loadExistingPRData(prNumber) {
             try {
-                
+
                 // Step 1: Load PR basic information
                 const prData = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'GET');
                 const pr = prData.data || prData;
-                
+
                 if (!pr) {
                     console.error('PR data not found');
                     return;
                 }
-                
+
                 // Check if mstApprovalStatusID == 5 (Rejected) or 6 (Draft)
                 const rawStatusId = pr.mstApprovalStatusID ?? pr.MstApprovalStatusID ?? null;
                 const statusID = rawStatusId !== null ? parseInt(rawStatusId, 10) : null;
@@ -190,56 +190,56 @@
                 if (!isEditableStatus) {
                     return;
                 }
-                
+
                 // Store status ID in wizard instance for use in other modules
                 this.currentApprovalStatusID = statusID;
-                
+
                 // Step 2: Auto-fill Basic Information form (wait for dropdowns to be populated)
                 if (this.basicInfoModule) {
                     await this.basicInfoModule.fillBasicInformationForm(pr);
                 } else {
                     await this.fillBasicInformationForm(pr);
                 }
-                
+
                 // Wait a bit to ensure Type and Sub Type are fully set (reduced from 300ms to 100ms)
                 await new Promise(resolve => setTimeout(resolve, 100));
-                
+
                 // Step 3-6: Load Additional, Items, Documents, and Approval in parallel for better performance
                 // Note: Additional must be loaded after Basic Info to know which section to show
                 // Approval can be loaded in parallel since it only needs PR data
                 const loadPromises = [];
-                
+
                 // Load Additional data (must be after Basic Info to know which section to show)
                 if (this.additionalModule) {
                     loadPromises.push(this.additionalModule.loadAndFillAdditional(prNumber));
                 } else {
                     loadPromises.push(this.loadAndFillAdditional(prNumber));
                 }
-                
+
                 // Load Items in parallel
                 if (this.itemsModule) {
                     loadPromises.push(this.itemsModule.loadAndFillItems(prNumber));
                 } else {
                     loadPromises.push(this.loadAndFillItems(prNumber));
                 }
-                
+
                 // Load Documents in parallel
                 if (this.documentsModule) {
                     loadPromises.push(this.documentsModule.loadAndFillDocuments(prNumber));
                 } else {
                     loadPromises.push(this.loadAndFillDocuments(prNumber));
                 }
-                
+
                 // Load Approval in parallel (it only needs PR data, not dependent on other data)
                 if (this.apiModule) {
                     loadPromises.push(this.apiModule.fillApprovalForm(pr));
                 } else {
                     loadPromises.push(this.fillApprovalForm(pr));
                 }
-                
+
                 // Wait for all parallel loads to complete
                 await Promise.all(loadPromises);
-                
+
                 // Step 7: If status is 5 (Rejected), make Basic Information readonly
                 // Note: For status 5, ReviewedBy, ApprovedBy, and ConfirmedBy should remain editable
                 if (statusID === 5) {
@@ -249,10 +249,10 @@
                     // Pass PR data to check if Sonumb is null (if null, enable field for revision)
                     this.setAdditionalReadonlyForRejected(pr);
                 }
-                
+
                 // Step 8: Update summary after all fields are filled (especially important for status 5)
                 this.updateSummary();
-                
+
                 // Store PR Number in localStorage
                 localStorage.setItem('procurementDraft', JSON.stringify({
                     id: pr.id || pr.ID,
@@ -262,7 +262,7 @@
                     loadExisting: true,
                     statusID: statusID
                 }));
-                
+
             } catch (error) {
                 console.error('Error loading existing PR data:', error);
                 this.showValidationMessage('Error loading PR data: ' + error.message);
@@ -282,14 +282,14 @@
                     resolve();
                     return;
                 }
-                
+
                 const startTime = Date.now();
-                
+
                 const checkDropdown = async () => {
                     // Check if dropdown has options (more than just the default option)
-                    const hasOptions = selectElement.options.length > 1 || 
+                    const hasOptions = selectElement.options.length > 1 ||
                                      (selectElement.options.length === 1 && selectElement.options[0].value !== '');
-                    
+
                     if (hasOptions) {
                         // Dropdown is populated, execute callback
                         if (callback) {
@@ -319,7 +319,7 @@
                         }
                     }
                 };
-                
+
                 checkDropdown();
             });
         }
@@ -331,13 +331,13 @@
          */
         requiresAdditionalSection(typeId, subTypeId) {
             if (!typeId) return false;
-            
+
             // Type ID 5 or 7: Subscribe section (no Sub Type required)
             if (typeId === 5 || typeId === 7) return true;
-            
+
             // Type ID 6 && Sub Type ID 2: Billing Type section
             if (typeId === 6 && subTypeId === 2) return true;
-            
+
             // Sonumb Section conditions
             // Type ID 8 && Sub Type ID 4
             if (typeId === 8 && subTypeId === 4) return true;
@@ -347,7 +347,7 @@
             if (typeId === 4 && subTypeId === 3) return true;
             // Type ID 3 && (Sub Type ID 4 || 5)
             if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
-            
+
             return false;
         }
 
@@ -423,12 +423,12 @@
         bindEvents() {
             // Single event listener for all button clicks - performance optimization
             document.addEventListener('click', this.handleClick.bind(this));
-            
+
             // Form validation on input
             if (this.cachedElements.form) {
                 this.cachedElements.form.addEventListener('input', this.handleInputValidation.bind(this));
             }
-            
+
             // Setup field validation listeners to clear error messages when fields are filled
             this.setupFieldValidationListeners();
 
@@ -477,10 +477,10 @@
 
             // Initialize date change listeners for Qty calculation
             this.initializeAdditionalStepListeners();
-            
+
             // Initialize Choose Site modal
             this.initializeChooseSiteModal();
-            
+
             // Initialize Subscribe section
             this.initializeSubscribeBillingTypeDropdown();
             this.initializeSubscribeStepListeners();
@@ -513,42 +513,42 @@
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         initializeSubscribeYearDropdowns() {
             if (this.additionalModule) {
                 return this.additionalModule.initializeSubscribeYearDropdowns();
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         initializeSubscribeBillingTypeDropdown() {
             if (this.additionalModule) {
                 return this.additionalModule.initializeSubscribeBillingTypeDropdown();
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         initializeSubscribeStepListeners() {
             if (this.additionalModule) {
                 return this.additionalModule.initializeSubscribeStepListeners();
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         updateSubscribeDate(type) {
             if (this.additionalModule) {
                 return this.additionalModule.updateSubscribeDate(type);
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         validateSubscribeDateRange() {
             if (this.additionalModule) {
                 return this.additionalModule.validateSubscribeDateRange();
             }
             console.warn('ProcurementWizardAdditional module not available');
         }
-        
+
         calculateSubscribeEndPeriod() {
             if (this.additionalModule) {
                 return this.additionalModule.calculateSubscribeEndPeriod();
@@ -624,10 +624,10 @@
             if (e.target.closest('.modal')) {
                 return;
             }
-            
+
             // Find the button element - handle cases where click might be on icon/text inside button
             let target = e.target.closest('button, [role="button"]');
-            
+
             // If target is not a button, try to find parent button
             if (!target || (target.tagName !== 'BUTTON' && target.getAttribute('role') !== 'button')) {
                 // Check if clicked element is inside a button (e.g., icon or span)
@@ -729,21 +729,21 @@
         // Navigate to step with invalid field and focus on it
         navigateToInvalidField(invalidFieldInfo) {
             if (!invalidFieldInfo || !invalidFieldInfo.step) return;
-            
+
             const targetStepId = invalidFieldInfo.step;
             const targetFieldId = invalidFieldInfo.fieldId;
             const targetField = invalidFieldInfo.field;
-            
+
             // Find step index
             const stepIndex = this.stepOrder.indexOf(targetStepId);
             if (stepIndex === -1) return;
-            
+
             // Navigate to the step
             this.currentStepIndex = stepIndex;
             this.hideAllSteps();
             this.showStep(targetStepId);
             this.updateStepVisuals();
-            
+
             // Wait a bit for step to be visible, then focus on field
             setTimeout(() => {
                 // Special handling for "At least one required" errors - just navigate to step, no field focus needed
@@ -756,7 +756,7 @@
                     }
                     return; // Exit early, no need to focus on any field
                 }
-                
+
                 // Special handling for empty items/documents - show add form
                 if (targetStepId === 'detail' && targetFieldId === 'addDetailBtn') {
                     // Show add item form if no items exist
@@ -768,26 +768,26 @@
                     // Open file upload dialog if no documents exist
                     this.openFileUploadDialog();
                 }
-                
+
                 let fieldToFocus = null;
-                
+
                 if (targetField) {
                     // If field element is provided, use it directly
                     fieldToFocus = targetField;
                 } else if (targetFieldId) {
                     // Try to find field by ID
                     fieldToFocus = document.getElementById(targetFieldId);
-                    
+
                     // If not found and it's a button, try to find it
                     if (!fieldToFocus && (targetFieldId === 'addDetailBtn' || targetFieldId === 'addDocumentBtn')) {
                         fieldToFocus = document.getElementById(targetFieldId);
                     }
                 }
-                
+
                 if (fieldToFocus) {
                     // Scroll to field and focus
                     fieldToFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
+
                     // For input/textarea/select, focus directly
                     if (fieldToFocus.tagName === 'INPUT' || fieldToFocus.tagName === 'TEXTAREA' || fieldToFocus.tagName === 'SELECT') {
                         setTimeout(() => {
@@ -820,7 +820,7 @@
                     const stepContent = this.stepContents[targetStepId];
                     if (stepContent && targetFieldId) {
                         let dropdownBtn = null;
-                        
+
                         // Map field IDs to dropdown buttons
                         if (targetFieldId === 'Applicant') {
                             dropdownBtn = stepContent.querySelector('#applicantDropdownBtn');
@@ -842,7 +842,7 @@
                         } else if (targetFieldId === 'addDocumentBtn') {
                             dropdownBtn = stepContent.querySelector('#addDocumentBtn');
                         }
-                        
+
                         if (dropdownBtn) {
                             dropdownBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             setTimeout(() => {
@@ -863,7 +863,7 @@
 
         handleNext() {
             const currentStepId = this.stepOrder[this.currentStepIndex];
-            
+
             if (currentStepId === 'basic-information') {
                 if (this.basicInfoModule) {
                     if (!this.basicInfoModule.validateBasicInformationStep()) {
@@ -873,11 +873,11 @@
                     return;
                 }
             }
-            
+
             if (currentStepId === 'additional' && !this.validateAdditionalStep()) {
                 return;
             }
-            
+
             // Validate assign-approval step
             if (currentStepId === 'assign-approval') {
                 if (this.validationModule && this.validationModule.validateApprovalStep) {
@@ -886,7 +886,7 @@
                     }
                 }
             }
-            
+
             this.moveToNextStep();
         }
 
@@ -904,25 +904,25 @@
             // Button ID format: viewReviewedByHistoryBtn, viewApprovedByHistoryBtn, viewConfirmedByHistoryBtn
             // Field ID format: ReviewedBy, ApprovedBy, ConfirmedBy
             let assignApproval = buttonId.replace('view', '').replace('HistoryBtn', '');
-            
+
             // Map to AssignApproval values: Reviewed, Approved, Confirmed
             const assignApprovalMap = {
                 'ReviewedBy': 'Reviewed',
                 'ApprovedBy': 'Approved',
                 'ConfirmedBy': 'Confirmed'
             };
-            
+
             const assignApprovalValue = assignApprovalMap[assignApproval] || assignApproval;
-            
+
             // Get PR Number from localStorage or URL
             const draft = JSON.parse(localStorage.getItem('procurementDraft') || '{}');
             const prNumber = draft.purchReqNumber;
-            
+
             if (!prNumber) {
                 this.showValidationMessage('PR Number not found. Please save the PR first.');
                 return;
             }
-            
+
             // Delegate to Approval module
             if (this.approvalModule) {
                 await this.approvalModule.showApprovalPICHistoryModal(prNumber, assignApprovalValue);
@@ -953,7 +953,7 @@
                     e.target.classList.toggle('is-invalid', !isValid);
                     e.target.classList.toggle('is-valid', isValid);
                 }
-                
+
                 // Removed auto-search for searchItemName - search only happens on button click or Enter key
             }, 300);
         }
@@ -971,7 +971,7 @@
             if (stepContent) {
                 stepContent.style.display = 'block';
             }
-            
+
             // Initialize amount total and pagination when showing detail step
             if (stepId === 'detail') {
                 this.updateAmountTotal();
@@ -981,7 +981,7 @@
                 const totalItems = this.getTotalDetailItems();
                 this.updateDetailPagination(totalItems, 1, rowsPerPage);
             }
-            
+
             // Initialize pagination when showing document step
             if (stepId === 'document') {
                 const documentRowsPerPageSelect = document.getElementById('documentRowsPerPage');
@@ -998,19 +998,19 @@
                 this.hideAllSteps();
                 const nextStepId = this.stepOrder[this.currentStepIndex];
                 this.showStep(nextStepId);
-                
+
                 // Auto-fill applicant when entering assign-approval step
                 if (nextStepId === 'assign-approval') {
                     this.autoFillApplicantFromBasicInfo();
                 }
-                
+
                 // Update summary when navigating to summary step
                 if (nextStepId === 'summary') {
                     this.updateSummary();
                     // Initialize confirmation checkbox and submit button
                     this.initializeSubmitConfirmation();
                 }
-                
+
                 this.updateStepVisuals();
                 this.logPerformanceMetrics();
             }
@@ -1067,7 +1067,7 @@
                         if (fieldValue.trim() !== '') {
                             // Field is now filled, remove error
                             hiddenInput.classList.remove('is-invalid');
-                            
+
                             // Find dropdown button - handle different naming conventions
                             let dropdownBtn = null;
                             if (fieldId === 'BillingType') {
@@ -1079,10 +1079,10 @@
                             } else if (fieldId === 'currency') {
                                 dropdownBtn = document.getElementById('currencyDropdownBtn');
                             } else {
-                                dropdownBtn = document.getElementById(fieldId.toLowerCase() + 'DropdownBtn') || 
+                                dropdownBtn = document.getElementById(fieldId.toLowerCase() + 'DropdownBtn') ||
                                                document.getElementById(fieldId.replace(/([A-Z])/g, '-$1').toLowerCase() + '-dropdown-btn');
                             }
-                            
+
                             if (dropdownBtn) {
                                 dropdownBtn.classList.remove('is-invalid');
                             }
@@ -1092,7 +1092,7 @@
                                     this.validationModule.hideFieldError(dropdownBtn);
                                 }
                             }
-                            
+
                             // Check if Additional step should be shown when PurchaseRequestType or PurchaseRequestSubType changes
                             if (fieldId === 'PurchaseRequestType' || fieldId === 'PurchaseRequestSubType') {
                                 // Update current Type/SubType ID
@@ -1107,7 +1107,7 @@
                                 } else if (fieldId === 'PurchaseRequestSubType') {
                                     this.currentPurchaseRequestSubTypeID = fieldValue ? parseInt(fieldValue) : null;
                                 }
-                                
+
                                 // Check and toggle Additional step
                                 if (this.checkAndToggleAdditionalStep) {
                                     this.checkAndToggleAdditionalStep();
@@ -1117,7 +1117,7 @@
                     });
                 }
             });
-            
+
             // Handle approval fields (reviewedById, approvedById, confirmedById) - remove error when employee is selected
             const approvalFields = ['reviewedById', 'approvedById', 'confirmedById'];
             approvalFields.forEach(hiddenFieldId => {
@@ -1128,15 +1128,15 @@
                         if (fieldValue.trim() !== '') {
                             // Field is now filled, remove error
                             hiddenInput.classList.remove('is-invalid');
-                            
+
                             // Find corresponding visible field (e.g., reviewedById -> reviewedBy)
                             const visibleFieldId = hiddenFieldId.replace('Id', '');
                             const visibleField = document.getElementById(visibleFieldId);
-                            
+
                             if (visibleField) {
                                 visibleField.classList.remove('is-invalid');
                             }
-                            
+
                             // Remove error messages
                             if (this.validationModule && this.validationModule.hideFieldError) {
                                 this.validationModule.hideFieldError(hiddenInput);
@@ -1164,13 +1164,13 @@
         updateStepVisuals() {
             // Get all visible steps from DOM (excluding hidden Additional step if not in stepOrder)
             const allSteps = document.querySelectorAll('.bs-stepper-header .step');
-            
+
             // Create a map of step data-target to stepOrder index
             const stepOrderMap = {};
             this.stepOrder.forEach((stepId, orderIndex) => {
                 stepOrderMap[stepId] = orderIndex;
             });
-            
+
             // Update each step with dynamic numbering based on stepOrder
             allSteps.forEach((step, domIndex) => {
                 const stepIcon = step.querySelector('.bs-stepper-icon svg use');
@@ -1179,34 +1179,34 @@
                 // Get the data-target attribute to identify which step this is
                 const dataTarget = step.getAttribute('data-target');
                 if (!dataTarget) return;
-                
+
                 // Extract step ID from data-target (e.g., "#basic-information" -> "basic-information")
                 const stepId = dataTarget.replace('#', '');
-                
+
                 // Skip if this step is not in the current stepOrder (e.g., hidden Additional step)
                 if (!stepOrderMap.hasOwnProperty(stepId)) {
                     // Hide this step if it's not in stepOrder
                     step.style.display = 'none';
                     return;
                 }
-                
+
                 // Show this step if it's in stepOrder
                 step.style.display = '';
-                
+
                 // Get the step number based on its position in stepOrder (1-based)
                 const stepNumber = stepOrderMap[stepId] + 1;
-                
+
                 // Check if this step is completed or active based on currentStepIndex
                 const isCompleted = stepOrderMap[stepId] < this.currentStepIndex;
                 const isActive = stepOrderMap[stepId] === this.currentStepIndex;
-                
+
                 // Update icon with dynamic step number
-                const iconPath = isCompleted || isActive 
+                const iconPath = isCompleted || isActive
                     ? `/assets/svg/icons/wizard-step-${stepNumber}-active.svg#wizardStep${stepNumber}Active`
                     : `/assets/svg/icons/wizard-step-${stepNumber}.svg#wizardStep${stepNumber}`;
-                
+
                 stepIcon.setAttribute('xlink:href', iconPath);
-                
+
                 // Update classes efficiently
                 step.classList.toggle('completed', isCompleted);
                 step.classList.toggle('active', isActive);
@@ -1257,7 +1257,7 @@
 
         checkAndToggleAdditionalStep() {
             let typeId = null;
-            
+
             // First, try to use currentPurchaseRequestTypeID if it's already set
             if (this.currentPurchaseRequestTypeID) {
                 typeId = this.currentPurchaseRequestTypeID;
@@ -1282,7 +1282,7 @@
 
             // Get current Purchase Request Sub Type ID
             const purchReqSubTypeField = document.getElementById('PurchaseRequestSubType');
-            
+
             // For Type ID 5 or 7, Additional step can be shown without Sub Type (Subscribe section)
             if (typeId === 5 || typeId === 7) {
                 const shouldShowAdditional = true;
@@ -1290,7 +1290,7 @@
                 this.updateAdditionalSectionVisibility(typeId, null);
                 return;
             }
-            
+
             // For other types, Sub Type is required
             if (!purchReqSubTypeField || !purchReqSubTypeField.value) {
                 // If no sub type selected, hide Additional step
@@ -1307,7 +1307,7 @@
 
             const subTypeId = purchReqSubTypeId;
             this.currentPurchaseRequestSubTypeID = subTypeId;
-            
+
             // Helper function to check if Sonumb Section should be shown
             const shouldShowSonumbSection = () => {
                 // 1. Type ID = 8 && Sub Type ID = 4
@@ -1320,18 +1320,18 @@
                 if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
                 return false;
             };
-            
+
             // Show Additional step if:
             // 1. Purchase Request Type ID = 6 AND Purchase Request Sub Type ID = 2 (Billing Type section)
             // 2. Purchase Request Type ID = 5 OR 7 (Subscribe section, no Sub Type required)
             // 3. Sonumb Section conditions (Type ID 2,3,4,8 with specific Sub Type IDs)
             const shouldShowAdditional = (typeId === 6 && subTypeId === 2) || typeId === 5 || typeId === 7 || shouldShowSonumbSection();
             this.toggleAdditionalStep(shouldShowAdditional);
-            
+
             // Update Additional section visibility based on Type ID and Sub Type ID
             this.updateAdditionalSectionVisibility(typeId, subTypeId);
         }
-        
+
         updateAdditionalSectionVisibility(typeId, subTypeId) {
             const billingTypeSection = document.getElementById('billingTypeSection');
             const billingPeriodContainer = document.getElementById('billingPeriodContainer');
@@ -1339,14 +1339,14 @@
             const subscribeSection = document.getElementById('subscribeSection');
             const subscribePeriodContainer = document.getElementById('subscribePeriodContainer');
             const additionalDescription = document.getElementById('additionalDescription');
-            
+
             // Hide all sections first
             if (billingTypeSection) billingTypeSection.style.display = 'none';
             if (billingPeriodContainer) billingPeriodContainer.style.display = 'none';
             if (sonumbSection) sonumbSection.style.display = 'none';
             if (subscribeSection) subscribeSection.style.display = 'none';
             if (subscribePeriodContainer) subscribePeriodContainer.style.display = 'none';
-            
+
             // Helper function to check if Sonumb Section should be shown
             const shouldShowSonumbSection = () => {
                 if (!subTypeId) return false;
@@ -1360,11 +1360,11 @@
                 if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
                 return false;
             };
-            
+
             if (typeId === 6 && subTypeId === 2) {
                 // Show Billing Type section
                 if (billingTypeSection) billingTypeSection.style.display = 'block';
-                
+
                 // Check if billing type is already selected (for revision mode)
                 const billingTypeHiddenInput = document.getElementById('BillingType');
                 const billingTypeSelectedText = document.getElementById('billingTypeSelectedText');
@@ -1377,7 +1377,7 @@
                             billingPeriodLabel.textContent = billingTypeSelectedText.textContent;
                         }
                     }
-                    
+
                     // Ensure Period field is populated if it has a value (for revision mode)
                     const periodField = document.getElementById('Period');
                     if (periodField && periodField.value) {
@@ -1389,7 +1389,7 @@
                         }, 100);
                     }
                 }
-                
+
                 if (sonumbSection) sonumbSection.style.display = 'none';
                 if (subscribeSection) subscribeSection.style.display = 'none';
                 if (additionalDescription) additionalDescription.textContent = 'Enter additional billing information.';
@@ -1400,13 +1400,13 @@
                 if (sonumbSection) sonumbSection.style.display = 'none';
                 if (subscribeSection) subscribeSection.style.display = 'block';
                 if (additionalDescription) additionalDescription.textContent = 'Enter additional subscribe information.';
-                
+
                 // Re-initialize Subscribe Billing Type dropdown when section is shown
                 // This ensures dropdown is populated if billing types were loaded after initial init
                 if (this.billingTypes && this.billingTypes.length > 0) {
                     this.initializeSubscribeBillingTypeDropdown();
                 }
-                
+
                 // Check if subscribe billing type is already selected (for revision mode)
                 const subscribeBillingTypeHiddenInput = document.getElementById('SubscribeBillingType');
                 const subscribeBillingTypeSelectedText = document.getElementById('subscribeBillingTypeSelectedText');
@@ -1419,7 +1419,7 @@
                             subscribePeriodLabel.textContent = subscribeBillingTypeSelectedText.textContent;
                         }
                     }
-                    
+
                     // Ensure Subscribe Period field is populated if it has a value (for revision mode)
                     const subscribePeriodField = document.getElementById('SubscribePeriod');
                     if (subscribePeriodField && subscribePeriodField.value) {
@@ -1445,44 +1445,44 @@
                 if (sonumbSection) sonumbSection.style.display = 'none';
                 if (subscribeSection) subscribeSection.style.display = 'none';
             }
-            
+
             // Update quantity field based on period field visibility
             this.updateQuantityFieldBasedOnPeriod();
         }
-        
+
         // Check if current Type ID/Sub Type ID shows period field (Billing Type or Subscribe section)
         hasPeriodField() {
             const typeId = this.currentPurchaseRequestTypeID;
             const subTypeId = this.currentPurchaseRequestSubTypeID;
-            
+
             // Billing Type Section: Type ID 6 && Sub Type ID 2
             if (typeId === 6 && subTypeId === 2) {
                 return true;
             }
-            
+
             // Subscribe Section: Type ID 5 or 7
             if (typeId === 5 || typeId === 7) {
                 return true;
             }
-            
+
             return false;
         }
-        
+
         // Update quantity field: disable and auto-fill from period field if period field is visible
         updateQuantityFieldBasedOnPeriod() {
             const quantityField = document.getElementById('quantity');
             if (!quantityField) return;
-            
+
             const hasPeriod = this.hasPeriodField();
-            
+
             if (hasPeriod) {
                 // Disable quantity field
                 quantityField.disabled = true;
                 quantityField.setAttribute('readonly', 'readonly');
-                
+
                 // Get period value from appropriate field
                 let periodValue = null;
-                
+
                 // Check Billing Type Section (Type ID 6, Sub Type ID 2)
                 if (this.currentPurchaseRequestTypeID === 6 && this.currentPurchaseRequestSubTypeID === 2) {
                     const periodField = document.getElementById('Period');
@@ -1497,18 +1497,18 @@
                         periodValue = parseInt(subscribePeriodField.value, 10);
                     }
                 }
-                
+
                 // Auto-fill quantity with period value
                 if (periodValue && !isNaN(periodValue) && periodValue > 0) {
                     quantityField.value = this.formatNumberWithComma(periodValue, 3);
                     console.log('Quantity auto-filled from period:', periodValue);
-                    
+
                     // Remove validation error when quantity is auto-filled (even if disabled)
                     quantityField.classList.remove('is-invalid');
                     if (this.validationModule && this.validationModule.hideFieldError) {
                         this.validationModule.hideFieldError(quantityField);
                     }
-                    
+
                     // Trigger amount calculation if unit price is already set
                     const unitPriceField = document.getElementById('unitPrice');
                     if (unitPriceField && unitPriceField.value) {
@@ -1539,7 +1539,7 @@
 
             // Get period value from appropriate field
             let periodValue = null;
-            
+
             // Check Billing Type Section (Type ID 6, Sub Type ID 2)
             if (this.currentPurchaseRequestTypeID === 6 && this.currentPurchaseRequestSubTypeID === 2) {
                 const periodField = document.getElementById('Period');
@@ -1577,10 +1577,10 @@
 
                 try {
                     const itemData = JSON.parse(itemDataAttr);
-                    
+
                     // Get current unit price (support both camelCase and PascalCase for compatibility)
                     const unitPrice = parseFloat(itemData.unitPrice || itemData.UnitPrice) || 0;
-                    
+
                     // Update quantity with new period value
                     const newQuantity = periodValue;
                     itemData.itemQty = newQuantity;
@@ -1588,7 +1588,7 @@
                     if (itemData.ItemQty !== undefined) {
                         itemData.ItemQty = newQuantity;
                     }
-                    
+
                     // Recalculate amount
                     const newAmount = newQuantity * unitPrice;
                     itemData.amount = newAmount;
@@ -1596,20 +1596,20 @@
                     if (itemData.Amount !== undefined) {
                         itemData.Amount = newAmount;
                     }
-                    
+
                     // Update data attribute
                     row.setAttribute('data-item-data', JSON.stringify(itemData));
-                    
+
                     // Update displayed quantity (column index 6, 0-based)
                     const cells = row.querySelectorAll('td');
                     if (cells.length >= 8) {
                         // Update Qty column (index 6)
                         cells[6].textContent = this.formatNumberWithComma(newQuantity, 3);
-                        
+
                         // Update Amount column (index 8)
                         cells[8].textContent = this.formatNumberWithComma(newAmount, 2);
                     }
-                    
+
                     hasUpdated = true;
                 } catch (e) {
                     console.error('Error updating item quantity in grid:', e);
@@ -1626,7 +1626,7 @@
         // Helper function to focus on first invalid field
         focusFirstInvalidField(container) {
             if (!container) return;
-            
+
             // First, check regular required fields
             const invalidFields = container.querySelectorAll('.is-invalid:not([disabled])');
             if (invalidFields.length > 0) {
@@ -1649,7 +1649,7 @@
                 }
                 return true;
             }
-            
+
             // Then check custom dropdowns (hidden inputs with dropdown buttons)
             // Check for Basic Information dropdowns
             const basicInfoDropdowns = [
@@ -1658,7 +1658,7 @@
                 { inputId: '#PurchaseRequestType', btnId: '#purchaseRequestTypeDropdownBtn' },
                 { inputId: '#PurchaseRequestSubType', btnId: '#purchaseRequestSubTypeDropdownBtn' }
             ];
-            
+
             for (const { inputId, btnId } of basicInfoDropdowns) {
                 const hiddenInput = container.querySelector(inputId);
                 const dropdownBtn = container.querySelector(btnId);
@@ -1678,13 +1678,13 @@
                     }
                 }
             }
-            
+
             // Check for Add Item Detail dropdowns
             const itemDetailDropdowns = [
                 { inputId: '#unit', btnId: '#unitDropdownBtn' },
                 { inputId: '#currency', btnId: '#currencyDropdownBtn' }
             ];
-            
+
             for (const { inputId, btnId } of itemDetailDropdowns) {
                 const hiddenInput = container.querySelector(inputId);
                 const dropdownBtn = container.querySelector(btnId);
@@ -1704,7 +1704,7 @@
                     }
                 }
             }
-            
+
             return false;
         }
 
@@ -1718,29 +1718,29 @@
 
         updateSummary() {
             if (!this.cachedElements.form) return;
-            
+
             const formData = new FormData(this.cachedElements.form);
             // Get current logged-in user name from config or form field
-            const currentUserFullName = (window.ProcurementConfig && window.ProcurementConfig.currentUserFullName) || 
+            const currentUserFullName = (window.ProcurementConfig && window.ProcurementConfig.currentUserFullName) ||
                                        formData.get('Requestor')?.toString().trim() || 'User';
-            
+
             // Get field values directly from DOM elements (important for disabled/readonly fields)
             // This ensures we get the correct values even if fields are disabled
             const applicantField = document.getElementById('Applicant');
             const companyField = document.getElementById('Company');
             const purchReqTypeField = document.getElementById('PurchaseRequestType');
             const purchReqSubTypeField = document.getElementById('PurchaseRequestSubType');
-            
+
             // Get selected option text for dropdowns (for display in summary)
             // Works with both custom dropdowns (hidden input + selectedText) and regular select elements
             const getSelectedOptionText = (fieldElement) => {
                 if (!fieldElement) return '';
-                
+
                 // For custom dropdowns (hidden input), get text from selectedText element
                 if (fieldElement.type === 'hidden') {
                     const fieldId = fieldElement.id;
                     let selectedTextId = '';
-                    
+
                     if (fieldId === 'Applicant') {
                         selectedTextId = 'applicantSelectedText';
                     } else if (fieldId === 'Company') {
@@ -1750,7 +1750,7 @@
                     } else if (fieldId === 'PurchaseRequestSubType') {
                         selectedTextId = 'purchaseRequestSubTypeSelectedText';
                     }
-                    
+
                     if (selectedTextId) {
                         const selectedTextElement = document.getElementById(selectedTextId);
                         if (selectedTextElement) {
@@ -1759,7 +1759,7 @@
                     }
                     return fieldElement.value || '';
                 }
-                
+
                 // For regular select elements (if any still exist)
                 if (fieldElement.tagName === 'SELECT') {
                     const selectedOption = fieldElement.options[fieldElement.selectedIndex];
@@ -1767,10 +1767,10 @@
                     return selectedOption.textContent || selectedOption.text || selectedOption.value;
                 }
                 }
-                
+
                 return '';
             };
-            
+
             // Get data from Assign Approval form (separate form)
             const applicantApprovalField = document.getElementById('applicantApproval');
             const applicantApprovalValue = applicantApprovalField ? applicantApprovalField.value : '';
@@ -1782,7 +1782,7 @@
             const confirmedByValue = confirmedByField ? confirmedByField.value : '';
             const requestorApprovalField = document.getElementById('requestor');
             const requestorApprovalValue = requestorApprovalField ? requestorApprovalField.value : currentUserFullName;
-            
+
             // Update basic information summary
             // Use direct element access for disabled fields to ensure we get the correct values
             const summaryData = {
@@ -1813,7 +1813,7 @@
                     }
                 }
             });
-            
+
             // Delegate to Summary module
             if (this.summaryModule) {
                 this.summaryModule.updateSummaryStep();
@@ -1832,11 +1832,11 @@
         showCancelConfirmationModal() {
             const modalId = 'cancelPRConfirmationModal';
             let existingModal = document.getElementById(modalId);
-            
+
             if (existingModal) {
                 existingModal.remove();
             }
-            
+
             const modalHtml = `
                 <div class="modal fade" id="${modalId}" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
@@ -1863,10 +1863,10 @@
                     </div>
                 </div>
             `;
-            
+
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             const modal = new bootstrap.Modal(document.getElementById(modalId));
-            
+
             const confirmBtn = document.getElementById('confirmCancelBtn');
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', () => {
@@ -1880,13 +1880,13 @@
                     window.location.href = '/Procurement/PurchaseRequest/List';
                 });
             }
-            
+
             // Clean up modal when hidden
             const modalElement = document.getElementById(modalId);
             modalElement.addEventListener('hidden.bs.modal', () => {
                 modalElement.remove();
             });
-            
+
             modal.show();
         }
 
@@ -1917,16 +1917,16 @@
         showFileValidationModal(invalidFiles) {
             const modalId = 'fileValidationModal';
             let existingModal = document.getElementById(modalId);
-            
+
             if (existingModal) {
                 existingModal.remove();
             }
-            
+
             // Build error list
-            const errorList = invalidFiles.map(({ file, error }) => 
+            const errorList = invalidFiles.map(({ file, error }) =>
                 `<li class="mb-2"><strong>${this.escapeHtml(file.name)}</strong><br><small class="text-muted">${this.escapeHtml(error)}</small></li>`
             ).join('');
-            
+
             const modalHtml = `
                 <div class="modal fade" id="${modalId}" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1944,9 +1944,9 @@
                                     <ul class="list-unstyled mb-0">
                                         ${errorList}
                                     </ul>
-                                    ${invalidFiles.some(f => f.error.includes('exceeds maximum size')) ? 
+                                    ${invalidFiles.some(f => f.error.includes('exceeds maximum size')) ?
                                         '<p class="text-danger mt-3 mb-0"><small><strong>Note:</strong> Maximum file size is 2MB</small></p>' : ''}
-                                    ${invalidFiles.some(f => f.error.includes('format is not supported')) ? 
+                                    ${invalidFiles.some(f => f.error.includes('format is not supported')) ?
                                         '<p class="text-danger mt-3 mb-0"><small><strong>Note:</strong> Allowed formats: Word, XLSX, PDF, JPG, PNG</small></p>' : ''}
                                 </div>
                             </div>
@@ -1959,16 +1959,16 @@
                     </div>
                 </div>
             `;
-            
+
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             const modal = new bootstrap.Modal(document.getElementById(modalId));
-            
+
             // Clean up modal when hidden
             const modalElement = document.getElementById(modalId);
             modalElement.addEventListener('hidden.bs.modal', () => {
                 modalElement.remove();
             });
-            
+
             modal.show();
         }
 
@@ -2110,29 +2110,29 @@
         initializeSubmitConfirmation() {
             const confirmCheckbox = document.getElementById('confirmSubmission');
             const submitBtn = document.getElementById('submitPRBtn');
-            
+
             if (!confirmCheckbox || !submitBtn) {
                 console.warn('Confirmation checkbox or submit button not found');
                 return;
             }
-            
+
             // Remove existing event listener if any (to avoid duplicates)
             const existingHandler = confirmCheckbox._submitConfirmationHandler;
             if (existingHandler) {
                 confirmCheckbox.removeEventListener('change', existingHandler);
             }
-            
+
             // Create handler function
             const handler = (e) => {
                 submitBtn.disabled = !e.target.checked;
             };
-            
+
             // Store handler reference for potential removal later
             confirmCheckbox._submitConfirmationHandler = handler;
-            
+
             // Set button disabled state based on checkbox initial state
             submitBtn.disabled = !confirmCheckbox.checked;
-            
+
             // Add event listener to checkbox to enable/disable button
             confirmCheckbox.addEventListener('change', handler);
         }
@@ -2183,9 +2183,9 @@
             alertDiv.id = 'validation-alert';
             alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
             alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-            
+
             this.cachedElements.stepperContent.insertBefore(alertDiv, this.cachedElements.stepperContent.firstChild);
-            
+
             if (autoHide) {
                 setTimeout(() => {
                     if (alertDiv.parentNode) alertDiv.remove();
@@ -2351,17 +2351,17 @@
             const applicantHiddenInput = document.getElementById('Applicant');
             const applicantSelectedText = document.getElementById('applicantSelectedText');
             const applicantApprovalField = document.getElementById('applicantApproval');
-            
+
             if (!applicantHiddenInput || !applicantApprovalField) return;
-            
+
             // Get selected value (the applicant employee ID)
             const applicantEmployeeID = applicantHiddenInput.value;
             const applicantName = applicantSelectedText ? applicantSelectedText.textContent : '';
-            
+
             if (applicantEmployeeID) {
                 // Set the display name in the field (for readability)
                 applicantApprovalField.value = applicantName || applicantEmployeeID;
-                
+
                 // Also store employee ID in data attribute for future use if needed
                 applicantApprovalField.setAttribute('data-employee-id', applicantEmployeeID);
             } else {
@@ -2463,15 +2463,15 @@
             if (isNaN(value) || value === null || value === undefined) return '';
             const num = parseFloat(value);
             if (isNaN(num)) return '';
-            
+
             // Format with comma as thousand separator
             const parts = num.toString().split('.');
             let integerPart = parts[0];
             const decimalPart = parts[1] || '';
-            
+
             // Add thousand separator (comma)
             integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            
+
             // Handle decimal part
             if (maxDecimals > 0 && decimalPart) {
                 const limitedDecimal = decimalPart.substring(0, maxDecimals);
@@ -2480,7 +2480,7 @@
                 // If number has decimal but decimal part is empty, format with maxDecimals
                 return integerPart + '.' + num.toFixed(maxDecimals).split('.')[1];
             }
-            
+
             return integerPart;
         }
 
@@ -2518,7 +2518,7 @@
             // Performance logging - kept in main class as it's instance-specific
             const currentTime = performance.now();
             const totalTime = currentTime - this.performanceMetrics.startTime;
-            
+
             if (this.performanceMetrics.stepTransitions % 3 === 0) {
                 // Log performance metrics if needed
             }
@@ -2530,10 +2530,10 @@
             if (this.debounceTimer) {
                 clearTimeout(this.debounceTimer);
             }
-            
+
             // Remove event listeners
             document.removeEventListener('click', this.handleClick.bind(this));
-            
+
             // Clear cached elements
             this.cachedElements = null;
             this.stepContents = null;

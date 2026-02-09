@@ -223,13 +223,26 @@
 @endsection
 
 @section('scripts')
+    @php
+        $employeeId = data_get(session('employee'), 'Employ_Id', '');
+        $employeeIdTbgsys = data_get(session('employee'), 'Employ_Id_TBGSYS', '');
+        $username = (string) optional(Auth::user())->Username;
+        $currentIdentifiers = array_values(array_unique(array_filter([$employeeId, $employeeIdTbgsys, $username], fn ($id) => $id !== '')));
+    @endphp
+    <script>
+        window.TaskToDoConfig = {
+            currentUserEmployeeID: @json($employeeId),
+            currentUserIdentifiers: @json($currentIdentifiers)
+        };
+    </script>
     <script src="{{ asset('js/dashboard/TaskToDoAPI.js') }}"></script>
     <script src="{{ asset('js/dashboard/TaskToDoView.js') }}"></script>
 
     <script>
         'use strict';
 
-        const currentUserEmployeeID = '{{ auth()->user()->Employ_Id ?? '' }}';
+        const currentUserEmployeeID = (window.TaskToDoConfig && window.TaskToDoConfig.currentUserEmployeeID) || '';
+        const currentUserIdentifiers = (window.TaskToDoConfig && window.TaskToDoConfig.currentUserIdentifiers) || [];
 
         class TaskToDoManager {
             constructor() {
@@ -257,7 +270,7 @@
                     }
 
                     if (this.apiModule && this.apiModule.getAllTasks) {
-                        this.tasks = await this.apiModule.getAllTasks(currentUserEmployeeID);
+                        this.tasks = await this.apiModule.getAllTasks(currentUserEmployeeID, currentUserIdentifiers);
                     } else {
                         console.warn('TaskToDoAPI module not available');
                         this.tasks = [];

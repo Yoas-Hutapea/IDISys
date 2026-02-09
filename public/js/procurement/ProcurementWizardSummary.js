@@ -113,8 +113,8 @@ class ProcurementWizardSummary {
                 <td>${escapeHtml(description)}</td>
                 <td>${escapeHtml(unit)}</td>
                 <td>${escapeHtml(quantity)}</td>
-                <td>${escapeHtml(unitPrice)}</td>
-                <td>${escapeHtml(amount)}</td>
+                <td class="text-end">${escapeHtml(unitPrice)}</td>
+                <td class="text-end">${escapeHtml(amount)}</td>
             `;
             summaryItemsTbody.appendChild(newRow);
         });

@@ -251,12 +251,13 @@ class ProcurementWizardSite {
             paginatedSites.forEach((site) => {
                 const row = document.createElement('tr');
                 
-                // Handle both camelCase and PascalCase property names
-                const siteId = site.id || site.Id || '';
-                const soNumber = site.soNumber || site.SONumber || '';
-                const siteID = site.siteID || site.SiteID || '';
+                // Handle multiple possible property name variants returned by API
+                // Common variants: id/Id/ID, soNumber/SONumber/Sonumb, siteID/SiteID, siteName/SiteName, operator/Operator/OperatorName
+                const siteId = site.id || site.Id || site.ID || '';
+                const soNumber = site.soNumber || site.SONumber || site.Sonumb || site.SONUMB || site.SONumber || '';
+                const siteID = site.siteID || site.SiteID || site.SiteId || '';
                 const siteName = site.siteName || site.SiteName || '';
-                const operator = site.operator || site.Operator || '';
+                const operator = site.operator || site.Operator || site.OperatorName || site.OperatorFullName || '';
                 
                 // Create action button
                 const actionCell = document.createElement('td');
