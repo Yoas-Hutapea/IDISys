@@ -708,15 +708,29 @@ class PurchaseRequestReleasesController extends Controller
         return $amortizations;
     }
 
-    private function resolveTopId(string $topDescription): ?int
+    /**
+     * Resolve TopType from request to mstFINInvoiceTOP ID.
+     * Accepts either TOP ID (numeric string) or TOPDescription for backward compatibility.
+     */
+    private function resolveTopId(string $topType): ?int
     {
-        $topDescription = trim($topDescription);
-        if ($topDescription === '' || !Schema::hasTable('mstFINInvoiceTOP')) {
+        $topType = trim($topType);
+        if ($topType === '' || !Schema::hasTable('mstFINInvoiceTOP')) {
             return null;
         }
 
+        // If TopType is numeric, treat as TOP ID (frontend sends ID to avoid duplicate-description lookup)
+        if (is_numeric($topType)) {
+            $id = (int) $topType;
+            $top = DB::table('mstFINInvoiceTOP')
+                ->where('ID', $id)
+                ->where('IsActive', true)
+                ->first();
+            return $top ? (int) $top->ID : null;
+        }
+
         $top = DB::table('mstFINInvoiceTOP')
-            ->where('TOPDescription', $topDescription)
+            ->where('TOPDescription', $topType)
             ->where('IsActive', true)
             ->first();
 

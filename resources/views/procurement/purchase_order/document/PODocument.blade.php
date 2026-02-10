@@ -353,7 +353,7 @@
                         <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
                         <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['VendorID'] ?? '-' }}</td>
                         <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="4" rowspan="2"><span>{{ $company['CompanyAddress1'] ?? '' }} <br /> {{ $company['CompanyAddress2'] ?? '' }} <br /> {{ $company['CompanyAddress3'] ?? '' }}</span></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="4" rowspan="2"><span>{{ $company['CompanyAddress'] ?? '' }} <br /> {{ $company['CompanyAddress1'] ?? '' }} <br /> {{ $company['CompanyAddress2'] ?? '' }}</span></td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-bottom: 0px">
                         <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Vendor Name</td>
@@ -555,7 +555,7 @@
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="bnone" width="18%"></td>
                                 </tr>
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
-                                    <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTopBold bLeftRightBold" colspan="5"><span>{{ $company['CompanyName'] ?? '' }}<br /><br />{{ $company['CompanyAddress1'] ?? '' }}<br />{{ $company['CompanyAddress2'] ?? '' }}<br />{{ $company['CompanyAddress3'] ?? '' }} <br /><br />NPWP : {{ $company['NPWP'] ?? '-' }}</span></td>
+                                    <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTopBold bLeftRightBold" colspan="5"><span>{{ $company['CompanyName'] ?? '' }}<br /><br />{{ $company['NPWPAddress'] ?? '' }}<br />{{ $company['NPWPAddress1'] ?? '' }}<br />{{ $company['NPWPAddress2'] ?? '' }} <br /><br />NPWP : {{ $company['NPWP'] ?? '-' }}</span></td>
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="bnone"></td>
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTop bnone" colspan="1">
                                         @if (!empty($qrCodeDataUri))

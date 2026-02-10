@@ -163,7 +163,7 @@
 <script>
     (function() {
         'use strict';
-        
+
         // Helper function to render dropdown with search
         function renderDropdownWithSearch(config) {
             const {
@@ -176,13 +176,14 @@
                 dropdownBtnId,
                 getValue,
                 getText,
-                getSearchableText
+                getSearchableText,
+                getTitle
             } = config;
 
             const dropdownItems = document.getElementById(dropdownItemsId);
             const hiddenInput = document.getElementById(hiddenInputId);
             const selectedText = document.getElementById(selectedTextId);
-            
+
             if (!dropdownItems) return;
 
             // Filter items based on search term
@@ -206,48 +207,52 @@
             filteredItems.forEach(item => {
                 const value = getValue(item);
                 const text = getText(item);
-                
+
                 const li = document.createElement('li');
                 li.className = 'dropdown-item custom-dropdown-item';
                 li.style.cursor = 'pointer';
                 li.textContent = text;
-                
+                if (typeof getTitle === 'function') {
+                    const titleText = getTitle(item);
+                    if (titleText) li.setAttribute('title', titleText);
+                }
+
                 li.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
+
                     // Set selected value
                     if (hiddenInput) hiddenInput.value = value;
                     if (selectedText) selectedText.textContent = text;
-                    
+
                     // Clear search input
                     const searchInput = document.getElementById(searchInputId);
                     if (searchInput) {
                         searchInput.value = '';
                     }
-                    
+
                     // Re-render dropdown with cleared search
                     renderDropdownWithSearch({
                         ...config,
                         searchTerm: ''
                     });
-                    
+
                     // Close dropdown
                     const dropdown = bootstrap.Dropdown.getInstance(document.getElementById(dropdownBtnId));
                     if (dropdown) {
                         dropdown.hide();
                     }
-                    
+
                     // Trigger change event for validation and cascading
                     if (hiddenInput) {
                         hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 });
-                
+
                 dropdownItems.appendChild(li);
             });
         }
-        
+
         // Function to toggle field visibility based on Decision and Vendor Type for Bulky Page
         function toggleBulkyPageReleaseFields() {
             // Find the form container - look for form with bulkyPageReleaseDecision inside
@@ -255,19 +260,19 @@
             if (!decisionSelect) return;
             const form = decisionSelect.closest('form');
             if (!form || form.id !== 'bulkyReleaseForm') return;
-            
+
             const vendorTypeContract = form.querySelector('#bulkyPageVendorTypeContract');
             const vendorTypeNonContract = form.querySelector('#bulkyPageVendorTypeNonContract');
-            
+
             // Check if elements exist
             if (!decisionSelect || !vendorTypeContract || !vendorTypeNonContract) {
                 return;
             }
-            
+
             const decision = decisionSelect.value;
             const isContract = vendorTypeContract.checked;
             const isNonContract = vendorTypeNonContract.checked;
-            
+
             // Get all field groups within the form
             const vendorTypeGroup = form.querySelector('#bulkyPageVendorTypeGroup');
             const selectVendorGroup = form.querySelector('#bulkyPageSelectVendorGroup');
@@ -278,7 +283,7 @@
             const topTypeGroup = form.querySelector('#bulkyPageTopTypeGroup');
             const descriptionGroup = form.querySelector('#bulkyPageDescriptionGroup');
             const remarkApprovalGroup = form.querySelector('#bulkyPageRemarkApprovalGroup');
-            
+
             // Get form inputs for required attribute management
             const selectVendor = form.querySelector('#bulkyPageSelectVendor');
             const coreBusiness = form.querySelector('#bulkyPageCoreBusiness');
@@ -287,7 +292,7 @@
             const contractPeriodInput = form.querySelector('#bulkyPageContractPeriod');
             const topType = form.querySelector('#bulkyPageTopType');
             const description = form.querySelector('#bulkyPageDescription');
-            
+
             if (decision === 'Reject') {
                 // When Reject: Show only Decision and Remark Approval
                 if (vendorTypeGroup) vendorTypeGroup.style.display = 'none';
@@ -299,7 +304,7 @@
                 if (topTypeGroup) topTypeGroup.style.display = 'none';
                 if (descriptionGroup) descriptionGroup.style.display = 'none';
                 if (remarkApprovalGroup) remarkApprovalGroup.style.display = 'block';
-                
+
                 // Remove required attributes
                 if (selectVendor) selectVendor.removeAttribute('required');
                 if (coreBusiness) coreBusiness.removeAttribute('required');
@@ -311,7 +316,7 @@
             } else if (decision === 'Release') {
                 // When Release: Show fields based on Vendor Type
                 if (remarkApprovalGroup) remarkApprovalGroup.style.display = 'block';
-                
+
                 if (isNonContract) {
                     // Non Contract: Show Decision, Vendor Type, Select Vendor, Top Type, Description, Remark Approval
                     if (vendorTypeGroup) vendorTypeGroup.style.display = 'block';
@@ -322,18 +327,18 @@
                     if (contractPeriodGroup) contractPeriodGroup.style.display = 'none';
                     if (topTypeGroup) topTypeGroup.style.display = 'block';
                     if (descriptionGroup) descriptionGroup.style.display = 'block';
-                    
+
                     // Set required attributes
                     if (selectVendor) selectVendor.setAttribute('required', 'required');
                     if (topType) topType.setAttribute('required', 'required');
                     if (description) description.setAttribute('required', 'required');
-                    
+
                     // Remove required attributes for hidden fields
                     if (coreBusiness) coreBusiness.removeAttribute('required');
                     if (subCoreBusiness) subCoreBusiness.removeAttribute('required');
                     if (contractNoInput) contractNoInput.removeAttribute('required');
                     if (contractPeriodInput) contractPeriodInput.removeAttribute('required');
-                    
+
                     // Clear hidden field values
                     if (coreBusiness) coreBusiness.value = '';
                     if (subCoreBusiness) subCoreBusiness.value = '';
@@ -349,7 +354,7 @@
                     if (contractPeriodGroup) contractPeriodGroup.style.display = 'block';
                     if (topTypeGroup) topTypeGroup.style.display = 'block';
                     if (descriptionGroup) descriptionGroup.style.display = 'block';
-                    
+
                     // Set required attributes for all fields
                     if (selectVendor) selectVendor.setAttribute('required', 'required');
                     if (coreBusiness) coreBusiness.setAttribute('required', 'required');
@@ -362,7 +367,7 @@
             } else {
                 // When no decision selected: Show fields based on Vendor Type
                 if (remarkApprovalGroup) remarkApprovalGroup.style.display = 'block';
-                
+
                 if (isNonContract) {
                     // Non Contract: Show Vendor Type, Select Vendor, Top Type, Description, Remark Approval
                     if (vendorTypeGroup) vendorTypeGroup.style.display = 'block';
@@ -373,18 +378,18 @@
                     if (contractPeriodGroup) contractPeriodGroup.style.display = 'none';
                     if (topTypeGroup) topTypeGroup.style.display = 'block';
                     if (descriptionGroup) descriptionGroup.style.display = 'block';
-                    
+
                     // Set required attributes
                     if (selectVendor) selectVendor.setAttribute('required', 'required');
                     if (topType) topType.setAttribute('required', 'required');
                     if (description) description.setAttribute('required', 'required');
-                    
+
                     // Remove required attributes for hidden fields
                     if (coreBusiness) coreBusiness.removeAttribute('required');
                     if (subCoreBusiness) subCoreBusiness.removeAttribute('required');
                     if (contractNoInput) contractNoInput.removeAttribute('required');
                     if (contractPeriodInput) contractPeriodInput.removeAttribute('required');
-                    
+
                     // Clear hidden field values
                     if (coreBusiness) coreBusiness.value = '';
                     if (subCoreBusiness) subCoreBusiness.value = '';
@@ -400,7 +405,7 @@
                     if (contractPeriodGroup) contractPeriodGroup.style.display = 'block';
                     if (topTypeGroup) topTypeGroup.style.display = 'block';
                     if (descriptionGroup) descriptionGroup.style.display = 'block';
-                    
+
                     // Set required attributes for all fields
                     if (selectVendor) selectVendor.setAttribute('required', 'required');
                     if (coreBusiness) coreBusiness.setAttribute('required', 'required');
@@ -412,39 +417,39 @@
                 }
             }
         }
-        
+
         // Expose function globally for manual initialization
         window.toggleBulkyPageReleaseFields = toggleBulkyPageReleaseFields;
-        
+
         // Flag to prevent multiple initializations
         let bulkyPageFieldsInitialized = false;
-        
+
         // Function to initialize and set initial state
         function initializeBulkyPageReleaseFields() {
             // Prevent multiple initializations
             if (bulkyPageFieldsInitialized) {
                 return true;
             }
-            
+
             const decisionSelect = document.getElementById('bulkyPageReleaseDecision');
             if (!decisionSelect) return false;
             const form = decisionSelect.closest('form');
             if (!form || form.id !== 'bulkyReleaseForm') return false;
-            
+
             const vendorTypeRadios = form.querySelectorAll('input[name="vendorType"]');
-            
+
             // Check if elements exist
             if (!decisionSelect || vendorTypeRadios.length === 0) {
                 return false;
             }
-            
+
             // Set initial state
             toggleBulkyPageReleaseFields();
-            
+
             bulkyPageFieldsInitialized = true;
             return true;
         }
-        
+
         // Create debounced handlers for API calls to prevent multiple rapid calls
         const debounceFunc = typeof debounce !== 'undefined' ? debounce : function(func, wait) {
             let timeout;
@@ -453,12 +458,12 @@
                 timeout = setTimeout(() => func.apply(this, args), wait);
             };
         };
-        
+
         // Debounced handler for vendor change (triggers API call)
         const debouncedVendorChange = debounceFunc(function(vendorCategoryId) {
             loadBulkyPageCoreBusiness(vendorCategoryId);
         }, 300);
-        
+
         // Debounced handler for core business change (triggers API call)
         const debouncedCoreBusinessChange = debounceFunc(function(coreBusinessId) {
             const coreBusinessIdInt = parseInt(coreBusinessId, 10);
@@ -466,7 +471,7 @@
                 loadBulkyPageSubCoreBusiness(coreBusinessIdInt);
             }
         }, 300);
-        
+
         // Use event delegation for dynamic content (only attach once for bulky page)
         if (!window.bulkyPageReleaseFieldsEventDelegationAttached) {
             document.addEventListener('change', function(e) {
@@ -649,9 +654,9 @@
                 }
                 // Check if the changed element is the top type hidden input for bulky page
                 if (e.target && e.target.id === 'bulkyPageTopType') {
-                    const selectedTopDescription = e.target.value;
-                    if (selectedTopDescription && selectedTopDescription !== '' && bulkyPageTopDataMap.has(selectedTopDescription)) {
-                        const topData = bulkyPageTopDataMap.get(selectedTopDescription);
+                    const selectedTopId = e.target.value;
+                    if (selectedTopId && selectedTopId !== '' && bulkyPageTopDataMap.has(selectedTopId)) {
+                        const topData = bulkyPageTopDataMap.get(selectedTopId);
                         // Auto-fill description with TOPRemarks
                         const descriptionTextarea = document.getElementById('bulkyPageDescription');
                         if (descriptionTextarea) {
@@ -668,7 +673,7 @@
             });
             window.bulkyPageReleaseFieldsEventDelegationAttached = true;
         }
-        
+
         // Flag to prevent multiple simultaneous calls for Bulky Page (use global flags to prevent conflicts)
         if (!window.bulkyPageCoreBusinessLoading) {
             window.bulkyPageCoreBusinessLoading = false;
@@ -679,17 +684,17 @@
         if (!window.bulkyPageContractsLoading) {
             window.bulkyPageContractsLoading = false;
         }
-        
+
         // Use shared data maps from shared loader
         const bulkyPageVendorDataMap = window.sharedReleaseData ? window.sharedReleaseData.vendorDataMap : new Map();
         const bulkyPageTopDataMap = window.sharedReleaseData ? window.sharedReleaseData.topDataMap : new Map();
-        
+
         // Store core business data with ID for Bulky Page
         const bulkyPageCoreBusinessDataMap = new Map();
-        
+
         // Store sub core business data with ID for Bulky Page
         const bulkyPageSubCoreBusinessDataMap = new Map();
-        
+
         // Function to load vendors from API for Bulky Page using shared loader
         async function loadBulkyPageVendors() {
             const vendorHiddenInput = document.getElementById('bulkyPageSelectVendor');
@@ -697,19 +702,19 @@
             const vendorSelectedText = document.getElementById('bulkyPageSelectVendorSelectedText');
             const vendorSearchInput = document.getElementById('bulkyPageSelectVendorSearchInput');
             if (!vendorHiddenInput || !vendorDropdownItems) return;
-            
+
             // Show loading state
             vendorDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">Loading vendors...</div>';
-            
+
             try {
                 // Use shared loader - this will prevent duplicate API calls
                 const vendors = await window.loadSharedVendors();
-                
+
                 if (!Array.isArray(vendors) || vendors.length === 0) {
                     vendorDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No vendors found</div>';
                     return;
                 }
-                
+
                 // Render dropdown with search
                 renderDropdownWithSearch({
                     items: vendors,
@@ -728,7 +733,7 @@
                 if (vendorSearchInput) {
                     const newSearchInput = vendorSearchInput.cloneNode(true);
                     vendorSearchInput.parentNode.replaceChild(newSearchInput, vendorSearchInput);
-                    
+
                     newSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         renderDropdownWithSearch({
@@ -762,12 +767,12 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
                 vendorDropdownItems.innerHTML = '<div class="px-3 py-2 text-danger text-center">Error loading vendors</div>';
             }
         }
-        
+
         // Function to load Core Business based on selected vendor's VendorCategory for Bulky Page
         async function loadBulkyPageCoreBusiness(vendorCategoryId) {
             const coreBusinessHiddenInput = document.getElementById('bulkyPageCoreBusiness');
@@ -775,15 +780,15 @@
             const coreBusinessSelectedText = document.getElementById('bulkyPageCoreBusinessSelectedText');
             const coreBusinessSearchInput = document.getElementById('bulkyPageCoreBusinessSearchInput');
             if (!coreBusinessHiddenInput || !coreBusinessDropdownItems) return;
-            
+
             // Prevent multiple simultaneous calls (use global flags)
             if (window.bulkyPageCoreBusinessLoading) return;
-            
+
             window.bulkyPageCoreBusinessLoading = true;
-            
+
             // Show loading state
             coreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">Loading core business...</div>';
-            
+
             try {
                 // If no vendorCategoryId or invalid, clear the dropdown
                 if (!vendorCategoryId || vendorCategoryId <= 0) {
@@ -797,11 +802,11 @@
                     window.bulkyPageCoreBusinessLoading = false;
                     return;
                 }
-                
+
                 // Wait for apiCall to be available or use fetch as fallback
                 let data;
                 const endpoint = `/Procurement/Master/CoreBusinesses?vendorCategoryId=${vendorCategoryId}`;
-                
+
                 if (typeof apiCall === 'function') {
                     data = await apiCall('Procurement', endpoint, 'GET');
                 } else {
@@ -811,7 +816,7 @@
                         await new Promise(resolve => setTimeout(resolve, 100));
                         attempts++;
                     }
-                    
+
                     if (typeof apiCall === 'function') {
                         data = await apiCall('Procurement', endpoint, 'GET');
                     } else {
@@ -821,7 +826,7 @@
                         const apiType = 'procurement';
                         const baseUrl = API_URLS[apiType] || API_URLS['Procurement'] || '/api/Procurement';
                         const fullUrl = baseUrl + endpoint;
-                        
+
                         const response = await fetch(fullUrl, {
                             method: 'GET',
                             headers: {
@@ -829,9 +834,9 @@
                             },
                             credentials: 'include'
                         });
-                        
+
                         const responseData = await response.json();
-                        
+
                         // Handle ApiResponse<T> wrapper format from StandardResponseFilter
                         if (responseData && typeof responseData === 'object' && 'statusCode' in responseData) {
                             if (responseData.isError === true || !response.ok) {
@@ -846,30 +851,30 @@
                         }
                     }
                 }
-                
+
                 const coreBusinesses = data.data || data;
-                
+
                 if (!Array.isArray(coreBusinesses) || coreBusinesses.length === 0) {
                     coreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No core business found</div>';
                     return;
                 }
-                
+
                 // Clear existing data
                 bulkyPageCoreBusinessDataMap.clear();
-                
+
                 // Store core business data with ID for later use
                 coreBusinesses.forEach(cb => {
                     const coreBusinessId = cb.ID || cb.id || 0;
                     const coreBusinessIdInt = typeof coreBusinessId === 'number' ? coreBusinessId : parseInt(coreBusinessId, 10) || 0;
                     const coreBusinessName = cb.CoreBusiness || cb.coreBusiness || '';
-                    
+
                     // Store core business data with ID for later use
                     bulkyPageCoreBusinessDataMap.set(coreBusinessIdInt.toString(), {
                         id: coreBusinessIdInt,
                         name: coreBusinessName
                     });
                 });
-                
+
                 // Clear Sub Core Business when Core Business is reloaded
                 const subCoreBusinessDropdownItems = document.getElementById('bulkyPageSubCoreBusinessDropdownItems');
                 const subCoreBusinessSelectedText = document.getElementById('bulkyPageSubCoreBusinessSelectedText');
@@ -896,7 +901,7 @@
                 if (contractNoHiddenInput) {
                     contractNoHiddenInput.value = '';
                 }
-                
+
                 // Render dropdown with search
                 renderDropdownWithSearch({
                     items: coreBusinesses,
@@ -919,7 +924,7 @@
                 if (coreBusinessSearchInput) {
                     const newSearchInput = coreBusinessSearchInput.cloneNode(true);
                     coreBusinessSearchInput.parentNode.replaceChild(newSearchInput, coreBusinessSearchInput);
-                    
+
                     newSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         renderDropdownWithSearch({
@@ -957,14 +962,14 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
                 coreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-danger text-center">Error loading core business</div>';
             } finally {
                 window.bulkyPageCoreBusinessLoading = false;
             }
         }
-        
+
         // Function to load Sub Core Business based on selected Core Business ID for Bulky Page
         async function loadBulkyPageSubCoreBusiness(coreBusinessId) {
             const subCoreBusinessHiddenInput = document.getElementById('bulkyPageSubCoreBusiness');
@@ -972,15 +977,15 @@
             const subCoreBusinessSelectedText = document.getElementById('bulkyPageSubCoreBusinessSelectedText');
             const subCoreBusinessSearchInput = document.getElementById('bulkyPageSubCoreBusinessSearchInput');
             if (!subCoreBusinessHiddenInput || !subCoreBusinessDropdownItems) return;
-            
+
             // Prevent multiple simultaneous calls (use global flags)
             if (window.bulkyPageSubCoreBusinessLoading) return;
-            
+
             window.bulkyPageSubCoreBusinessLoading = true;
-            
+
             // Show loading state
             subCoreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">Loading sub core business...</div>';
-            
+
             try {
                 // If no coreBusinessId or invalid, clear the dropdown
                 if (!coreBusinessId || coreBusinessId <= 0) {
@@ -994,11 +999,11 @@
                     window.bulkyPageSubCoreBusinessLoading = false;
                     return;
                 }
-                
+
                 // Wait for apiCall to be available or use fetch as fallback
                 let data;
                 const endpoint = `/Procurement/Master/SubCoreBusinesses?coreBusinessId=${coreBusinessId}`;
-                
+
                 if (typeof apiCall === 'function') {
                     data = await apiCall('Procurement', endpoint, 'GET');
                 } else {
@@ -1008,7 +1013,7 @@
                         await new Promise(resolve => setTimeout(resolve, 100));
                         attempts++;
                     }
-                    
+
                     if (typeof apiCall === 'function') {
                         data = await apiCall('Procurement', endpoint, 'GET');
                     } else {
@@ -1018,7 +1023,7 @@
                         const apiType = 'procurement';
                         const baseUrl = API_URLS[apiType] || API_URLS['Procurement'] || '/api/Procurement';
                         const fullUrl = baseUrl + endpoint;
-                        
+
                         const response = await fetch(fullUrl, {
                             method: 'GET',
                             headers: {
@@ -1026,9 +1031,9 @@
                             },
                             credentials: 'include'
                         });
-                        
+
                         const responseData = await response.json();
-                        
+
                         // Handle ApiResponse<T> wrapper format from StandardResponseFilter
                         if (responseData && typeof responseData === 'object' && 'statusCode' in responseData) {
                             if (responseData.isError === true || !response.ok) {
@@ -1043,30 +1048,30 @@
                         }
                     }
                 }
-                
+
                 const subCoreBusinesses = data.data || data;
-                
+
                 if (!Array.isArray(subCoreBusinesses) || subCoreBusinesses.length === 0) {
                     subCoreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No sub core business found</div>';
                     return;
                 }
-                
+
                 // Clear existing data
                 bulkyPageSubCoreBusinessDataMap.clear();
-                
+
                 // Store sub core business data with ID for later use
                 subCoreBusinesses.forEach(scb => {
                     const subCoreBusinessId = scb.ID || scb.id || 0;
                     const subCoreBusinessIdInt = typeof subCoreBusinessId === 'number' ? subCoreBusinessId : parseInt(subCoreBusinessId, 10) || 0;
                     const subCoreBusinessName = scb.SubCoreBusiness || scb.subCoreBusiness || '';
-                    
+
                     // Store sub core business data with ID for later use
                     bulkyPageSubCoreBusinessDataMap.set(subCoreBusinessIdInt.toString(), {
                         id: subCoreBusinessIdInt,
                         name: subCoreBusinessName
                     });
                 });
-                
+
                 // Render dropdown with search
                 renderDropdownWithSearch({
                     items: subCoreBusinesses,
@@ -1089,7 +1094,7 @@
                 if (subCoreBusinessSearchInput) {
                     const newSearchInput = subCoreBusinessSearchInput.cloneNode(true);
                     subCoreBusinessSearchInput.parentNode.replaceChild(newSearchInput, subCoreBusinessSearchInput);
-                    
+
                     newSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         renderDropdownWithSearch({
@@ -1127,14 +1132,14 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
                 subCoreBusinessDropdownItems.innerHTML = '<div class="px-3 py-2 text-danger text-center">Error loading sub core business</div>';
             } finally {
                 window.bulkyPageSubCoreBusinessLoading = false;
             }
         }
-        
+
         // Function to load Contracts based on selected Sub Core Business ID for Bulky Page
         async function loadBulkyPageContracts(subCoreBusinessId) {
             const contractNoHiddenInput = document.getElementById('bulkyPageContractNo');
@@ -1142,15 +1147,15 @@
             const contractNoSelectedText = document.getElementById('bulkyPageContractNoSelectedText');
             const contractNoSearchInput = document.getElementById('bulkyPageContractNoSearchInput');
             if (!contractNoHiddenInput || !contractNoDropdownItems) return;
-            
+
             // Prevent multiple simultaneous calls (use global flags)
             if (window.bulkyPageContractsLoading) return;
-            
+
             window.bulkyPageContractsLoading = true;
-            
+
             // Show loading state
             contractNoDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">Loading contracts...</div>';
-            
+
             try {
                 // If no subCoreBusinessId or invalid, clear the dropdown
                 if (!subCoreBusinessId || subCoreBusinessId <= 0) {
@@ -1164,11 +1169,11 @@
                     window.bulkyPageContractsLoading = false;
                     return;
                 }
-                
+
                 // Wait for apiCall to be available or use fetch as fallback
                 let data;
                 const endpoint = `/Procurement/Master/VendorContracts?subCoreBusinessId=${subCoreBusinessId}`;
-                
+
                 if (typeof apiCall === 'function') {
                     data = await apiCall('Procurement', endpoint, 'GET');
                 } else {
@@ -1178,7 +1183,7 @@
                         await new Promise(resolve => setTimeout(resolve, 100));
                         attempts++;
                     }
-                    
+
                     if (typeof apiCall === 'function') {
                         data = await apiCall('Procurement', endpoint, 'GET');
                     } else {
@@ -1188,7 +1193,7 @@
                         const apiType = 'procurement';
                         const baseUrl = API_URLS[apiType] || API_URLS['Procurement'] || '/api/Procurement';
                         const fullUrl = baseUrl + endpoint;
-                        
+
                         const response = await fetch(fullUrl, {
                             method: 'GET',
                             headers: {
@@ -1196,9 +1201,9 @@
                             },
                             credentials: 'include'
                         });
-                        
+
                         const responseData = await response.json();
-                        
+
                         // Handle ApiResponse<T> wrapper format from StandardResponseFilter
                         if (responseData && typeof responseData === 'object' && 'statusCode' in responseData) {
                             if (responseData.isError === true || !response.ok) {
@@ -1213,14 +1218,14 @@
                         }
                     }
                 }
-                
+
                 const contracts = data.data || data;
-                
+
                 if (!Array.isArray(contracts) || contracts.length === 0) {
                     contractNoDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No contracts found</div>';
                     return;
                 }
-                
+
                 // Render dropdown with search
                 renderDropdownWithSearch({
                     items: contracts,
@@ -1239,7 +1244,7 @@
                 if (contractNoSearchInput) {
                     const newSearchInput = contractNoSearchInput.cloneNode(true);
                     contractNoSearchInput.parentNode.replaceChild(newSearchInput, contractNoSearchInput);
-                    
+
                     newSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         renderDropdownWithSearch({
@@ -1273,22 +1278,22 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
                 contractNoDropdownItems.innerHTML = '<div class="px-3 py-2 text-danger text-center">Error loading contracts</div>';
             } finally {
                 window.bulkyPageContractsLoading = false;
             }
         }
-        
+
         // Helper function to check if PR has StartPeriod and EndPeriod not NULL
         async function checkPRHasPeriods(prNumber) {
             if (!prNumber) return false;
-            
+
             try {
                 const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestAdditional/${encodeURIComponent(prNumber)}`;
                 let responseData;
-                
+
                 if (typeof apiCall === 'function') {
                     responseData = await apiCall('Procurement', endpoint, 'GET');
                 } else {
@@ -1298,7 +1303,7 @@
                     const apiType = 'procurement';
                     const baseUrl = API_URLS[apiType] || API_URLS['Procurement'] || '/api/Procurement';
                     const fullUrl = baseUrl + endpoint;
-                    
+
                     const response = await fetch(fullUrl, {
                         method: 'GET',
                         headers: {
@@ -1306,7 +1311,7 @@
                         },
                         credentials: 'include'
                     });
-                    
+
                     if (!response.ok) {
                         // If 404, PR doesn't have additional data
                         if (response.status === 404) {
@@ -1314,9 +1319,9 @@
                         }
                         return false;
                     }
-                    
+
                     const data = await response.json();
-                    
+
                     // Handle ApiResponse<T> wrapper format
                     if (data && typeof data === 'object' && 'statusCode' in data) {
                         if (data.isError === true) {
@@ -1327,14 +1332,14 @@
                         responseData = data;
                     }
                 }
-                
+
                 // responseData might already be the data object, or wrapped in another data property
                 const additionalData = responseData.data || responseData;
-                
+
                 // Normalize to match bulky release cache logic
                 const start = additionalData?.startPeriod ?? additionalData?.StartPeriod ?? null;
                 const end = additionalData?.endPeriod ?? additionalData?.EndPeriod ?? null;
-                
+
                 return start != null && end != null;
             } catch (error) {
                 // If error is 404, PR doesn't have additional data
@@ -1354,49 +1359,46 @@
             const topTypeSelectedText = document.getElementById('bulkyPageTopTypeSelectedText');
             const topTypeSearchInput = document.getElementById('bulkyPageTopTypeSearchInput');
             if (!topTypeHiddenInput || !topTypeDropdownItems) return;
-            
+
             // Show loading state
             topTypeDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">Loading term of payment...</div>';
-            
+
             try {
                 // Use shared loader - this will prevent duplicate API calls
                 let tops = await window.loadSharedTermOfPayments();
-                
+
                 if (!Array.isArray(tops) || tops.length === 0) {
                     topTypeDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No term of payment found</div>';
                     return;
                 }
-                
+
                 // Check if all selected PRs have StartPeriod and EndPeriod not NULL
-                // Get selected PR Numbers from releaseListManager
                 let shouldFilterTOP = false;
                 if (typeof window.releaseListManager !== 'undefined' && window.releaseListManager.selectedPRNumbers && window.releaseListManager.selectedPRNumbers.size > 0) {
                     const selectedPRNumbers = Array.from(window.releaseListManager.selectedPRNumbers);
-                    
-                    // Check all selected PRs - if all have periods, filter TOP
                     const periodChecks = await Promise.all(selectedPRNumbers.map(prNumber => checkPRHasPeriods(prNumber)));
                     shouldFilterTOP = periodChecks.every(hasPeriod => hasPeriod === true);
-                    console.log(`Checking ${selectedPRNumbers.length} PR(s) for periods. Should filter TOP: ${shouldFilterTOP}`, periodChecks);
                 }
-                
-                // Filter TOP: if all PRs have periods, only show TOP with ID 759, 760, 761
+                // Filter TOP: if all PRs have periods, only show TOP with ID 765, 766, 767, 768
                 if (shouldFilterTOP) {
-                    const originalCount = tops.length;
+                    const allowedTopIds = [765, 766, 767, 768];
                     tops = tops.filter(top => {
                         const topId = parseInt(top.ID || top.id || 0, 10);
-                        return topId === 759 || topId === 760 || topId === 761;
+                        return allowedTopIds.indexOf(topId) !== -1;
                     });
-                    console.log(`Filtered TOP from ${originalCount} to ${tops.length} (IDs: 759, 760, 761)`);
-                } else {
-                    console.log('No filter applied - showing all TOPs');
                 }
-                
+
                 if (tops.length === 0) {
                     topTypeDropdownItems.innerHTML = '<div class="px-3 py-2 text-muted text-center">No term of payment found</div>';
                     return;
                 }
-                
+
                 // Render dropdown with search
+                // Use TOP ID as value; label = TOPDescription only; TOPRemarks as tooltip on hover
+                const topGetValue = (top) => String(top.ID ?? top.id ?? '');
+                const topGetText = (top) => (top.TOPDescription || top.topDescription || '').trim() || '-';
+                const topGetTitle = (top) => (top.TOPRemarks || top.topRemarks || '').trim();
+                const topGetSearchableText = (top) => [top.TOPRemarks, top.topRemarks, top.TOPDescription, top.topDescription].filter(Boolean).join(' ');
                 renderDropdownWithSearch({
                     items: tops,
                     searchTerm: '',
@@ -1405,16 +1407,17 @@
                     selectedTextId: 'bulkyPageTopTypeSelectedText',
                     searchInputId: 'bulkyPageTopTypeSearchInput',
                     dropdownBtnId: 'bulkyPageTopTypeDropdownBtn',
-                    getValue: (top) => top.TOPDescription || top.topDescription || '',
-                    getText: (top) => top.TOPDescription || top.topDescription || '',
-                    getSearchableText: (top) => (top.TOPDescription || top.topDescription || '').toString()
+                    getValue: topGetValue,
+                    getText: topGetText,
+                    getSearchableText: topGetSearchableText,
+                    getTitle: topGetTitle
                 });
 
                 // Setup search functionality
                 if (topTypeSearchInput) {
                     const newSearchInput = topTypeSearchInput.cloneNode(true);
                     topTypeSearchInput.parentNode.replaceChild(newSearchInput, topTypeSearchInput);
-                    
+
                     newSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         renderDropdownWithSearch({
@@ -1425,9 +1428,10 @@
                             selectedTextId: 'bulkyPageTopTypeSelectedText',
                             searchInputId: 'bulkyPageTopTypeSearchInput',
                             dropdownBtnId: 'bulkyPageTopTypeDropdownBtn',
-                            getValue: (top) => top.TOPDescription || top.topDescription || '',
-                            getText: (top) => top.TOPDescription || top.topDescription || '',
-                            getSearchableText: (top) => (top.TOPDescription || top.topDescription || '').toString()
+                            getValue: topGetValue,
+                            getText: topGetText,
+                            getSearchableText: topGetSearchableText,
+                            getTitle: topGetTitle
                         });
                     });
 
@@ -1448,14 +1452,14 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
                 topTypeDropdownItems.innerHTML = '<div class="px-3 py-2 text-danger text-center">Error loading term of payment</div>';
             }
         }
-        
+
         // Debounced initialization function to prevent multiple calls
-        const debouncedInitialize = typeof debounce !== 'undefined' 
+        const debouncedInitialize = typeof debounce !== 'undefined'
             ? debounce(initializeBulkyPageReleaseFields, 200)
             : (function() {
                 let timeout;
@@ -1464,18 +1468,18 @@
                     timeout = setTimeout(initializeBulkyPageReleaseFields, 200);
                 };
             })();
-        
+
         // Flag to prevent multiple initialization calls (use global flag to prevent conflicts with other partials)
         if (!window.bulkyPageFormInitialized) {
             window.bulkyPageFormInitialized = false;
         }
-        
+
         // Function to initialize once DOM is ready
         function initializeOnce() {
             // Prevent multiple calls using global flag
             if (window.bulkyPageFormInitialized) return;
             window.bulkyPageFormInitialized = true;
-            
+
             if (initializeBulkyPageReleaseFields()) {
                 // Load vendors and TOPs after successful initialization
                 // Shared loader will prevent duplicate API calls
@@ -1483,7 +1487,7 @@
                 loadBulkyPageTermOfPayments();
             }
         }
-        
+
         // Initialize when DOM is ready (only once)
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
@@ -1493,7 +1497,7 @@
             // DOM already loaded, try to initialize
             initializeOnce();
         }
-        
+
         // Use MutationObserver to detect when form is added to DOM (with debouncing)
         if (typeof MutationObserver !== 'undefined') {
             // Debounced function for MutationObserver to prevent rapid multiple calls
@@ -1502,7 +1506,7 @@
                 // and will handle both field visibility and loading vendors/TOPs
                 initializeOnce();
             }, 300);
-            
+
             const observer = new MutationObserver(function(mutations) {
                 let shouldInitialize = false;
                 mutations.forEach(function(mutation) {
@@ -1516,13 +1520,13 @@
                         }
                     });
                 });
-                
+
                 // Use debounced callback to prevent multiple calls
                 if (shouldInitialize) {
                     debouncedObserverCallback();
                 }
             });
-            
+
             // Start observing
             observer.observe(document.body, {
                 childList: true,

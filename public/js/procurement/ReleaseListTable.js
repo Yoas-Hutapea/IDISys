@@ -366,7 +366,7 @@ class ReleaseListTable {
      * Check if PR can be selected based on current mode (TOP filter group)
      * Mode mapping (for backward compatibility):
      * - mode1: PRs WITHOUT complete periods (TOP not filtered)
-     * - mode2: PRs WITH complete periods (TOP filtered to 759/760/761)
+     * - mode2: PRs WITH complete periods (TOP filtered to IDs 765, 766, 767, 768)
      */
     canSelectBulkyPR(prNumber) {
         if (!prNumber) return false;
@@ -383,7 +383,7 @@ class ReleaseListTable {
             // Mode 1: only PRs WITHOUT complete periods (TOP not filtered)
             return !hasPeriods;
         } else if (this.manager.bulkyCheckboxMode === 'mode2') {
-            // Mode 2: only PRs WITH complete periods (TOP filtered 759/760/761)
+            // Mode 2: only PRs WITH complete periods (TOP 765, 766, 767, 768)
             return hasPeriods;
         }
 

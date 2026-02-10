@@ -1737,16 +1737,41 @@ class PurchaseOrderController extends Controller
             }
         }
 
+        $companyName = $po->CompanyName ?? '-';
+        $companyAddress = null;
+        $companyAddress1 = null;
+        $companyAddress2 = null;
+        $phoneNumber = null;
+        $fax = null;
+        $npwp = null;
+        $npwpAddress = null;
+        $npwpAddress1 = null;
+        $npwpAddress2 = null;
+
+        if ($company !== null) {
+            $companyName = $company->Company ?? $companyName;
+            $companyAddress = $company->CompanyAddress ?? null;
+            $companyAddress1 = $company->CompanyAddress1 ?? null;
+            $companyAddress2 = $company->CompanyAddress2 ?? null;
+            $phoneNumber = $company->TelpNumber ?? null;
+            $fax = $company->Fax ?? null;
+            $npwp = $company->NPWP ?? null;
+            $npwpAddress = $company->NPWPAddress ?? null;
+            $npwpAddress1 = $company->NPWPAddress1 ?? null;
+            $npwpAddress2 = $company->NPWPAddress2 ?? null;
+        }
+
         return [
-            'CompanyName' => $company->CompanyName
-                ?? $company->Company
-                ?? ($po->CompanyName ?? '-'),
-            'CompanyAddress1' => $company->CompanyAddress1 ?? null,
-            'CompanyAddress2' => $company->CompanyAddress2 ?? null,
-            'CompanyAddress3' => $company->CompanyAddress ?? null,
-            'PhoneNumber' => $company->TelpNumber ?? null,
-            'Fax' => $company->Fax ?? null,
-            'NPWP' => $company->NPWP ?? null,
+            'CompanyName' => $companyName,
+            'CompanyAddress' => $companyAddress,
+            'CompanyAddress1' => $companyAddress1,
+            'CompanyAddress2' => $companyAddress2,
+            'PhoneNumber' => $phoneNumber,
+            'Fax' => $fax,
+            'NPWP' => $npwp,
+            'NPWPAddress' => $npwpAddress,
+            'NPWPAddress1' => $npwpAddress1,
+            'NPWPAddress2' => $npwpAddress2,
         ];
     }
 

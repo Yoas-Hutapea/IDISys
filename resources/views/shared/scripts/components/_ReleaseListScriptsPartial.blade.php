@@ -360,7 +360,7 @@
                     const hasPeriods = this.tableModule && this.tableModule.getPRHasPeriods
                         ? this.tableModule.getPRHasPeriods(prNumber)
                         : false;
-                    // mode2 = PRs WITH periods (TOP filtered 759/760/761); mode1 = PRs WITHOUT periods
+                    // mode2 = PRs WITH periods (TOP filtered to 765/766/767/768); mode1 = PRs WITHOUT periods
                     this.bulkyCheckboxMode = hasPeriods ? 'mode2' : 'mode1';
                     // Disable checkboxes for all PRs that don't belong to this TOP group
                     if (this.tableModule && this.tableModule.updateBulkyCheckboxStates) {
