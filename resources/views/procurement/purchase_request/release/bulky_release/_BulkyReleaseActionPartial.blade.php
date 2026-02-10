@@ -1,4 +1,4 @@
-﻿{{--
+{{--
     Bulky Release Action Partial for Purchase Request Release
     Contains form for bulk release with vendor and contract information
     This is a separate partial for BulkyReleasePage to avoid conflicts with ViewReleasePartial
@@ -1331,23 +1331,11 @@
                 // responseData might already be the data object, or wrapped in another data property
                 const additionalData = responseData.data || responseData;
                 
-                // Check if additionalData exists and StartPeriod and EndPeriod are not NULL
-                if (additionalData && 
-                    additionalData.startPeriod != null && 
-                    additionalData.endPeriod != null &&
-                    additionalData.StartPeriod != null && 
-                    additionalData.EndPeriod != null) {
-                    return true;
-                }
+                // Normalize to match bulky release cache logic
+                const start = additionalData?.startPeriod ?? additionalData?.StartPeriod ?? null;
+                const end = additionalData?.endPeriod ?? additionalData?.EndPeriod ?? null;
                 
-                // Also check with camelCase properties
-                if (additionalData && 
-                    (additionalData.startPeriod != null || additionalData.StartPeriod != null) && 
-                    (additionalData.endPeriod != null || additionalData.EndPeriod != null)) {
-                    return true;
-                }
-                
-                return false;
+                return start != null && end != null;
             } catch (error) {
                 // If error is 404, PR doesn't have additional data
                 if (error.message && error.message.includes('404')) {

@@ -349,43 +349,32 @@
         async toggleBulkyRowSelection(prNumber, isSelected) {
             if (!prNumber) return;
 
-            // Ensure PR Additional data is loaded
-            if (!this.bulkyPRAdditionalCache || !this.bulkyPRAdditionalCache.has(prNumber)) {
-                if (this.tableModule && this.tableModule.loadBulkyPRAdditionalData) {
-                    await this.tableModule.loadBulkyPRAdditionalData();
-                }
-            }
-
             if (isSelected) {
+                // When first selection: load period data for ALL PRs in table, then set mode and disable wrong-group checkboxes
+                if (this.bulkyCheckboxMode === null) {
+                    // Always load additional data for entire table so we can disable PRs that don't match TOP group
+                    if (this.tableModule && this.tableModule.loadBulkyPRAdditionalData) {
+                        await this.tableModule.loadBulkyPRAdditionalData();
+                    }
+                    // Determine mode from first selected PR (same logic as "Should filter TOP")
+                    const hasPeriods = this.tableModule && this.tableModule.getPRHasPeriods
+                        ? this.tableModule.getPRHasPeriods(prNumber)
+                        : false;
+                    // mode2 = PRs WITH periods (TOP filtered 759/760/761); mode1 = PRs WITHOUT periods
+                    this.bulkyCheckboxMode = hasPeriods ? 'mode2' : 'mode1';
+                    // Disable checkboxes for all PRs that don't belong to this TOP group
+                    if (this.tableModule && this.tableModule.updateBulkyCheckboxStates) {
+                        this.tableModule.updateBulkyCheckboxStates();
+                        // Re-apply after short delay so DataTables-rendered DOM is fully ready
+                        setTimeout(() => this.tableModule.updateBulkyCheckboxStates(), 150);
+                    }
+                }
+
                 // Reload TOP dropdown after PR is selected to apply filter based on StartPeriod/EndPeriod
                 if (typeof window.loadBulkyPageTermOfPayments === 'function') {
                     setTimeout(() => {
                         window.loadBulkyPageTermOfPayments();
                     }, 300);
-                }
-                // Check if this is the first selection (mode not set yet)
-                if (this.bulkyCheckboxMode === null) {
-                    // Determine mode based on first selected PR
-                    const additionalData = this.bulkyPRAdditionalCache.get(prNumber);
-
-                    if (!additionalData || !additionalData.exists) {
-                        // PR not in Additional table OR StartPeriod/EndPeriod is NULL
-                        // Mode 1: Only allow PRs that are NOT in Additional OR have NULL StartPeriod/EndPeriod
-                        this.bulkyCheckboxMode = 'mode1';
-                    } else if (additionalData.exists && additionalData.startPeriod != null && additionalData.endPeriod != null) {
-                        // PR in Additional table AND StartPeriod/EndPeriod is NOT NULL
-                        // Mode 2: Only allow PRs that ARE in Additional AND have NOT NULL StartPeriod/EndPeriod
-                        this.bulkyCheckboxMode = 'mode2';
-                    } else {
-                        // PR in Additional but StartPeriod/EndPeriod is NULL
-                        // Mode 1: Only allow PRs that are NOT in Additional OR have NULL StartPeriod/EndPeriod
-                        this.bulkyCheckboxMode = 'mode1';
-                    }
-
-                    // Update all checkbox states based on new mode
-                    if (this.tableModule && this.tableModule.updateBulkyCheckboxStates) {
-                        this.tableModule.updateBulkyCheckboxStates();
-                    }
                 }
 
                 // Validate if this PR can be selected based on current mode

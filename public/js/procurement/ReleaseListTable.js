@@ -21,7 +21,7 @@ class ReleaseListTable {
         }
 
         const self = this;
-        
+
         // Build filter function for GetGrid
         const buildFilter = () => {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildFilter) {
@@ -53,8 +53,8 @@ class ReleaseListTable {
                 { data: 'purchReqType', title: 'Purchase Request Type' },
                 { data: 'purchReqSubType', title: 'Purchase Request Sub Type' },
                 { data: 'approvalStatus', title: 'Status' },
-                { 
-                    data: 'pic', 
+                {
+                    data: 'pic',
                     title: 'PIC',
                     render: function(data, type, row) {
                         const picId = data || row.pic || row.PIC || '';
@@ -65,8 +65,8 @@ class ReleaseListTable {
                 },
                 { data: 'totalAmount', title: 'Amount PR', type: 'currency' },
                 { data: 'company', title: 'Company' },
-                { 
-                    data: 'requestor', 
+                {
+                    data: 'requestor',
                     title: 'Requestor',
                     render: function(data, type, row) {
                         const requestorId = data || row.requestor || row.Requestor || '';
@@ -75,8 +75,8 @@ class ReleaseListTable {
                         return `<span class="employee-name" data-employee-id="${escapedId}">${escapedId}</span>`;
                     }
                 },
-                { 
-                    data: 'applicant', 
+                {
+                    data: 'applicant',
                     title: 'Applicant',
                     render: function(data, type, row) {
                         const applicantId = data || row.applicant || row.Applicant || '';
@@ -126,7 +126,7 @@ class ReleaseListTable {
         }
 
         const self = this;
-        
+
         // Build filter function for GetGrid
         const buildBulkyFilter = () => {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildBulkyFilter) {
@@ -141,7 +141,7 @@ class ReleaseListTable {
             this.bulkyCheckboxDisabledClickHandler = (e) => {
                 // Find the TD that was clicked
                 let clickedTd = null;
-                
+
                 // Check if clicked directly on checkbox
                 if (e.target && e.target.type === 'checkbox' && e.target.classList.contains('row-checkbox')) {
                     clickedTd = e.target.closest('td');
@@ -149,12 +149,12 @@ class ReleaseListTable {
                     // Check if clicked on TD
                     clickedTd = e.target.closest('td');
                 }
-                
+
                 // If clicked on TR, get first TD (checkbox column)
                 if (!clickedTd && e.target && e.target.tagName === 'TR') {
                     clickedTd = e.target.querySelector('td:first-child');
                 }
-                
+
                 // Check if this is the first TD (checkbox column) and contains a disabled checkbox
                 if (clickedTd) {
                     const tr = clickedTd.closest('tr');
@@ -167,9 +167,9 @@ class ReleaseListTable {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.stopImmediatePropagation();
-                                
+
                                 console.log('Disabled checkbox clicked, mode:', clickedTd.dataset.checkboxMode);
-                                
+
                                 const mode = clickedTd.dataset.checkboxMode;
                                 // Show appropriate message based on mode
                                 if (mode === 'mode1') {
@@ -219,8 +219,8 @@ class ReleaseListTable {
                 { data: 'purchReqType', title: 'Purchase Request Type' },
                 { data: 'purchReqSubType', title: 'Purchase Request Sub Type' },
                 { data: 'approvalStatus', title: 'Status' },
-                { 
-                    data: 'pic', 
+                {
+                    data: 'pic',
                     title: 'PIC',
                     render: function(data, type, row) {
                         const picId = data || row.pic || row.PIC || '';
@@ -231,8 +231,8 @@ class ReleaseListTable {
                 },
                 { data: 'totalAmount', title: 'Amount PR', type: 'currency' },
                 { data: 'company', title: 'Company' },
-                { 
-                    data: 'requestor', 
+                {
+                    data: 'requestor',
                     title: 'Requestor',
                     render: function(data, type, row) {
                         const requestorId = data || row.requestor || row.Requestor || '';
@@ -241,8 +241,8 @@ class ReleaseListTable {
                         return `<span class="employee-name" data-employee-id="${escapedId}">${escapedId}</span>`;
                     }
                 },
-                { 
-                    data: 'applicant', 
+                {
+                    data: 'applicant',
                     title: 'Applicant',
                     render: function(data, type, row) {
                         const applicantId = data || row.applicant || row.Applicant || '';
@@ -264,7 +264,7 @@ class ReleaseListTable {
             await this.loadBulkyPRAdditionalData();
             this.updateBulkyCheckboxStates();
             this.updateBulkySelectAllCheckbox();
-            
+
             // Re-add overlays after a short delay to ensure DOM is ready
             setTimeout(() => {
                 this.updateBulkyCheckboxStates();
@@ -297,20 +297,39 @@ class ReleaseListTable {
 
             // Use API module to get batch additional data
             if (this.manager && this.manager.apiModule && this.manager.apiModule.getPRAdditionalBatch) {
-                const additionalDataMap = await this.manager.apiModule.getPRAdditionalBatch(prNumbers);
-                
-                // Update cache in manager
+                const rawResponse = await this.manager.apiModule.getPRAdditionalBatch(prNumbers);
+
+                // Backend returns array of { purchReqNumber, startPeriod, endPeriod }; build map by PR number
+                const additionalDataMap = new Map();
+                if (Array.isArray(rawResponse)) {
+                    rawResponse.forEach(item => {
+                        const key = item.purchReqNumber ?? item.PurchReqNumber ?? item.trxPROPurchaseRequestNumber ?? '';
+                        if (key) additionalDataMap.set(String(key).trim(), item);
+                    });
+                } else if (rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse)) {
+                    Object.entries(rawResponse).forEach(([key, item]) => {
+                        additionalDataMap.set(String(key).trim(), item);
+                    });
+                }
+
+                // Update cache in manager (normalize period; ensure every PR has an entry)
                 if (this.manager.bulkyPRAdditionalCache) {
                     this.manager.bulkyPRAdditionalCache.clear();
-                    for (const [prNumber, additionalDto] of Object.entries(additionalDataMap)) {
-                        if (additionalDto) {
-                            this.manager.bulkyPRAdditionalCache.set(prNumber, {
+                    for (const prNum of prNumbers) {
+                        const key = String(prNum).trim();
+                        const additionalDto = additionalDataMap.get(key) || additionalDataMap.get(prNum);
+                        if (additionalDto && (additionalDto.startPeriod != null || additionalDto.endPeriod != null || additionalDto.StartPeriod != null || additionalDto.EndPeriod != null)) {
+                            const start = additionalDto.startPeriod ?? additionalDto.StartPeriod ?? null;
+                            const end = additionalDto.endPeriod ?? additionalDto.EndPeriod ?? null;
+                            this.manager.bulkyPRAdditionalCache.set(prNum, {
                                 exists: true,
-                                startPeriod: additionalDto.startPeriod,
-                                endPeriod: additionalDto.endPeriod
+                                startPeriod: start,
+                                endPeriod: end,
+                                StartPeriod: start,
+                                EndPeriod: end
                             });
                         } else {
-                            this.manager.bulkyPRAdditionalCache.set(prNumber, {
+                            this.manager.bulkyPRAdditionalCache.set(prNum, {
                                 exists: false,
                                 startPeriod: null,
                                 endPeriod: null
@@ -325,39 +344,47 @@ class ReleaseListTable {
     }
 
     /**
-     * Check if PR can be selected based on current mode
+     * Helper: determine if a PR has complete period (StartPeriod & EndPeriod not NULL)
+     */
+    getPRHasPeriods(prNumber) {
+        if (!prNumber || !this.manager || !this.manager.bulkyPRAdditionalCache) return false;
+        const additionalData = this.manager.bulkyPRAdditionalCache.get(prNumber);
+
+        // No additional data -> treat as no period
+        if (!additionalData || !additionalData.exists) {
+            return false;
+        }
+
+        // Consider both camelCase and PascalCase properties
+        const start = additionalData.startPeriod ?? additionalData.StartPeriod ?? null;
+        const end = additionalData.endPeriod ?? additionalData.EndPeriod ?? null;
+
+        return start != null && end != null;
+    }
+
+    /**
+     * Check if PR can be selected based on current mode (TOP filter group)
+     * Mode mapping (for backward compatibility):
+     * - mode1: PRs WITHOUT complete periods (TOP not filtered)
+     * - mode2: PRs WITH complete periods (TOP filtered to 759/760/761)
      */
     canSelectBulkyPR(prNumber) {
         if (!prNumber) return false;
         if (!this.manager || !this.manager.bulkyPRAdditionalCache) return false;
 
-        // If no mode is set, all PRs can be selected
+        // If no mode is set, all PRs can be selected (no grouping yet)
         if (this.manager.bulkyCheckboxMode === null) {
             return true;
         }
 
-        const additionalData = this.manager.bulkyPRAdditionalCache.get(prNumber);
-        
+        const hasPeriods = this.getPRHasPeriods(prNumber);
+
         if (this.manager.bulkyCheckboxMode === 'mode1') {
-            // Mode 1: Only allow PRs that are NOT in Additional OR have NULL StartPeriod/EndPeriod
-            if (!additionalData || !additionalData.exists) {
-                return true; // PR not in Additional table
-            }
-            // PR exists in Additional table
-            if (additionalData.startPeriod == null || additionalData.endPeriod == null) {
-                return true; // StartPeriod or EndPeriod is NULL
-            }
-            return false; // PR exists and has both StartPeriod and EndPeriod
+            // Mode 1: only PRs WITHOUT complete periods (TOP not filtered)
+            return !hasPeriods;
         } else if (this.manager.bulkyCheckboxMode === 'mode2') {
-            // Mode 2: Only allow PRs that ARE in Additional AND have NOT NULL StartPeriod/EndPeriod
-            if (!additionalData || !additionalData.exists) {
-                return false; // PR not in Additional table
-            }
-            // PR exists in Additional table
-            if (additionalData.startPeriod != null && additionalData.endPeriod != null) {
-                return true; // Both StartPeriod and EndPeriod are NOT NULL
-            }
-            return false; // PR exists but StartPeriod or EndPeriod is NULL
+            // Mode 2: only PRs WITH complete periods (TOP filtered 759/760/761)
+            return hasPeriods;
         }
 
         return false;
@@ -368,9 +395,10 @@ class ReleaseListTable {
      */
     updateBulkyCheckboxStates() {
         if (!this.manager || !this.manager.bulkyPRAdditionalCache) return;
-        
-        const checkboxes = document.querySelectorAll('#bulkyReleaseTableBody .row-checkbox');
-        
+
+        // Support both tbody id and table id (DataTables may not preserve tbody id)
+        const checkboxes = document.querySelectorAll('#bulkyReleaseTable tbody .row-checkbox');
+
         checkboxes.forEach(cb => {
             const prNumber = cb.getAttribute('data-pr-number');
             if (!prNumber) return;
@@ -392,7 +420,7 @@ class ReleaseListTable {
             // Add click handler directly on TD and TR for disabled checkbox
             const parentTd = cb.closest('td');
             const parentTr = cb.closest('tr');
-            
+
             if (parentTd && parentTr) {
                 // Remove existing handler if any
                 if (parentTd.dataset.hasDisabledHandler === 'true') {
@@ -411,12 +439,12 @@ class ReleaseListTable {
                     parentTd.dataset.checkboxMode = this.manager.bulkyCheckboxMode;
                     parentTd.style.cursor = 'not-allowed';
                     parentTd.dataset.hasDisabledHandler = 'true';
-                    
+
                     // Create handler function
                     const handleDisabledClick = (e) => {
                         // Check if clicking on this TD (checkbox column)
                         const clickedTd = e.target.closest('td');
-                        
+
                         // Only handle if clicking on the checkbox TD
                         if (clickedTd === parentTd) {
                             const clickedCheckbox = parentTd.querySelector('.row-checkbox');
@@ -424,9 +452,9 @@ class ReleaseListTable {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.stopImmediatePropagation();
-                                
+
                                 console.log('Disabled checkbox clicked, mode:', this.manager.bulkyCheckboxMode);
-                                
+
                                 // Show appropriate message based on mode
                                 if (this.manager.bulkyCheckboxMode === 'mode1') {
                                     if (this.manager.viewModule && this.manager.viewModule.showAlertModal) {
@@ -444,7 +472,7 @@ class ReleaseListTable {
 
                     // Store handler for cleanup
                     parentTd._disabledClickHandler = handleDisabledClick;
-                    
+
                     // Add event listeners with capture phase on both TD and TR
                     parentTd.addEventListener('click', handleDisabledClick, true);
                     parentTd.addEventListener('mousedown', handleDisabledClick, true);
@@ -456,7 +484,7 @@ class ReleaseListTable {
                     parentTd.removeAttribute('data-checkbox-mode');
                     parentTd.removeAttribute('data-has-disabled-handler');
                     parentTd.style.cursor = '';
-                    
+
                     const oldHandler = parentTd._disabledClickHandler;
                     if (oldHandler) {
                         parentTd.removeEventListener('click', oldHandler, true);
@@ -478,7 +506,7 @@ class ReleaseListTable {
     updateBulkySelectAllCheckbox() {
         const selectAllCheckbox = document.getElementById('bulkySelectAllCheckbox');
         if (!selectAllCheckbox) return;
-        
+
         const checkboxes = document.querySelectorAll('#bulkyReleaseTableBody .row-checkbox');
         if (checkboxes.length === 0) {
             selectAllCheckbox.indeterminate = false;
@@ -504,9 +532,9 @@ class ReleaseListTable {
      */
     async toggleBulkySelectAll(isChecked) {
         if (!this.manager) return;
-        
+
         const checkboxes = document.querySelectorAll('#bulkyReleaseTableBody .row-checkbox');
-        
+
         if (isChecked) {
             // Find first PR to determine mode (if mode not already set)
             if (this.manager.bulkyCheckboxMode === null) {
@@ -534,7 +562,7 @@ class ReleaseListTable {
 
             // Update checkbox states and select only selectable ones
             this.updateBulkyCheckboxStates();
-            
+
             checkboxes.forEach(cb => {
                 const prNumber = cb.getAttribute('data-pr-number');
                 if (prNumber && this.canSelectBulkyPR(prNumber)) {
@@ -562,7 +590,7 @@ class ReleaseListTable {
             }
             this.updateBulkyCheckboxStates();
         }
-        
+
         this.updateBulkySelectAllCheckbox();
     }
 
@@ -574,7 +602,7 @@ class ReleaseListTable {
 
         const employeeNameSpans = document.querySelectorAll('#releaseTable .employee-name');
         if (employeeNameSpans.length === 0) return;
-        
+
         // Collect unique employee IDs
         const employeeIds = new Set();
         employeeNameSpans.forEach(span => {
@@ -583,13 +611,13 @@ class ReleaseListTable {
                 employeeIds.add(employeeId);
             }
         });
-        
+
         if (employeeIds.size === 0) return;
-        
+
         // Batch lookup all employee names
         if (this.manager.employeeCacheModule.batchGetEmployeeNames) {
             const nameMap = await this.manager.employeeCacheModule.batchGetEmployeeNames(Array.from(employeeIds));
-            
+
             // Update all employee name spans
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
@@ -607,7 +635,7 @@ class ReleaseListTable {
                 const name = await this.manager.employeeCacheModule.getEmployeeNameByEmployId(employeeId);
                 return { employeeId, name };
             });
-            
+
             const results = await Promise.all(lookupPromises);
             const nameMap = new Map();
             results.forEach(({ employeeId, name }) => {
@@ -615,7 +643,7 @@ class ReleaseListTable {
                     nameMap.set(employeeId.trim().toLowerCase(), name);
                 }
             });
-            
+
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
                 if (employeeId && employeeId !== '-') {
@@ -637,7 +665,7 @@ class ReleaseListTable {
 
         const employeeNameSpans = document.querySelectorAll('#bulkyReleaseTable .employee-name');
         if (employeeNameSpans.length === 0) return;
-        
+
         // Collect unique employee IDs
         const employeeIds = new Set();
         employeeNameSpans.forEach(span => {
@@ -646,13 +674,13 @@ class ReleaseListTable {
                 employeeIds.add(employeeId);
             }
         });
-        
+
         if (employeeIds.size === 0) return;
-        
+
         // Batch lookup all employee names
         if (this.manager.employeeCacheModule.batchGetEmployeeNames) {
             const nameMap = await this.manager.employeeCacheModule.batchGetEmployeeNames(Array.from(employeeIds));
-            
+
             // Update all employee name spans
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
@@ -670,7 +698,7 @@ class ReleaseListTable {
                 const name = await this.manager.employeeCacheModule.getEmployeeNameByEmployId(employeeId);
                 return { employeeId, name };
             });
-            
+
             const results = await Promise.all(lookupPromises);
             const nameMap = new Map();
             results.forEach(({ employeeId, name }) => {
@@ -678,7 +706,7 @@ class ReleaseListTable {
                     nameMap.set(employeeId.trim().toLowerCase(), name);
                 }
             });
-            
+
             employeeNameSpans.forEach(span => {
                 const employeeId = span.getAttribute('data-employee-id');
                 if (employeeId && employeeId !== '-') {
