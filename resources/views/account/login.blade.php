@@ -83,7 +83,7 @@
                     <div class="text-center mt-4">
                         <small class="text-muted">
                             <i class="fas fa-building me-1"></i>
-                            PT. Tower Bersama Infrastructure
+                            PT. Infrastructure Digital Indonesia
                         </small>
                     </div>
                 </div>

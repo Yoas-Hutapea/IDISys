@@ -59,17 +59,30 @@
             @include('shared.sidebar')
             <!-- / Menu -->
 
-            <!-- Layout container -->
+            <div class="menu-mobile-toggler d-xl-none rounded-1">
+                <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large text-bg-secondary p-2 rounded-1">
+                    <i class="bx bx-menu icon-base"></i>
+                    <i class="bx bx-chevron-right icon-base"></i>
+                </a>
+            </div>
+
+            <!-- Layout page -->
             <div class="layout-page">
                 <!-- Navbar -->
                 @include('shared.navbar')
                 <!-- / Navbar -->
 
-                @yield('content')
+                <!-- Content wrapper -->
+                <div class="content-wrapper">
+                    @yield('content')
 
-                <!-- Footer -->
-                @include('shared.footer')
-                <!-- / Footer -->
+                    <!-- Footer -->
+                    @include('shared.footer')
+                    <!-- / Footer -->
+
+                    <div class="content-backdrop fade"></div>
+                </div>
+                <!-- Content wrapper -->
             </div>
             <!-- / Layout page -->
         </div>
@@ -84,6 +97,75 @@
 
     <!-- Core Scripts -->
     @include('shared.scripts')
+
+    <!-- Sync layout-menu-collapsed between html and body + Sidebar auto-expand on hover when collapsed -->
+    <script>
+        (function() {
+            var html = document.documentElement;
+            var body = document.body;
+
+            function syncCollapsedClass() {
+                if (html.classList.contains('layout-menu-collapsed')) {
+                    body.classList.add('layout-menu-collapsed');
+                } else {
+                    body.classList.remove('layout-menu-collapsed');
+                }
+            }
+
+            function isDesktop() {
+                return (window.innerWidth || document.documentElement.clientWidth) >= 1200;
+            }
+
+            function isCollapsed() {
+                return html.classList.contains('layout-menu-collapsed');
+            }
+
+            function initSidebarHoverExpand() {
+                var menu = document.getElementById('layout-menu');
+                if (!menu) return;
+                function addHover() {
+                    if (isDesktop() && isCollapsed()) {
+                        html.classList.add('layout-menu-hover');
+                        body.classList.add('layout-menu-hover');
+                    }
+                }
+                function removeHover() {
+                    html.classList.remove('layout-menu-hover');
+                    body.classList.remove('layout-menu-hover');
+                }
+                menu.addEventListener('mouseenter', addHover);
+                menu.addEventListener('mouseleave', removeHover);
+                menu.addEventListener('touchstart', function(e) {
+                    if (isDesktop() && isCollapsed()) {
+                        addHover();
+                        document.addEventListener('touchend', function rem() {
+                            removeHover();
+                            document.removeEventListener('touchend', rem);
+                        }, { once: true });
+                    }
+                }, { passive: true });
+                window.addEventListener('resize', function() {
+                    if (!isDesktop()) removeHover();
+                });
+            }
+
+            function initCollapsedSync() {
+                syncCollapsedClass();
+                var obs = new MutationObserver(syncCollapsedClass);
+                obs.observe(html, { attributes: true, attributeFilter: ['class'] });
+                document.querySelectorAll('.layout-menu-toggle').forEach(function(el) {
+                    el.addEventListener('click', function() { setTimeout(syncCollapsedClass, 50); });
+                });
+                initSidebarHoverExpand();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initCollapsedSync);
+            } else {
+                initCollapsedSync();
+            }
+        })();
+    </script>
 
     <!-- API Helper Scripts - Must be before section Scripts -->
     <script>

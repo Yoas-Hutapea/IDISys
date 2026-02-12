@@ -14,15 +14,75 @@ body[data-bs-theme="dark"] {
     background-image: url('/assets/media/bg2-dark.png');
 }
 
-/* Ensure layout-page has proper background for content areas */
-.layout-page {
-    background-color: transparent;
-}
-
-/* Ensure content containers have proper background */
+/* Content area and containers - transparent to show body background */
+.content-wrapper,
 .container-xxl,
 .container-fluid {
     background-color: transparent;
+}
+
+/* Fix gap when sidebar collapsed: align with Sneat - layout-page must use collapsed width so navbar is flush (no unexplained gap) */
+@media (min-width: 1200px) {
+    /* Force padding so content/navbar start right after collapsed sidebar (no extra gap) */
+    html.layout-menu-collapsed.layout-menu-fixed .layout-wrapper .layout-page,
+    html.layout-menu-collapsed.layout-menu-fixed-offcanvas .layout-wrapper .layout-page,
+    body.layout-menu-collapsed.layout-menu-fixed .layout-wrapper .layout-page,
+    body.layout-menu-collapsed.layout-menu-fixed-offcanvas .layout-wrapper .layout-page,
+    .layout-menu-collapsed .layout-wrapper .layout-page {
+        padding-inline-start: var(--bs-menu-collapsed-width) !important;
+    }
+    /* Reposition .layout-page::before overlay so it does not span full viewport and create gap; start after collapsed sidebar */
+    html.layout-menu-collapsed .layout-navbar-fixed .layout-wrapper:not(.layout-horizontal) .layout-page::before,
+    body.layout-menu-collapsed .layout-navbar-fixed .layout-wrapper:not(.layout-horizontal) .layout-page::before,
+    .layout-menu-collapsed .layout-navbar-fixed .layout-wrapper:not(.layout-horizontal) .layout-page::before {
+        inset-inline-start: var(--bs-menu-collapsed-width) !important;
+        inline-size: calc(100% - var(--bs-menu-collapsed-width)) !important;
+    }
+    /* Navbar detached: margin rata kiri-kanan (1.625rem) saat sidebar collapsed - match Sneat */
+    html.layout-menu-collapsed .layout-content-navbar .layout-navbar.navbar-detached,
+    body.layout-menu-collapsed .layout-content-navbar .layout-navbar.navbar-detached,
+    .layout-menu-collapsed .layout-content-navbar .layout-navbar.navbar-detached {
+        margin-inline-start: 1.625rem !important;
+        margin-inline-end: 1.625rem !important;
+    }
+    /* Ensure menu-mobile-toggler does not take any space on desktop */
+    .layout-container .menu-mobile-toggler.d-xl-none {
+        position: absolute !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Sidebar expand on hover when collapsed: force full width when layout-menu-hover is set */
+    html.layout-menu-hover .layout-menu.menu-vertical,
+    html.layout-menu-hover #layout-menu.layout-menu.menu-vertical,
+    body.layout-menu-hover .layout-menu.menu-vertical,
+    body.layout-menu-hover #layout-menu.layout-menu.menu-vertical {
+        inline-size: var(--bs-menu-width) !important;
+    }
+    html.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-item,
+    html.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-header,
+    html.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-block,
+    body.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-item,
+    body.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-header,
+    body.layout-menu-hover .layout-menu.menu-vertical .menu-inner > .menu-block {
+        inline-size: var(--bs-menu-width) !important;
+    }
+    /* Show sidebar search when expanded via hover */
+    html.layout-menu-hover .layout-menu .sidebar-search-container,
+    body.layout-menu-hover .layout-menu .sidebar-search-container {
+        display: block !important;
+    }
+    /* Logo ukuran expanded ketika sidebar melebar on hover (override collapsed size) */
+    html.layout-menu-hover .layout-menu #sidebar-logo,
+    body.layout-menu-hover .layout-menu #sidebar-logo {
+        max-height: 44px !important;
+        max-width: none !important;
+        width: auto !important;
+    }
 }
 
 /* Navbar Styling - White background for better contrast with new background */
@@ -33,6 +93,13 @@ body[data-bs-theme="dark"] {
     background-color: #ffffff !important;
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* #layout-navbar itu sendiri rata tengah (bukan isi di dalamnya) - konsisten di zoom 100% */
+#layout-navbar.layout-navbar.navbar-detached,
+.layout-content-navbar .layout-navbar.navbar-detached {
+    margin-inline-start: auto !important;
+    margin-inline-end: auto !important;
 }
 
 /* Dark mode navbar */
@@ -206,7 +273,7 @@ body:not(.layout-menu-collapsed) .layout-menu .sidebar-search-container {
 /* Logo size when sidebar is expanded - match app-brand height */
 .layout-menu:not(.layout-menu-collapsed) #sidebar-logo,
 body:not(.layout-menu-collapsed) #sidebar-logo {
-    max-height: 64px;
+    max-height: 44px;
     width: auto;
 }
 

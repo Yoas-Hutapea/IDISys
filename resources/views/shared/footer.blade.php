@@ -3,7 +3,7 @@
     <div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column">
         <div class="mb-2 mb-md-0">
             © <span id="currentYear">{{ now()->year }}</span>, copyright by
-            <a href="https://tower-bersama.com" target="_blank" class="footer-link fw-medium">PT. Tower Bersama Infrastructure</a>
+            <a href="https://tower-bersama.com" target="_blank" class="footer-link fw-medium">PT. Infrastructure Digital Indonesia</a>
         </div>
         <div>
             <a href="#" class="footer-link me-4">Privacy Policy</a>
