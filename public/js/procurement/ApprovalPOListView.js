@@ -17,6 +17,11 @@ class ApprovalPOListView {
         this.allPurchaseTypes = null;
         this.allPurchaseSubTypes = null;
         this.currentPONumber = null;
+        if (typeof window !== 'undefined') {
+            if (typeof window.__viewedDocuments === 'undefined') {
+                try { window.__viewedDocuments = new Set(); } catch (e) { window.__viewedDocuments = []; }
+            }
+        }
     }
 
     /**
@@ -460,7 +465,7 @@ class ApprovalPOListView {
             }).join('')
             : '<tr><td colspan="8" class="text-center text-muted">No items</td></tr>';
 
-        // Format documents table
+        // Format documents table (View button + Viewed/Not Viewed badges, same as Receive PR)
         const documentsTableRows = this.viewPRDocuments && this.viewPRDocuments.length > 0
             ? this.viewPRDocuments.map(doc => {
                 const docId = doc.id || doc.ID || 0;
@@ -469,13 +474,20 @@ class ApprovalPOListView {
                 const fileSize = doc.fileSize || doc.FileSize || '-';
                 const escapedFileName = this.escapeHtml(fileName);
                 const escapedFilePath = this.escapeHtml(filePath);
+                const viewedFlag = (typeof window !== 'undefined' && window.__viewedDocuments && typeof window.__viewedDocuments.has === 'function')
+                    ? window.__viewedDocuments.has(String(docId))
+                    : (Array.isArray(window.__viewedDocuments) ? window.__viewedDocuments.includes(String(docId)) : false);
                 return `
                     <tr>
-                        <td>${escapedFileName}</td>
+                        <td>
+                            ${escapedFileName}
+                            <span class="badge bg-success ms-2 doc-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'inline-block' : 'none'}">Viewed</span>
+                            <span class="badge bg-secondary ms-2 doc-not-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'none' : 'inline-block'}">Not Viewed</span>
+                        </td>
                         <td>${this.escapeHtml(fileSize)}</td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-primary" title="Download" onclick="approvalPOManager.downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                                <i class="icon-base bx bx-download"></i>
+                            <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                                <i class="icon-base bx bx-show"></i>
                             </button>
                         </td>
                     </tr>
@@ -895,7 +907,7 @@ class ApprovalPOListView {
     }
 
     /**
-     * Download document
+     * Open document preview in modal (same as Receive PR). View button opens preview; Download in modal triggers download.
      */
     async downloadDocument(documentId, fileName) {
         try {
@@ -904,63 +916,102 @@ class ApprovalPOListView {
                 return;
             }
 
-            // Get FilePath from button's data attribute (if available)
             const button = typeof this === 'object' && this.nodeName === 'BUTTON' ? this : null;
             const filePath = button?.getAttribute('data-file-path') || '';
+            const fileFileName = button?.getAttribute('data-file-name') || fileName || 'document';
 
-            // If FilePath is available, use apiStorage (like ARSystem)
-            let downloadUrl = null;
-            if (filePath && typeof apiStorage === 'function') {
-                try {
-                    downloadUrl = apiStorage('Procurement', filePath);
-                } catch (error) {
-                    console.warn('Error using apiStorage, falling back to download endpoint:', error);
+            if (typeof API_URLS === 'undefined') {
+                alert('API configuration not found');
+                return;
+            }
+            if (typeof window.normalizedApiUrls === 'undefined') {
+                window.normalizedApiUrls = {};
+            }
+            for (const key in API_URLS) {
+                if (API_URLS.hasOwnProperty(key)) {
+                    window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
                 }
             }
+            const apiType = 'procurement';
+            const baseUrl = window.normalizedApiUrls[apiType];
+            if (!baseUrl) {
+                const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
+                alert(`API configuration not found for Procurement. Available keys: ${availableKeys}`);
+                return;
+            }
+            const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
+            const downloadUrl = baseUrl + endpoint;
+            const previewUrl = downloadUrl + (downloadUrl.indexOf('?') >= 0 ? '&' : '?') + 'preview=1';
 
-            // Fallback: Use download endpoint if FilePath is not available
-            if (!downloadUrl) {
-                // Normalize API_URLS like apiHelper.js does
-                if (typeof API_URLS === 'undefined') {
-                    alert('API configuration not found');
-                    return;
-                }
+            if (typeof window.__currentDocumentPreview === 'undefined') {
+                window.__currentDocumentPreview = { id: null, fileName: '', filePath: '', downloadUrl: null };
+            }
+            if (typeof window.__viewedDocuments === 'undefined') {
+                window.__viewedDocuments = new Set();
+            }
 
-                // Normalize API URLs (handle case-insensitive keys)
-                if (typeof window.normalizedApiUrls === 'undefined') {
-                    window.normalizedApiUrls = {};
-                }
-                for (const key in API_URLS) {
-                    if (API_URLS.hasOwnProperty(key)) {
-                        window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
+            window.__currentDocumentPreview.id = documentId;
+            window.__currentDocumentPreview.fileName = fileFileName;
+            window.__currentDocumentPreview.filePath = filePath;
+            window.__currentDocumentPreview.downloadUrl = downloadUrl;
+
+            try {
+                if (window.__viewedDocuments && typeof window.__viewedDocuments.add === 'function') {
+                    window.__viewedDocuments.add(String(documentId));
+                } else if (Array.isArray(window.__viewedDocuments)) {
+                    if (!window.__viewedDocuments.includes(String(documentId))) {
+                        window.__viewedDocuments.push(String(documentId));
                     }
                 }
+                const idStr = String(documentId);
+                const viewedEls = document.querySelectorAll('.doc-viewed-badge[data-doc-id="' + idStr + '"]');
+                const notViewedEls = document.querySelectorAll('.doc-not-viewed-badge[data-doc-id="' + idStr + '"]');
+                viewedEls.forEach(e => { e.style.display = 'inline-block'; });
+                notViewedEls.forEach(e => { e.style.display = 'none'; });
+            } catch (e) {}
 
-                // Get API base URL (case-insensitive)
-                const apiType = 'procurement';
-                const baseUrl = window.normalizedApiUrls[apiType];
-                if (!baseUrl) {
-                    const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
-                    alert(`API configuration not found for Procurement. Available keys: ${availableKeys}`);
-                    return;
-                }
+            const filenameEl = document.getElementById('documentPreviewFilename');
+            const frame = document.getElementById('documentPreviewFrame');
+            const modalEl = document.getElementById('documentPreviewModal');
+            if (filenameEl) filenameEl.textContent = window.__currentDocumentPreview.fileName;
+            if (frame) frame.src = previewUrl;
 
-                // Construct download URL using API base URL
-                const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
-                downloadUrl = baseUrl + endpoint;
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                try {
+                    if (modalEl.parentNode !== document.body) {
+                        document.body.appendChild(modalEl);
+                    }
+                } catch (e) {}
+                const modalInstance = new bootstrap.Modal(modalEl);
+                modalInstance.show();
+            } else if (previewUrl) {
+                window.open(previewUrl, '_blank');
             }
 
-            // Create a temporary anchor element to trigger download
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            if (typeof window.downloadDocumentFromModal === 'undefined') {
+                window.downloadDocumentFromModal = function () {
+                    try {
+                        const info = window.__currentDocumentPreview;
+                        if (!info || !info.downloadUrl) {
+                            alert('No document selected');
+                            return;
+                        }
+                        const link = document.createElement('a');
+                        link.href = info.downloadUrl;
+                        link.download = info.fileName || 'document';
+                        link.target = '_blank';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (err) {
+                        console.error('Error downloading document from modal:', err);
+                        alert('Failed to download document: ' + (err.message || 'Unknown error'));
+                    }
+                };
+            }
         } catch (error) {
-            console.error('Error downloading document:', error);
-            alert('Failed to download document: ' + error.message);
+            console.error('Error opening document preview:', error);
+            alert('Failed to open document: ' + error.message);
         }
     }
 

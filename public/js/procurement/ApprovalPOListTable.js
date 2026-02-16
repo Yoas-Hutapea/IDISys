@@ -91,7 +91,11 @@ class ApprovalPOListTable {
             filter: buildFilter.bind(this),
             order: [[7, 'desc']], // Order by PO Date (column index 7) descending
             serverSide: true,
-            leftColumns: 3 // Fixed columns: Checkbox, Action, Purchase Order Number
+            leftColumns: 3, // Fixed columns: Checkbox, Action, Purchase Order Number
+            columnDefs: [
+                { targets: '_all', className: 'text-center' },
+                { targets: 7, className: 'text-end' } // PO Amount - rata kanan
+            ]
         });
 
         // Update PurchaseTypes and PurchaseSubTypes after DataTable draws

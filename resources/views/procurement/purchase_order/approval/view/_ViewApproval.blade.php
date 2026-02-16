@@ -8,9 +8,6 @@
 
     <div id="viewApprovalData" style="display: none;">
         <form id="approvalPOForm">
-            <div class="mb-4">
-                <h4 class="fw-semibold">Detail Purchase Order <span id="approval-po-number-display">[Nomor PO]</span></h4>
-            </div>
 
             <div class="row g-4">
                 @include('procurement.purchase_order.approval.view.partials._PurchaseInformationPartial')
