@@ -163,6 +163,27 @@ class ConfirmPOListConfirm {
         // Clear previous errors at start of validation
         clearErrorMessages();
 
+        // Require all supporting documents to be previewed before confirm (same as Receive/Release PR)
+        const viewModule = this.manager && this.manager.viewModule;
+        if (viewModule && viewModule.viewPRDocuments && viewModule.viewPRDocuments.length > 0) {
+            const viewedSet = typeof window.__viewedDocuments !== 'undefined' ? window.__viewedDocuments : null;
+            const isViewed = (id) => {
+                if (!viewedSet) return false;
+                const sid = String(id);
+                return typeof viewedSet.has === 'function' ? viewedSet.has(sid) : (Array.isArray(viewedSet) && viewedSet.includes(sid));
+            };
+            const allViewed = viewModule.viewPRDocuments.every(doc => isViewed(doc.id || doc.ID || 0));
+            if (!allViewed) {
+                this.showAlertModal('Please preview all supporting documents before confirming.', 'warning');
+                const docsSection = document.getElementById('confirm-documents-tbody');
+                if (docsSection) {
+                    const card = docsSection.closest('.card');
+                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
         // Helper function to focus and scroll to field (no popup/alert)
         const focusAndScrollToField = (field) => {
             if (field) {

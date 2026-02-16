@@ -19,6 +19,40 @@ class ConfirmPOListFilter {
 
     init() {
         this.bindEvents();
+        // Set default date range to current month (1st to last day), same as PO List
+        this.setDefaultDateRangeIfEmpty();
+        this.updateDateRangeInfo();
+    }
+
+    /**
+     * Set default date range to first and last day of current month (same as PO List).
+     * Ensures header shows "List Purchase Order 1 Feb 2026 s/d 28 Feb 2026" on initial load.
+     */
+    setDefaultDateRangeIfEmpty() {
+        const form = this.cachedElements.filterForm;
+        if (!form) return;
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const poStartDateInput = document.getElementById('poStartDate');
+        const poEndDateInput = document.getElementById('poEndDate');
+        if (poStartDateInput) {
+            poStartDateInput.value = formatDate(firstDay);
+        }
+        if (poEndDateInput) {
+            poEndDateInput.value = formatDate(lastDay);
+        }
     }
 
     bindEvents() {

@@ -786,7 +786,16 @@ class POListView {
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
-                                <table class="table table-striped table-hover">
+                                <style>
+                                    /* Right-align numeric columns: Unit Price (7) and Amount (8) */
+                                    .table.numeric th:nth-child(7),
+                                    .table.numeric th:nth-child(8),
+                                    .table.numeric td:nth-child(7),
+                                    .table.numeric td:nth-child(8) {
+                                        text-align: right;
+                                    }
+                                </style>
+                                <table class="table table-striped table-hover numeric">
                                     <thead class="table-light">
                                         <tr>
                                             <th>Item ID</th>
@@ -807,7 +816,7 @@ class POListView {
                             <div class="row mt-3">
                                 <div class="col-12 text-end">
                                     <label class="form-label fw-semibold me-2">Amount Total:</label>
-                                    <input type="text" class="form-control d-inline-block" value="${formatCurrency(totalAmount)}" disabled style="width: 200px;">
+                                    <input type="text" class="form-control d-inline-block text-end" value="${formatCurrency(totalAmount)}" disabled style="width: 200px; text-align: right;">
                                 </div>
                             </div>
                         </div>

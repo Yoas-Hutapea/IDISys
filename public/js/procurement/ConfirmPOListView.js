@@ -19,6 +19,16 @@ class ConfirmPOListView {
         this.deletedItemIds = new Set(); // Track deleted item IDs
         this.currentPONumber = null; // Track current PO number
         this.originalItemsData = []; // Store original items data from API
+        // Ensure global viewed documents set exists (for preview validation, same as Receive/Release PR)
+        if (typeof window !== 'undefined') {
+            if (typeof window.__viewedDocuments === 'undefined') {
+                try {
+                    window.__viewedDocuments = new Set();
+                } catch (e) {
+                    window.__viewedDocuments = [];
+                }
+            }
+        }
     }
 
     /**
@@ -547,8 +557,16 @@ class ConfirmPOListView {
         } else if (s.indexOf(',') > -1 && s.indexOf('.') === -1) {
             // Only comma present -> assume comma is decimal separator
             s = s.replace(/,/g, '.');
+        } else if (s.indexOf('.') > -1 && s.indexOf(',') === -1) {
+            // Only dot present: id-ID uses dot as thousand separator (e.g. "500.000" = 500000)
+            // If the part after the last dot is exactly 3 digits, treat dots as thousand separators
+            const parts = s.split('.');
+            const lastPart = parts[parts.length - 1] || '';
+            if (lastPart.length === 3 && /^\d{3}$/.test(lastPart)) {
+                s = s.replace(/\./g, '');
+            }
+            // else: treat single dot as decimal (e.g. "500.5"), leave s as is for parseFloat
         } else {
-            // Only dot present or neither -> keep dot as decimal separator, remove stray commas
             s = s.replace(/,/g, '');
         }
         const n = parseFloat(s);
@@ -686,7 +704,7 @@ class ConfirmPOListView {
             return;
         }
 
-        // Populate all documents (no pagination)
+        // Populate all documents with View button and Viewed/Not Viewed badges (same as Receive PR)
         documents.forEach(doc => {
             const docId = doc.id || doc.ID || 0;
             const fileName = doc.fileName || doc.FileName || '-';
@@ -695,13 +713,21 @@ class ConfirmPOListView {
             const escapedFileName = this.escapeHtml(fileName);
             const escapedFilePath = this.escapeHtml(filePath);
 
+            const viewedFlag = (typeof window !== 'undefined' && window.__viewedDocuments && typeof window.__viewedDocuments.has === 'function')
+                ? window.__viewedDocuments.has(String(docId))
+                : (Array.isArray(window.__viewedDocuments) ? window.__viewedDocuments.includes(String(docId)) : false);
+
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${escapedFileName}</td>
+                <td>
+                    ${escapedFileName}
+                    <span class="badge bg-success ms-2 doc-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'inline-block' : 'none'}">Viewed</span>
+                    <span class="badge bg-secondary ms-2 doc-not-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'none' : 'inline-block'}">Not Viewed</span>
+                </td>
                 <td>${this.escapeHtml(fileSize)}</td>
                 <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-outline-primary" title="Download" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                        <i class="icon-base bx bx-download"></i>
+                    <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                        <i class="icon-base bx bx-show"></i>
                     </button>
                 </td>
             `;
@@ -1173,7 +1199,7 @@ class ConfirmPOListView {
     }
 
     /**
-     * Download Document
+     * Open document preview in modal (same as Receive/Release PR). View button opens preview; Download in modal triggers download.
      */
     async downloadDocument(documentId, fileName) {
         try {
@@ -1182,64 +1208,104 @@ class ConfirmPOListView {
                 return;
             }
 
-            // Get FilePath from button's data attribute (if available)
             const button = typeof this === 'object' && this.nodeName === 'BUTTON' ? this : null;
             const filePath = button?.getAttribute('data-file-path') || '';
             const fileFileName = button?.getAttribute('data-file-name') || fileName || 'document';
 
-            // If FilePath is available, use apiStorage (like ARSystem)
-            let downloadUrl = null;
-            if (filePath && typeof apiStorage === 'function') {
-                try {
-                    downloadUrl = apiStorage('Procurement', filePath);
-                } catch (error) {
-                    console.warn('Error using apiStorage, falling back to download endpoint:', error);
+            // Use download endpoint (with ?preview=1 for iframe) so document loads in modal; avoid direct /storage/ (403)
+            if (typeof API_URLS === 'undefined') {
+                this.showError('API configuration not found');
+                return;
+            }
+            if (typeof window.normalizedApiUrls === 'undefined') {
+                window.normalizedApiUrls = {};
+            }
+            for (const key in API_URLS) {
+                if (API_URLS.hasOwnProperty(key)) {
+                    window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
                 }
             }
+            const apiType = 'procurement';
+            const baseUrl = window.normalizedApiUrls[apiType];
+            if (!baseUrl) {
+                const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
+                this.showError(`API configuration not found for Procurement. Available keys: ${availableKeys}`);
+                return;
+            }
+            const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
+            const downloadUrl = baseUrl + endpoint;
+            const previewUrl = downloadUrl + (downloadUrl.indexOf('?') >= 0 ? '&' : '?') + 'preview=1';
 
-            // Fallback: Use download endpoint if FilePath is not available
-            if (!downloadUrl) {
-                // Normalize API_URLS like apiHelper.js does
-                if (typeof API_URLS === 'undefined') {
-                    this.showError('API configuration not found');
-                    return;
-                }
+            if (typeof window.__currentDocumentPreview === 'undefined') {
+                window.__currentDocumentPreview = { id: null, fileName: '', filePath: '', downloadUrl: null };
+            }
+            if (typeof window.__viewedDocuments === 'undefined') {
+                window.__viewedDocuments = new Set();
+            }
 
-                // Normalize API URLs (handle case-insensitive keys)
-                if (typeof window.normalizedApiUrls === 'undefined') {
-                    window.normalizedApiUrls = {};
-                }
-                for (const key in API_URLS) {
-                    if (API_URLS.hasOwnProperty(key)) {
-                        window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
+            window.__currentDocumentPreview.id = documentId;
+            window.__currentDocumentPreview.fileName = fileFileName;
+            window.__currentDocumentPreview.filePath = filePath;
+            window.__currentDocumentPreview.downloadUrl = downloadUrl;
+
+            // Mark as viewed and update badges
+            try {
+                if (window.__viewedDocuments && typeof window.__viewedDocuments.add === 'function') {
+                    window.__viewedDocuments.add(String(documentId));
+                } else if (Array.isArray(window.__viewedDocuments)) {
+                    if (!window.__viewedDocuments.includes(String(documentId))) {
+                        window.__viewedDocuments.push(String(documentId));
                     }
                 }
+                const idStr = String(documentId);
+                const viewedEls = document.querySelectorAll('.doc-viewed-badge[data-doc-id="' + idStr + '"]');
+                const notViewedEls = document.querySelectorAll('.doc-not-viewed-badge[data-doc-id="' + idStr + '"]');
+                viewedEls.forEach(e => { e.style.display = 'inline-block'; });
+                notViewedEls.forEach(e => { e.style.display = 'none'; });
+            } catch (e) {}
 
-                // Get API base URL (case-insensitive)
-                const apiType = 'procurement';
-                const baseUrl = window.normalizedApiUrls[apiType];
-                if (!baseUrl) {
-                    const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
-                    this.showError(`API configuration not found for Procurement. Available keys: ${availableKeys}`);
-                    return;
-                }
+            const filenameEl = document.getElementById('documentPreviewFilename');
+            const frame = document.getElementById('documentPreviewFrame');
+            const modalEl = document.getElementById('documentPreviewModal');
+            if (filenameEl) filenameEl.textContent = window.__currentDocumentPreview.fileName;
+            if (frame) frame.src = previewUrl;
 
-                // Construct download URL using API base URL
-                const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
-                downloadUrl = baseUrl + endpoint;
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                try {
+                    if (modalEl.parentNode !== document.body) {
+                        document.body.appendChild(modalEl);
+                    }
+                } catch (e) {}
+                const modalInstance = new bootstrap.Modal(modalEl);
+                modalInstance.show();
+            } else if (previewUrl) {
+                window.open(previewUrl, '_blank');
             }
 
-            // Create a temporary anchor element to trigger download
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileFileName;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            if (typeof window.downloadDocumentFromModal === 'undefined') {
+                window.downloadDocumentFromModal = function () {
+                    try {
+                        const info = window.__currentDocumentPreview;
+                        if (!info || !info.downloadUrl) {
+                            alert('No document selected');
+                            return;
+                        }
+                        const link = document.createElement('a');
+                        link.href = info.downloadUrl;
+                        link.download = info.fileName || 'document';
+                        link.target = '_blank';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (err) {
+                        console.error('Error downloading document from modal:', err);
+                        alert('Failed to download document: ' + (err.message || 'Unknown error'));
+                    }
+                };
+            }
         } catch (error) {
-            console.error('Error downloading document:', error);
-            this.showError('Failed to download document: ' + error.message);
+            console.error('Error opening document preview:', error);
+            this.showError('Failed to open document: ' + error.message);
         }
     }
 
