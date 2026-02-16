@@ -761,6 +761,26 @@ class ReceiveListView {
             hasError = true;
         }
 
+        // Require all supporting documents to be previewed before Receive/Reject (same as Release PR)
+        if (!hasError && this.viewPRDocuments && this.viewPRDocuments.length > 0) {
+            const viewedSet = typeof window.__viewedDocuments !== 'undefined' ? window.__viewedDocuments : null;
+            const isViewed = (id) => {
+                if (!viewedSet) return false;
+                const sid = String(id);
+                return typeof viewedSet.has === 'function' ? viewedSet.has(sid) : (Array.isArray(viewedSet) && viewedSet.includes(sid));
+            };
+            const allViewed = this.viewPRDocuments.every(doc => isViewed(doc.id || doc.ID || 0));
+            if (!allViewed) {
+                this.showAlertModal('Please preview all supporting documents before submitting.', 'warning');
+                const docsSection = document.getElementById('view-documents-tbody');
+                if (docsSection) {
+                    const card = docsSection.closest('.card');
+                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
         if (hasError) {
             return;
         }

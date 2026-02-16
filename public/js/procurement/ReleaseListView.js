@@ -1024,6 +1024,26 @@ class ReleaseListView {
         if (vendorTypeContract) vendorTypeContract.setCustomValidity('');
         if (vendorTypeNonContract) vendorTypeNonContract.setCustomValidity('');
         
+        // For Release: require all supporting documents to be previewed (same as Receive PR)
+        if (this.viewPRDocuments && this.viewPRDocuments.length > 0) {
+            const viewedSet = typeof window.__viewedDocuments !== 'undefined' ? window.__viewedDocuments : null;
+            const isViewed = (id) => {
+                if (!viewedSet) return false;
+                const sid = String(id);
+                return typeof viewedSet.has === 'function' ? viewedSet.has(sid) : (Array.isArray(viewedSet) && viewedSet.includes(sid));
+            };
+            const allViewed = this.viewPRDocuments.every(doc => isViewed(doc.id || doc.ID || 0));
+            if (!allViewed) {
+                this.showAlertModal('Please preview all supporting documents before releasing.', 'warning');
+                const docsSection = document.getElementById('view-documents-tbody');
+                if (docsSection) {
+                    const card = docsSection.closest('.card');
+                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return false;
+            }
+        }
+        
         // Helper function to check if dropdown field is empty
         const isDropdownEmpty = (hiddenInputId, selectedTextId) => {
             const hiddenInput = document.getElementById(hiddenInputId);
@@ -1863,47 +1883,31 @@ class ReleaseListView {
             const button = typeof this === 'object' && this.nodeName === 'BUTTON' ? this : null;
             const filePath = button?.getAttribute('data-file-path') || '';
 
-            // If FilePath is available, use apiStorage (like ARSystem)
-            let downloadUrl = null;
-            if (filePath && typeof apiStorage === 'function') {
-                try {
-                    downloadUrl = apiStorage('Procurement', filePath);
-                } catch (error) {
-                    console.warn('Error using apiStorage, falling back to download endpoint:', error);
+            // Always use download endpoint for preview and download (do NOT use apiStorage/direct storage URL).
+            // Direct GET to /storage/... returns 403 when loaded in iframe; the download route serves the file with auth.
+            if (typeof API_URLS === 'undefined') {
+                this.showAlertModal('API configuration not found', 'warning');
+                return;
+            }
+            if (typeof window.normalizedApiUrls === 'undefined') {
+                window.normalizedApiUrls = {};
+            }
+            for (const key in API_URLS) {
+                if (API_URLS.hasOwnProperty(key)) {
+                    window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
                 }
             }
-
-            // Fallback: Use download endpoint if FilePath is not available
-            if (!downloadUrl) {
-                // Normalize API_URLS like apiHelper.js does
-                if (typeof API_URLS === 'undefined') {
-                    this.showAlertModal('API configuration not found', 'warning');
-                    return;
-                }
-
-                // Normalize API URLs (handle case-insensitive keys)
-                if (typeof window.normalizedApiUrls === 'undefined') {
-                    window.normalizedApiUrls = {};
-                }
-                for (const key in API_URLS) {
-                    if (API_URLS.hasOwnProperty(key)) {
-                        window.normalizedApiUrls[key.toLowerCase()] = API_URLS[key];
-                    }
-                }
-
-                // Get API base URL (case-insensitive)
-                const apiType = 'procurement';
-                const baseUrl = window.normalizedApiUrls[apiType];
-                if (!baseUrl) {
-                    const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
-                    this.showAlertModal(`API configuration not found for Procurement. Available keys: ${availableKeys}`, 'warning');
-                    return;
-                }
-
-                // Construct download URL using API base URL
-                const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
-                downloadUrl = baseUrl + endpoint;
+            const apiType = 'procurement';
+            const baseUrl = window.normalizedApiUrls[apiType];
+            if (!baseUrl) {
+                const availableKeys = Object.keys(window.normalizedApiUrls).join(', ');
+                this.showAlertModal(`API configuration not found for Procurement. Available keys: ${availableKeys}`, 'warning');
+                return;
             }
+            const endpoint = `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${documentId}/download`;
+            const downloadUrl = baseUrl + endpoint;
+            // URL for iframe: add ?preview=1 so server returns Content-Disposition: inline and document loads in modal
+            const previewUrl = downloadUrl + (downloadUrl.indexOf('?') >= 0 ? '&' : '?') + 'preview=1';
 
             // Ensure global preview state exists
             if (typeof window.__currentDocumentPreview === 'undefined') {
@@ -1918,7 +1922,7 @@ class ReleaseListView {
                 window.__viewedDocuments = new Set();
             }
 
-            // Save current preview info
+            // Save current preview info (downloadUrl without preview=1 for Download button)
             window.__currentDocumentPreview.id = documentId;
             window.__currentDocumentPreview.fileName = fileName || 'document';
             window.__currentDocumentPreview.filePath = filePath;
@@ -1947,12 +1951,12 @@ class ReleaseListView {
                 // ignore UI update errors
             }
 
-            // Populate modal
+            // Populate modal (iframe uses previewUrl so file displays inline; Download button uses downloadUrl)
             const filenameEl = document.getElementById('documentPreviewFilename');
             const frame = document.getElementById('documentPreviewFrame');
             const modalEl = document.getElementById('documentPreviewModal');
             if (filenameEl) filenameEl.textContent = window.__currentDocumentPreview.fileName;
-            if (frame) frame.src = downloadUrl;
+            if (frame) frame.src = previewUrl;
 
             // Show Bootstrap modal if available, otherwise open in new tab
             if (modalEl && typeof bootstrap !== 'undefined') {
@@ -1967,8 +1971,8 @@ class ReleaseListView {
 
                 const modalInstance = new bootstrap.Modal(modalEl);
                 modalInstance.show();
-            } else if (downloadUrl) {
-                window.open(downloadUrl, '_blank');
+            } else if (previewUrl) {
+                window.open(previewUrl, '_blank');
             }
 
             // Define global helper for downloading from modal if not present

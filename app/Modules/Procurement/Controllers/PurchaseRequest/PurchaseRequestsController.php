@@ -422,70 +422,76 @@ class PurchaseRequestsController extends Controller
 
         $fileName = (string) ($document->FileName ?? 'document');
         $filePath = (string) ($document->FilePath ?? '');
+        $resolvedPath = null;
 
         if ($filePath !== '') {
             $normalizedPath = ltrim($filePath, '/');
             if (Storage::disk('public')->exists($normalizedPath)) {
-                return response()->download(Storage::disk('public')->path($normalizedPath), $fileName);
-            }
-
-            $publicStoragePath = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalizedPath));
-            if (is_file($publicStoragePath)) {
-                return response()->download($publicStoragePath, $fileName);
+                $resolvedPath = Storage::disk('public')->path($normalizedPath);
+            } elseif (is_file($publicStoragePath = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalizedPath)))) {
+                $resolvedPath = $publicStoragePath;
             }
         }
 
-        $prNumber = (string) ($document->trxPROPurchaseRequestNumber ?? '');
-        if ($prNumber !== '') {
+        if ($resolvedPath === null && ($prNumber = (string) ($document->trxPROPurchaseRequestNumber ?? '')) !== '') {
             $baseFolder = 'Procurement/PurchaseRequest/' . $prNumber;
             if (Storage::disk('public')->exists($baseFolder)) {
                 $exactPath = $baseFolder . '/' . $fileName;
                 if (Storage::disk('public')->exists($exactPath)) {
-                    return response()->download(Storage::disk('public')->path($exactPath), $fileName);
-                }
-
-                $files = Storage::disk('public')->files($baseFolder);
-                $matches = array_values(array_filter($files, function ($file) use ($fileName) {
-                    $baseName = basename($file);
-                    return stripos($baseName, $fileName) !== false
-                        || Str::endsWith(strtolower($baseName), strtolower($fileName));
-                }));
-
-                if (!empty($matches)) {
-                    usort($matches, function ($a, $b) {
-                        $disk = Storage::disk('public');
-                        return $disk->lastModified($b) <=> $disk->lastModified($a);
-                    });
-
-                    $selectedPath = $matches[0];
-                    return response()->download(Storage::disk('public')->path($selectedPath), $fileName);
+                    $resolvedPath = Storage::disk('public')->path($exactPath);
+                } else {
+                    $files = Storage::disk('public')->files($baseFolder);
+                    $matches = array_values(array_filter($files, function ($file) use ($fileName) {
+                        $baseName = basename($file);
+                        return stripos($baseName, $fileName) !== false
+                            || Str::endsWith(strtolower($baseName), strtolower($fileName));
+                    }));
+                    if (!empty($matches)) {
+                        usort($matches, function ($a, $b) {
+                            $disk = Storage::disk('public');
+                            return $disk->lastModified($b) <=> $disk->lastModified($a);
+                        });
+                        $resolvedPath = Storage::disk('public')->path($matches[0]);
+                    }
                 }
             }
-
-            $publicBaseFolder = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baseFolder));
-            if (is_dir($publicBaseFolder)) {
-                $exactPublicPath = $publicBaseFolder . DIRECTORY_SEPARATOR . $fileName;
-                if (is_file($exactPublicPath)) {
-                    return response()->download($exactPublicPath, $fileName);
-                }
-
-                $files = glob($publicBaseFolder . DIRECTORY_SEPARATOR . '*');
-                $matches = array_values(array_filter($files, function ($file) use ($fileName) {
-                    $baseName = basename($file);
-                    return stripos($baseName, $fileName) !== false
-                        || Str::endsWith(strtolower($baseName), strtolower($fileName));
-                }));
-
-                if (!empty($matches)) {
-                    usort($matches, function ($a, $b) {
-                        return filemtime($b) <=> filemtime($a);
-                    });
-                    return response()->download($matches[0], $fileName);
+            if ($resolvedPath === null) {
+                $publicBaseFolder = public_path('storage' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baseFolder));
+                if (is_dir($publicBaseFolder)) {
+                    $exactPublicPath = $publicBaseFolder . DIRECTORY_SEPARATOR . $fileName;
+                    if (is_file($exactPublicPath)) {
+                        $resolvedPath = $exactPublicPath;
+                    } else {
+                        $files = glob($publicBaseFolder . DIRECTORY_SEPARATOR . '*');
+                        $matches = array_values(array_filter($files, function ($file) use ($fileName) {
+                            $baseName = basename($file);
+                            return stripos($baseName, $fileName) !== false
+                                || Str::endsWith(strtolower($baseName), strtolower($fileName));
+                        }));
+                        if (!empty($matches)) {
+                            usort($matches, function ($a, $b) {
+                                return filemtime($b) <=> filemtime($a);
+                            });
+                            $resolvedPath = $matches[0];
+                        }
+                    }
                 }
             }
         }
 
-        return response()->json(['message' => 'File not found'], 404);
+        if ($resolvedPath === null || !is_file($resolvedPath)) {
+            return response()->json(['message' => 'File not found'], 404);
+        }
+
+        // preview=1: display inline in iframe (Content-Disposition: inline); otherwise trigger download
+        $preview = request()->boolean('preview');
+        if ($preview) {
+            return response()->file($resolvedPath, [
+                'Content-Type' => mime_content_type($resolvedPath) ?: 'application/octet-stream',
+            ]);
+        }
+
+        return response()->download($resolvedPath, $fileName);
     }
 
     public function saveAdditional(Request $request)
