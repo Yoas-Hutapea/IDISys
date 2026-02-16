@@ -38,6 +38,11 @@
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
+        }
+        /* DomPDF: nested tables must not use display:block or min/max width fails */
+        table table {
+            table-layout: fixed;
         }
 
         table, td {
@@ -332,7 +337,7 @@
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="7%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
                         <td class="bBotBold vendor-section" style="border-top: 0px; border-bottom: 0px;"></td>
-                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="0%"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bnone" width="1%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
@@ -495,7 +500,7 @@
                     </tr>
                     <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                         <td style="border-top: 0px; border-bottom: 0px" class="bnone" colspan="10">
-                            <table style="border-top: 0px; border-bottom: 0px; display: block; width: 100%;" class="table bnone">
+                            <table style="border-top: 0px; border-bottom: 0px; width: 100%;" class="table bnone">
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px; white-space: nowrap;" class="txtLeftTopBold bnone">Note*:</td>
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtCenterTopBold bnone">1.</td>
@@ -537,7 +542,7 @@
                     </tr>
                     <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                         <td style="border-top: 0px; border-bottom: 0px" class="bnone" colspan="10">
-                            <table style="border-top: 0px; border-bottom: 0px; display:block" class="table bnone">
+                            <table style="border-top: 0px; border-bottom: 0px; width: 100%;" class="table bnone">
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                                     <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 6px 4px;" class="txtLeftTopBold bBotBold" colspan="5">NPWP Address</td>
                                     <td style="border-top: 0px; border-bottom: 2px; padding: 6px 4px;" class="bnone" colspan="5"></td>

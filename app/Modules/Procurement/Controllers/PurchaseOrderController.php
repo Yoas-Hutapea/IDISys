@@ -3,9 +3,13 @@
 namespace App\Modules\Procurement\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Mail\POReleasedNotificationMail;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 
@@ -47,7 +51,43 @@ class PurchaseOrderController extends Controller
             return response('Purchase Order not found', 404);
         }
 
-        $poNumber = $po->PurchaseOrderNumber ?? $poNumber;
+        $data = $this->buildPODocumentViewData($po, $paramEncrypted);
+        return view('procurement.purchase_order.document.PODocument', $data);
+    }
+
+    /**
+     * Fetch QR code image from URL and return as data URI so it can be embedded in PDF without DomPDF loading external URLs.
+     */
+    private function fetchQrCodeAsDataUri(string $url): ?string
+    {
+        try {
+            $response = Http::timeout(5)->withOptions(['verify' => false])->get($url);
+            if ($response->successful()) {
+                $imageContent = $response->body();
+                if ($imageContent !== '' && strlen($imageContent) < 500000) {
+                    return 'data:image/png;base64,' . base64_encode($imageContent);
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return null;
+    }
+
+    /**
+     * Build view data for PO document (HTML view or PDF). Used by downloadDocument and PDF generation.
+     *
+     * @param  object  $po  Row from trxPROPurchaseOrder
+     * @param  string|null  $paramEncrypted  Optional; if null, built from PO number for PDF
+     * @param  bool  $forPdfAttachment  When true, skip external QR URL so DomPDF can generate without network
+     * @return array<string, mixed>
+     */
+    private function buildPODocumentViewData(object $po, ?string $paramEncrypted = null, bool $forPdfAttachment = false): array
+    {
+        $poNumber = $po->PurchaseOrderNumber ?? '';
+        if ($paramEncrypted === null) {
+            $paramEncrypted = base64_encode(json_encode(['PurchOrderID' => $poNumber]));
+        }
 
         $itemsQuery = DB::table('trxPROPurchaseOrderItem')
             ->where('trxPROPurchaseOrderNumber', $poNumber);
@@ -194,9 +234,15 @@ class PurchaseOrderController extends Controller
         }
 
         $downloadUrl = url('/Procurement/PurchaseOrder/Document/DownloadDocument') . '?paramEncrypted=' . urlencode($paramEncrypted);
-        $qrCodeDataUri = 'https://quickchart.io/qr?text=' . urlencode($downloadUrl) . '&size=200';
+        $qrUrl = 'https://quickchart.io/qr?text=' . urlencode($downloadUrl) . '&size=200';
+        if ($forPdfAttachment) {
+            // Fetch QR image in PHP and pass as base64 so DomPDF can embed it without loading external URL
+            $qrCodeDataUri = $this->fetchQrCodeAsDataUri($qrUrl) ?? ($logoBase64 ?? null);
+        } else {
+            $qrCodeDataUri = $qrUrl;
+        }
 
-        return view('procurement.purchase_order.document.PODocument', [
+        return [
             'header' => $header,
             'details' => $details,
             'vendor' => $vendor,
@@ -204,7 +250,7 @@ class PurchaseOrderController extends Controller
             'logoBase64' => $logoBase64,
             'qrCodeDataUri' => $qrCodeDataUri,
             'terbilang' => $terbilang,
-        ]);
+        ];
     }
 
     public function show(string $poNumber)
@@ -1114,6 +1160,18 @@ class PurchaseOrderController extends Controller
                 DB::table('logPROPurchaseOrder')->insert($logData);
             }
 
+            if ($nextStatusId === 11) {
+                $decodedNumberForEmail = $decodedNumber;
+                $remarkForEmail = $remark;
+                DB::afterCommit(function () use ($decodedNumberForEmail, $remarkForEmail) {
+                    try {
+                        $this->sendPOReleasedEmail($decodedNumberForEmail, $remarkForEmail);
+                    } catch (\Throwable $e) {
+                        // Log but do not fail the approval response
+                    }
+                });
+            }
+
             return response()->json([
                 'trxPROPurchaseOrderNumber' => $decodedNumber,
                 'mstApprovalStatusID' => $nextStatusId,
@@ -1203,6 +1261,18 @@ class PurchaseOrderController extends Controller
                         }
 
                         DB::table('logPROPurchaseOrder')->insert($logData);
+                    }
+
+                    if ($nextStatusId === 11) {
+                        $poNumberForEmail = $poNumber;
+                        $remarkForEmail = $remark;
+                        DB::afterCommit(function () use ($poNumberForEmail, $remarkForEmail) {
+                            try {
+                                $this->sendPOReleasedEmail($poNumberForEmail, $remarkForEmail);
+                            } catch (\Throwable $e) {
+                                // ignore
+                            }
+                        });
                     }
                 });
 
@@ -1690,6 +1760,207 @@ class PurchaseOrderController extends Controller
             'name' => $name,
             'email' => $email,
         ];
+    }
+
+    /**
+     * Resolve PO Type to display name (mstPROPurchaseType.PurchaseRequestType).
+     */
+    private function resolvePOTypeName(object $po): string
+    {
+        $typeId = null;
+        if (Schema::hasColumn('trxPROPurchaseOrder', 'mstPROPurchaseTypeID') && !empty($po->mstPROPurchaseTypeID)) {
+            $typeId = $po->mstPROPurchaseTypeID;
+        } elseif (isset($po->PurchaseType) && is_numeric($po->PurchaseType)) {
+            $typeId = (int) $po->PurchaseType;
+        }
+        if ($typeId !== null && Schema::hasTable('mstPROPurchaseType')) {
+            $name = DB::table('mstPROPurchaseType')
+                ->where('ID', $typeId)
+                ->value('PurchaseRequestType');
+            if (is_string($name) && trim($name) !== '') {
+                return trim($name);
+            }
+        }
+        $raw = trim((string) ($po->PurchaseType ?? ''));
+        return $raw !== '' ? $raw : 'General';
+    }
+
+    /**
+     * Resolve PO Sub Type to display name (mstPROPurchaseSubType.PurchaseRequestSubType).
+     */
+    private function resolvePOSubTypeName(object $po): string
+    {
+        $subTypeId = null;
+        if (Schema::hasColumn('trxPROPurchaseOrder', 'mstPROPurchaseSubTypeID') && !empty($po->mstPROPurchaseSubTypeID)) {
+            $subTypeId = $po->mstPROPurchaseSubTypeID;
+        } elseif (isset($po->PurchaseSubType) && is_numeric($po->PurchaseSubType)) {
+            $subTypeId = (int) $po->PurchaseSubType;
+        }
+        if ($subTypeId !== null && Schema::hasTable('mstPROPurchaseSubType')) {
+            $name = DB::table('mstPROPurchaseSubType')
+                ->where('ID', $subTypeId)
+                ->value('PurchaseRequestSubType');
+            if (is_string($name) && trim($name) !== '') {
+                return trim($name);
+            }
+        }
+        $raw = trim((string) ($po->PurchaseSubType ?? ''));
+        return $raw !== '' ? $raw : 'General';
+    }
+
+    /**
+     * Get requestor email for a PO from trxPROPurchaseRequest.Requestor -> mstEmployee.Email
+     */
+    private function getRequestorEmailForPO(object $po): ?string
+    {
+        $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+        if ($prNumber === '' || !Schema::hasTable('trxPROPurchaseRequest')) {
+            return null;
+        }
+        $pr = DB::table('trxPROPurchaseRequest')
+            ->where('PurchaseRequestNumber', $prNumber)
+            ->first();
+        if (!$pr || empty($pr->Requestor)) {
+            return null;
+        }
+        $info = $this->getEmployeeInfo($pr->Requestor);
+        return $info['email'] ?? null;
+    }
+
+    /**
+     * Get vendor contact person email (CPEmail) from mstVendor for CC.
+     */
+    private function getVendorCPEmailForPO(object $po): ?string
+    {
+        $vendorId = trim((string) ($po->mstVendorVendorID ?? ''));
+        if ($vendorId === '' || !Schema::hasTable('mstVendor') || !Schema::hasColumn('mstVendor', 'CPEmail')) {
+            return null;
+        }
+        $email = DB::table('mstVendor')
+            ->where('VendorID', $vendorId)
+            ->value('CPEmail');
+        return $email ? trim((string) $email) : null;
+    }
+
+    /**
+     * Generate PO document as PDF raw content for email attachment (same as DownloadDocument view).
+     * First tries with forPdfAttachment=true (no external QR); fallback with QR URL if needed.
+     */
+    private function generatePODocumentPdfContent(string $poNumber): ?string
+    {
+        $po = DB::table('trxPROPurchaseOrder')
+            ->where('PurchaseOrderNumber', $poNumber)
+            ->where('IsActive', true)
+            ->first();
+        if (!$po) {
+            return null;
+        }
+        foreach ([true, false] as $forPdfAttachment) {
+            try {
+                $data = $this->buildPODocumentViewData($po, null, $forPdfAttachment);
+                $pdf = Pdf::loadView('procurement.purchase_order.document.PODocument', $data);
+                $output = $pdf->output();
+                if ($output !== null && $output !== '') {
+                    return $output;
+                }
+            } catch (\Throwable $e) {
+                if ($forPdfAttachment) {
+                    try {
+                        \Illuminate\Support\Facades\Log::warning('PO PDF generation (forPdfAttachment) failed: ' . $e->getMessage(), ['poNumber' => $poNumber]);
+                    } catch (\Throwable $logIgnore) {
+                    }
+                }
+                continue;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * True when running on localhost/127.0.0.1 so we can redirect test emails and avoid spamming real addresses.
+     */
+    private function isLocalEnvironment(): bool
+    {
+        $appUrl = strtolower((string) (config('app.url') ?? ''));
+        if (str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
+            return true;
+        }
+        try {
+            $host = strtolower((string) (request()->getHost() ?? ''));
+            return $host === 'localhost' || $host === '127.0.0.1';
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Email address to use for PO Release notification when testing (localhost or MAIL_TEST_TO).
+     * Prefer env MAIL_TEST_TO; fallback to yoas.hutapea@ideanet.net.id when on local.
+     */
+    private function getTestNotificationEmail(): ?string
+    {
+        $testTo = config('mail.test_to');
+        if (is_string($testTo) && trim($testTo) !== '') {
+            return trim($testTo);
+        }
+        if ($this->isLocalEnvironment()) {
+            return 'yoas.hutapea@ideanet.net.id';
+        }
+        return null;
+    }
+
+    /**
+     * Send PO Released notification email to Requestor with CC to vendor when Approval PO 2 completes (Fully Approved).
+     * On localhost/127.0.0.1 all emails are sent to yoas.hutapea@ideanet.net.id for testing.
+     */
+    private function sendPOReleasedEmail(string $poNumber, string $approvalRemarks): void
+    {
+        $po = DB::table('trxPROPurchaseOrder')
+            ->where('PurchaseOrderNumber', $poNumber)
+            ->where('IsActive', true)
+            ->first();
+        if (!$po) {
+            return;
+        }
+
+        $testTo = $this->getTestNotificationEmail();
+        $requestorEmail = $this->getRequestorEmailForPO($po);
+        if (empty($requestorEmail) && empty($testTo)) {
+            return;
+        }
+
+        $approvalStatusName = 'Fully Approved';
+
+        $purchaseSubTypeName = $this->resolvePOSubTypeName($po);
+        $poTypeName = $this->resolvePOTypeName($po);
+        $amount = $po->PurchaseOrderAmount ?? 0;
+        $amountFormatted = is_numeric($amount) ? number_format((float) $amount, 0, '.', ',') : (string) $amount;
+        $remarks = $approvalRemarks !== '' ? $approvalRemarks : '——';
+
+        $pdfContent = $this->generatePODocumentPdfContent($poNumber);
+
+        $mailable = new POReleasedNotificationMail(
+            poNumber: $poNumber,
+            poType: $poTypeName,
+            poSubType: $purchaseSubTypeName,
+            mitraName: trim((string) ($po->mstVendorVendorName ?? '')),
+            amountFormatted: $amountFormatted,
+            status: $approvalStatusName,
+            remarks: $remarks,
+            pdfContent: $pdfContent
+        );
+
+        if ($testTo !== null) {
+            Mail::to($testTo)->send($mailable);
+            return;
+        }
+
+        $mailer = Mail::to($requestorEmail);
+        $vendorCc = $this->getVendorCPEmailForPO($po);
+        if (!empty($vendorCc)) {
+            $mailer->cc($vendorCc);
+        }
+        $mailer->send($mailable);
     }
 
     private function getVendorInfoForDocument(object $po): array

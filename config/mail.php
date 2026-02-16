@@ -18,6 +18,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Test / Local Override Recipient
+    |--------------------------------------------------------------------------
+    | When set, PO Release notifications (and any test mail) are sent to this
+    | address instead of real requestor/vendor when APP_URL is localhost or
+    | when you want to force a test inbox. Empty = use real recipients.
+    */
+    'test_to' => env('MAIL_TEST_TO'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Mailer Configurations
     |--------------------------------------------------------------------------
     |
@@ -43,6 +53,7 @@ return [
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
+            'encryption' => env('MAIL_ENCRYPTION'),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,

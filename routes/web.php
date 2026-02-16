@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use App\Modules\Procurement\Controllers\PurchaseOrderController;
 
@@ -134,3 +135,19 @@ Route::get('/Finance/VendorManagement/VendorData', function () {
 Route::get('/Finance/VendorManagement/VendorContract', function () {
     return view('finance.vendor_management.vendor_contract.index');
 })->middleware('auth')->name('finance.vendor_management.vendor_contract');
+
+// Test kirim email (hanya saat APP_DEBUG=true). Buka /test-mail untuk cek SMTP.
+Route::get('/test-mail', function () {
+    if (!config('app.debug')) {
+        return response('Not available', 404);
+    }
+    $to = config('mail.test_to') ?: 'yoas.hutapea@ideanet.net.id';
+    try {
+        Mail::raw('Ini email test dari IDEANETSys. Jika Anda menerima ini, konfigurasi SMTP berhasil.', function ($message) use ($to) {
+            $message->to($to)->subject('IDEANETSys - Test Email');
+        });
+        return 'Email test terkirim ke: ' . $to . '. Cek inbox (dan folder Spam).';
+    } catch (\Throwable $e) {
+        return 'Gagal mengirim: ' . $e->getMessage() . "\n\n" . $e->getTraceAsString();
+    }
+})->name('test-mail');
