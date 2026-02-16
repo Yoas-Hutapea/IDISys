@@ -38,11 +38,11 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
+            table-layout: auto;
         }
         /* DomPDF: nested tables must not use display:block or min/max width fails */
         table table {
-            table-layout: fixed;
+            table-layout: auto;
         }
 
         table, td {
@@ -56,7 +56,6 @@
 
         p {
             padding: 2px;
-            margin: 0;
         }
 
         thead {
@@ -76,131 +75,134 @@
             overflow-wrap: break-word;
             word-break: break-word;
             hyphens: auto;
+            overflow: visible;
+            vertical-align: top;
+            min-width: 0;
         }
-
-        .vendor-section {
-            width: 35% !important;
-        }
-
-        .company-section {
-            width: 50% !important;
+        /* Pastikan konten panjang terlihat dan wrap, bukan terpotong */
+        td span, td div, th span, th div {
+            overflow: visible;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .bnone {
-            border-style: none !important;
-            border-top: 0px !important;
-            border-left: 0px !important;
-            border-right: 0px !important;
-            border-bottom: 0px !important;
+            border-style: none;
+            border-top: 0px;
+            border-left: 0px;
+            border-right: 0px;
+            border-bottom: 0px;
             border-color: white;
+            border-collapse: collapse;
+            border-spacing: 0;
         }
 
         .bBotBold {
-            border-bottom-style: solid !important;
-            border-top: 0px !important;
-            border-left: 0px !important;
-            border-right: 0px !important;
-            border-bottom-width: 2px !important;
-            border-bottom-color: black !important;
+            border-bottom-style: solid;
+            border-top: 0px;
+            border-left: 0px;
+            border-right: 0px;
+            border-bottom-width: 2px;
+            border-bottom-color: black;
         }
 
         .bTopBold {
-            border-top-style: solid !important;
-            border-bottom: 0px !important;
-            border-left: 0px !important;
-            border-right: 0px !important;
-            border-top-width: 2px !important;
-            border-top-color: black !important;
+            border-top-style: solid;
+            border-bottom: 0px;
+            border-left: 0px;
+            border-right: 0px;
+            border-top-width: 2px;
+            border-top-color: black;
         }
 
         .bLeftBold {
-            border-left-style: solid !important;
-            border-bottom: 0px !important;
-            border-top: 0px !important;
-            border-right: 0px !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
+            border-left-style: solid;
+            border-bottom: 0px;
+            border-top: 0px;
+            border-right: 0px;
+            border-left-width: 2px;
+            border-left-color: black;
         }
 
         .bLeftTopBold {
-            border-left-style: solid !important;
-            border-top-style: solid !important;
-            border-bottom: 0px !important;
-            border-right: 0px !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
-            border-top-width: 2px !important;
-            border-top-color: black !important;
+            border-left-style: solid;
+            border-top-style: solid;
+            border-bottom: 0px;
+            border-right: 0px;
+            border-left-width: 2px;
+            border-left-color: black;
+            border-top-width: 2px;
+            border-top-color: black;
         }
 
         .bLeftBotBold {
-            border-left-style: solid !important;
-            border-bottom-style: solid !important;
-            border-top: 0px !important;
-            border-right: 0px !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
-            border-bottom-width: 2px !important;
-            border-bottom-color: black !important;
+            border-left-style: solid;
+            border-bottom-style: solid;
+            border-top: 0px;
+            border-right: 0px;
+            border-left-width: 2px;
+            border-left-color: black;
+            border-bottom-width: 2px;
+            border-bottom-color: black;
         }
 
         .bLeftRightBold {
-            border-left-style: solid !important;
-            border-right-style: solid !important;
-            border-bottom: 0px !important;
-            border-top: 0px !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
-            border-right-width: 2px !important;
-            border-right-color: black !important;
+            border-left-style: solid;
+            border-right-style: solid;
+            border-bottom: 0px;
+            border-top: 0px;
+            border-left-width: 2px;
+            border-left-color: black;
+            border-right-width: 2px;
+            border-right-color: black;
         }
 
         .bLeftRightBotBold {
-            border-right-style: solid !important;
-            border-left-style: solid !important;
-            border-bottom-style: solid !important;
-            border-right-width: 2px !important;
-            border-right-color: black !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
-            border-bottom-width: 2px !important;
-            border-bottom-color: black !important;
-            border-top: 0px !important;
+            border-right-style: solid;
+            border-left-style: solid;
+            border-bottom-style: solid;
+            border-right-width: 2px;
+            border-right-color: black;
+            border-left-width: 2px;
+            border-left-color: black;
+            border-bottom-width: 2px;
+            border-bottom-color: black;
+            border-top: 0px;
         }
 
         .bRightTopBold {
-            border-right-style: solid !important;
-            border-top-style: solid !important;
-            border-bottom: 0px !important;
-            border-left: 0px !important;
-            border-right-width: 2px !important;
-            border-right-color: black !important;
-            border-top-width: 2px !important;
-            border-top-color: black !important;
+            border-right-style: solid;
+            border-top-style: solid;
+            border-bottom: 0px;
+            border-left: 0px;
+            border-right-width: 2px;
+            border-right-color: black;
+            border-top-width: 2px;
+            border-top-color: black;
         }
 
         .bRightBold {
-            border-right-style: solid !important;
-            border-bottom: 0px !important;
-            border-top: 0px !important;
-            border-left: 0px !important;
-            border-right-width: 2px !important;
-            border-right-color: black !important;
+            border-right-style: solid;
+            border-bottom: 0px;
+            border-top: 0px;
+            border-left: 0px;
+            border-right-width: 2px;
+            border-right-color: black;
         }
 
         .bAllBold {
-            border-right-style: solid !important;
-            border-left-style: solid !important;
-            border-bottom-style: solid !important;
-            border-top-style: solid !important;
-            border-right-width: 2px !important;
-            border-right-color: black !important;
-            border-left-width: 2px !important;
-            border-left-color: black !important;
-            border-bottom-width: 2px !important;
-            border-bottom-color: black !important;
-            border-top-width: 2px !important;
-            border-top-color: black !important;
+            border-right-style: solid;
+            border-left-style: solid;
+            border-bottom-style: solid;
+            border-top-style: solid;
+            border-right-width: 2px;
+            border-right-color: black;
+            border-left-width: 2px;
+            border-left-color: black;
+            border-bottom-width: 2px;
+            border-bottom-color: black;
+            border-top-width: 2px;
+            border-top-color: black;
         }
 
         .txtCenterMid {
@@ -208,7 +210,7 @@
             vertical-align: middle;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtCenterBold {
@@ -217,7 +219,7 @@
             font-weight: bold;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtLeftBold {
@@ -226,7 +228,7 @@
             font-weight: bold;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtRightBold {
@@ -235,7 +237,7 @@
             font-weight: bold;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtCenterTop {
@@ -243,7 +245,7 @@
             vertical-align: top;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtCenterTopBold {
@@ -252,14 +254,14 @@
             font-family: 'Courier New';
             color: black;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtRightMid {
             text-align: right;
             vertical-align: middle;
             font-family: 'Courier New';
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtRightTop {
@@ -267,7 +269,7 @@
             vertical-align: top;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtLeftMid {
@@ -275,7 +277,7 @@
             vertical-align: middle;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtLeftTop {
@@ -283,7 +285,7 @@
             vertical-align: top;
             font-family: 'Courier New';
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtLeftTopBold {
@@ -292,7 +294,7 @@
             font-family: 'Courier New';
             font-weight: bold;
             color: black;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .txtLeftTopBoldUnderline {
@@ -302,7 +304,16 @@
             text-decoration: underline;
             font-weight: bold;
             color: black;
-            font-size: 11px;
+            font-size: 14px;
+        }
+        /* Kurangi tinggi blok vendor/company dan hindari konten terpotong */
+        .cell-vendor-company {
+            padding: 4px 6px !important;
+        }
+        .cell-vendor-company .wrap-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
         }
     </style>
 </head>
@@ -321,10 +332,10 @@
                         </td>
                     </tr>
                     <tr class="txtCenterMid bnone" style="margin-top:0px; margin-bottom:0px; padding-top:0px;padding-bottom:0px">
-                        <th class="bnone" colspan="10" style="font-weight: bold; font-size: 14px; text-decoration: underline; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; text-align: center; border-top: 0px; border-bottom: 0px">PURCHASE ORDER</th>
+                        <th class="bnone" colspan="10" style="font-weight: bold; font-size: 18px; text-decoration: underline; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; text-align: center; border-top: 0px; border-bottom: 0px">PURCHASE ORDER</th>
                     </tr>
                     <tr class="txtCenterMid bnone" style="margin-top:0px; margin-bottom:0px; padding-top:0px;padding-bottom:0px">
-                        <td class="bnone" colspan="10" style="font-weight:bold; font-size: 15px; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; text-align: center; border-top: 0px; border-bottom: 0px">{{ $header['PurchOrderID'] ?? '-' }}</td>
+                        <td class="bnone" colspan="10" style="font-weight:bold; font-size: 20px; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; text-align: center; border-top: 0px; border-bottom: 0px">{{ $header['PurchOrderID'] ?? '-' }}</td>
                     </tr>
                     <tr class="bnone" style="border-top: 0px; border-bottom: 0px">
                         @php
@@ -336,116 +347,125 @@
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="5%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="7%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
-                        <td class="bBotBold vendor-section" style="border-top: 0px; border-bottom: 0px;"></td>
-                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
+                        <td class="bBotBold" width="28%" style="min-width: 230px; border-top: 0px; border-bottom: 0px"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="2%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bnone" width="1%"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="20%"></td>
                         <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
-                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
-                        <td class="bBotBold company-section" style="border-top: 0px; border-bottom: 0px;"></td>
-                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="1%"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="17%"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bBotBold" width="18%"></td>
                     </tr>
                     <tr style="border-style: none; border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px">
-                        <td class="txtLeftTop bLeftBold" style="border-top:2px; border-top-style:solid; border-bottom:0px; padding: 8px 4px;">TO</td>
-                        <td style="border-top: 2px; border-bottom: 0px; border-top-style: solid; padding: 8px 4px;" class="bnone"></td>
-                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid; padding: 8px 4px;" class="bnone"></td>
-                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid; padding: 8px 4px;" class="bRightBold"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bnone"></td>
-                        <td style="border-top: 2px; border-top-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTopBold bLeftRightBold" colspan="4">{{ $company['CompanyName'] ?? '-' }}</td>
+                        <td class="txtLeftTop bLeftBold" style="border-top:2px; border-top-style:solid; border-bottom:0px">TO </td>
+                        <td style="border-top: 2px; border-bottom: 0px; border-top-style: solid;" class="bnone"></td>
+                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid;" class="bnone"></td>
+                        <td style="border-top: 2px; border-bottom: 0px; border-top-style:solid;" class="bRightBold"></td>
+                        <td style="border-top: 0px; border-bottom: 0px" class="bnone"></td>
+                        <td style="border-top: 2px; border-top-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; " class="txtLeftTopBold bLeftRightBold" colspan="4">{{ $company['CompanyName'] ?? '-' }}</td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Vendor Code</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['VendorID'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="4" rowspan="2"><span>{{ $company['CompanyAddress'] ?? '' }} <br /> {{ $company['CompanyAddress1'] ?? '' }} <br /> {{ $company['CompanyAddress2'] ?? '' }}</span></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Vendor Code</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['VendorID'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="4" rowspan="2"><span>{{ $company['CompanyAddress'] ?? '' }} <br /> {{ $company['CompanyAddress1'] ?? '' }} <br /> {{ $company['CompanyAddress2'] ?? '' }}</span></td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-bottom: 0px">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Vendor Name</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bRightBold" colspan="2">{{ $vendor['VendorName'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Vendor Name</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bRightBold" colspan="2">{{ $vendor['VendorName'] ?? '-' }}</td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Address</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['VendorAddress'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bBotBold">Phone/Fax</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style: solid; padding: 8px 4px;" class="txtCenterTop bBotBold">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 8px 4px;" class="txtLeftTop bBotBold" colspan="2">{{ $company['PhoneNumber'] ?? '-' }} / {{ $company['Fax'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Address</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['VendorAddress'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 2px; border-bottom-style:solid; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bBotBold">Phone/Fax</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style: solid; padding: 4px 6px;" class="txtCenterTop bBotBold">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 4px 6px;" class="txtLeftTop bBotBold" colspan="2">{{ $company['PhoneNumber'] ?? '-' }} / {{ $company['Fax'] ?? '-' }}</td>
                     </tr>
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bnone" colspan="2"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bnone">PO Creator</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['POCreator'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bnone" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bnone">PO Creator</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['POCreator'] ?? '-' }}</td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2"> Contract No.</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['ContractNumber'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bBotBold">Email</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style: solid; padding: 8px 4px;" class="txtCenterTop bBotBold">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 8px 4px;" class="txtLeftTop bBotBold" colspan="2">{{ $header['POCreatorEmail'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2"> Contract No.</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['ContractNumber'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bBotBold">Email</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style: solid; padding: 4px 6px;" class="txtCenterTop bBotBold">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 2px; border-bottom-style: solid; padding: 4px 6px;" class="txtLeftTop bBotBold" colspan="2">{{ $header['POCreatorEmail'] ?? '-' }}</td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-right: 2px; border-right-style: solid;">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Attn</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['ContactPerson'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bnone">Requestor</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['RequestorPR'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Attn</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['ContactPerson'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bnone">Requestor</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['RequestorPR'] ?? '-' }}</td>
                     </tr>
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Phone/Mobile</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['PhoneNumber'] ?? '-' }} / {{ $vendor['ContactPersonPhoneNumber'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bnone">PR Number</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['PRNumber'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Phone/Mobile</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['PhoneNumber'] ?? '-' }} / {{ $vendor['ContactPersonPhoneNumber'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bnone">PR Number</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['PRNumber'] ?? '-' }}</td>
                     </tr>
 
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">Fax</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['FaxNumber'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bBotBold"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bBotBold"></td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bBotBold" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">Fax</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $vendor['FaxNumber'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bBotBold"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bBotBold"></td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bBotBold" colspan="2"></td>
                     </tr>
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bLeftBotBold" rowspan="4" colspan="2">Email</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bBotBold" rowspan="4">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bBotBold" rowspan="4" colspan="2">{{ $vendor['EmailCorrespondence'] ?? '-' }}</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 2px; border-top-style:solid; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bnone">Delivery Address</td>
-                        <td style="border-top: 2px; border-top-style:solid; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 2px; border-top-style:solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">site</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bBotBold" colspan="2">Email</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bBotBold">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bBotBold" colspan="2">{{ $vendor['EmailCorrespondence'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bRightBold"></td>
+                        <td style="border-top: 2px; border-top-style:solid; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone">Delivery Address</td>
+                        <td style="border-top: 2px; border-top-style:solid; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 2px; border-top-style:solid; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone wrap-text" colspan="2">{{ $company['CompanyAddress'] ?? '' }}<br />{{ $company['CompanyAddress1'] ?? '' }}<br />{{ $company['CompanyAddress2'] ?? '' }}</td>
                     </tr>
                     <tr class="bLeftRightBold" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px">
-                        <td class="bLeftRightBold" style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;"></td>
-                        <td class="txtLeftTop bnone" style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;">Validity Date</td>
-                        <td class="txtCenterTop bnone" style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;">:</td>
-                        <td class="txtLeftTop bnone" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" colspan="2">{{ $header['StrValidityDate'] ?? '-' }}</td>
+                        <td class="bRightBold" style="border-top: 0px; border-bottom: 0px; padding: 4px 6px; border-left: none;" colspan="2"></td>
+                        <td class="bnone" style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;"></td>
+                        <td class="bRightBold" style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" colspan="2"></td>
+                        <td class="bLeftRightBold" style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;"></td>
+                        <td class="txtLeftTop bnone" style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;">Validity Date</td>
+                        <td class="txtCenterTop bnone" style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;">:</td>
+                        <td class="txtLeftTop bnone" style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" colspan="2">{{ $header['StrValidityDate'] ?? '-' }}</td>
                     </tr>
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bLeftRightBold"></td>
-                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bnone">Periode</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['ContractPeriod'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px; border-left: none;" class="bRightBold" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bnone"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bRightBold" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-left: 2px; border-left-style: solid; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bnone">Periode</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['ContractPeriod'] ?? '-' }}</td>
                     </tr>
                     <tr style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px" class="bLeftRightBold">
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="bnone"></td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; white-space: nowrap;" class="txtLeftTop bLeftBold">SO Number</td>
-                        <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone">:</td>
-                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 8px 4px;" class="txtLeftTop bnone" colspan="2">{{ $header['SONumber'] ?? '-' }}</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px; border-left: none;" class="bnone" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bnone"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bnone" colspan="2"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="bLeftRightBold"></td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px; white-space: nowrap;" class="txtLeftTop bLeftBold">SO Number</td>
+                        <td style="border-top: 0px; border-bottom: 0px; padding: 4px 6px;" class="txtCenterTop bnone">:</td>
+                        <td style="border-top: 0px; border-right: 2px; border-right-style: solid; border-bottom: 0px; padding: 4px 6px;" class="txtLeftTop bnone" colspan="2">{{ $header['SONumber'] ?? '-' }}</td>
                     </tr>
                     <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                         <td style="border-top: 2px; border-top-style:solid; border-bottom: 0px" class="bTopBold"></td>
@@ -464,8 +484,8 @@
                         <td style="border-top: 0px; border-bottom: 0px; padding: 12px 0 8px 0;" class="bnone" colspan="10"></td>
                     </tr>
                     <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
-                        <th class="bnone txtLeftTopBold" style="font-family: Arial; font-weight: 100; border-top: 0px; border-bottom: 0px; white-space: nowrap; padding: 4px 0;">SUBJECT:</th>
-                        <th class="bnone txtLeftTopBold" colspan="9" style="font-family: Arial; font-weight: 100; border-top: 0px; border-bottom: 0px; padding: 4px 0;">{{ $header['PurchOrderName'] ?? '-' }}</th>
+                        <th class="bnone txtLeftTopBold" style="font-family: Arial; font-weight: 100; border-top: 0px; border-bottom: 0px; white-space: nowrap;">SUBJECT: </th>
+                        <th class="bnone txtLeftTopBold" colspan="9" style="font-family: Arial; font-weight: 100; border-top: 0px; border-bottom: 0px; white-space: nowrap;">{{ $header['PurchOrderName'] ?? '-' }}</th>
                     </tr>
                     <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                         <td style="border-top: 0px; border-bottom: 0px; padding: 8px 0;" class="bnone" colspan="10"></td>
@@ -473,25 +493,25 @@
                 </thead>
                 <tbody style="border-top: 0px; border-bottom: 0px" class="txtCenterMid bnone">
                     <tr class="bBotBold" style="border-top: 0px; border-bottom: 0px">
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtCenterBold bBotBold" width="5%">No.</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtLeftBold bBotBold" colspan="3" width="40%">Item Description</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px; white-space: nowrap;" class="txtRightBold bBotBold" width="10%">Qty</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtCenterBold bBotBold" width="2%"></td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtLeftBold bBotBold" width="8%">UoM</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtRightBold bBotBold" colspan="2" width="20%">Unit Price (IDR)</td>
-                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; padding: 8px 4px;" class="txtRightBold bBotBold" width="15%">Total (IDR)</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid" class="txtCenterBold bBotBold">No.</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid" class="txtLeftBold bBotBold" colspan="3">Item Description</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; white-space: nowrap;" class="txtRightBold bBotBold">Qty</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid" class="txtCenterBold bBotBold"></td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; white-space: nowrap;" class="txtLeftBold bBotBold"> UoM</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid; white-space: nowrap;" class="txtRightBold bBotBold" colspan="2">Unit Price (IDR)</td>
+                        <td style="border-top: 0px; border-bottom: 2px; border-bottom-style:solid" class="txtRightBold bBotBold">Total (IDR)</td>
                     </tr>
                     @php $counter = 1; @endphp
                     @foreach ($details as $item)
                         <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; vertical-align: middle;" class="txtCenterMid bnone">{{ $counter }}</td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; word-break: break-word; overflow-wrap: break-word; vertical-align: top;" class="txtLeftTop bnone" colspan="3">{{ $item['SubItemName'] ?? '-' }}</td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; white-space: nowrap; vertical-align: middle; text-align: right;" class="txtRightMid bnone">{{ $formatNumber($item['Quantity'] ?? 0) }}</td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone"></td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; vertical-align: middle;" class="txtLeftMid bnone">{{ $item['ItemUnit'] ?? '-' }}</td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px;" class="txtCenterTop bnone"></td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; white-space: nowrap; vertical-align: middle; text-align: right;" class="txtRightMid bnone">{{ $formatNumber($item['Price'] ?? 0) }}</td>
-                            <td style="border-top: 0px; border-bottom: 0px; padding: 8px 4px; white-space: nowrap; vertical-align: middle; text-align: right;" class="txtRightMid bnone">{{ $formatNumber($item['TotalAmount'] ?? 0) }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtCenterTop bnone">{{ $counter }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px; word-break: break-all; vertical-align: top;" class="txtLeftTop bnone" colspan="3">{{ $item['SubItemName'] ?? '-' }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtRightTop bnone">{{ $formatNumber($item['Quantity'] ?? 0) }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtCenterTop bnone"></td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtLeftTop bnone">{{ $item['ItemUnit'] ?? '-' }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtCenterTop bnone"></td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtRightTop bnone">{{ $formatNumber($item['Price'] ?? 0) }}</td>
+                            <td style="border-top: 0px; border-bottom: 0px;" class="txtRightTop bnone">{{ $formatNumber($item['TotalAmount'] ?? 0) }}</td>
                         </tr>
                         @php $counter++; @endphp
                     @endforeach
@@ -506,8 +526,9 @@
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtCenterTopBold bnone">1.</td>
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTopBold bnone" colspan="3"><span>Total Harga Di Atas Belum <br />Termasuk Pajak Pertambahan Nilai</span></td>
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="bnone"></td>
-                                    <td style="border-top: 2px; border-top-style: solid; border-bottom: 0px; padding: 6px 4px; white-space: nowrap;" class="txtLeftTopBold bTopBold">Grand Total*:</td>
-                                    <td style="border-top: 2px; border-top-style: solid; border-bottom: 0px; padding: 6px 4px; white-space: nowrap; text-align: right;" class="txtRightMid bTopBold" colspan="3">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
+                                    <td style="border-top: 2px; border-top-style: solid; border-bottom: 0px;" class="txtLeftTopBold bnone">Grand Total*</td>
+                                    <td style="border-top: 2px; border-top-style: solid; border-bottom: 0px;" class="txtLeftTopBold bnone">:</td>
+                                    <td style="border-top: 2px; border-top-style: solid; border-bottom: 0px;" class="txtRightTop bnone" colspan="2">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
                                 </tr>
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTop bnone"></td>
@@ -520,9 +541,9 @@
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="bnone"></td>
                                 </tr>
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
-                                    <td style="border-top: 0px; border-bottom: 0px; text-decoration:underline; padding: 6px 4px;" class="txtLeftTopBoldUnderline bnone" colspan="5">Term of Payment :</td>
-                                    <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="bnone"></td>
-                                    <td style="border-top: 0px; border-bottom: 0px; text-decoration:underline; padding: 6px 4px;" class="txtLeftTopBoldUnderline bnone" colspan="4">Says/Terbilang :</td>
+                                    <td style="border-top: 0px; border-bottom: 0px; text-decoration:underline" class="txtLeftTopBoldUnderline bnone" colspan="5">Term of Payment :</td>
+                                    <td style="border-top: 0px; border-bottom: 0px" class="bnone"></td>
+                                    <td style="border-top: 0px; border-bottom: 0px; text-decoration:underline" class="txtLeftTopBoldUnderline bnone" colspan="4">Says/Terbilang :</td>
                                 </tr>
                                 <tr style="border-top: 0px; border-bottom: 0px" class="bnone">
                                     <td style="border-top: 0px; border-bottom: 0px; padding: 6px 4px;" class="txtLeftTop bnone" colspan="5">{{ $header['TOPRemarks'] ?? '-' }}</td>
@@ -536,6 +557,10 @@
                                     <td style="border-top: 0px; border-bottom: 0px" class="bnone" width="28%"></td>
                                     <td style="border-top: 0px; border-bottom: 0px" class="bnone" width="9%"></td>
                                     <td style="border-top: 0px; border-bottom: 0px" class="bnone" width="1%"></td>
+                                    <td style="border-top: 0px; border-bottom: 0px" class="bTopBold" width="16%"></td>
+                                    <td style="border-top: 0px; border-bottom: 0px" class="bTopBold" width="1%"></td>
+                                    <td style="border-top: 0px; border-bottom: 0px" class="bTopBold" width="15%"></td>
+                                    <td style="border-top: 0px; border-bottom: 0px" class="bTopBold" width="18%"></td>
                                 </tr>
                             </table>
                         </td>
