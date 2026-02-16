@@ -35,7 +35,8 @@ class CancelPeriodView {
             }
 
             this.currentPO = po;
-            
+            this.viewPOAdditional = null;
+
             // Load PurchaseTypes and PurchaseSubTypes for formatting (same as POListView)
             await this.loadPurchaseTypesForFormatting();
             
@@ -52,23 +53,33 @@ class CancelPeriodView {
             
             // Load item list
             await this.loadItemList(poNumber);
-            
-            // Check if has Period of Payment
+
+            // Load PR Additional for Additional Information section (when prNumber exists)
             const prNumber = po.prNumber || po.PRNumber || po.trxPROPurchaseRequestNumber || po.TrxPROPurchaseRequestNumber || '';
-            let hasPeriodPayment = false;
-            if (prNumber) {
-                hasPeriodPayment = await this.checkAndLoadPeriodOfPayment(prNumber, po);
+            if (prNumber && this.manager && this.manager.apiModule) {
+                const prAdditional = await this.manager.apiModule.getPRAdditional(prNumber);
+                this.viewPOAdditional = prAdditional || null;
             }
-            
-            // Show/hide Term or Period of Payment sections
-            if (hasPeriodPayment) {
+
+            // Tampil Term Of Payment vs Period Of Payment berdasarkan response getAmortizations (bukan PR Additional)
+            const amortizationsData = (this.manager && this.manager.apiModule) ? await this.manager.apiModule.getAmortizations(poNumber) : null;
+            const periodList = amortizationsData?.periodOfPayment ?? [];
+            const termList = amortizationsData?.termOfPayment ?? [];
+            const hasPeriod = Array.isArray(periodList) && periodList.length > 0;
+            const hasTerm = Array.isArray(termList) && termList.length > 0;
+
+            if (hasPeriod) {
                 $('#cancelPeriodTermOfPaymentSection').hide();
                 $('#cancelPeriodPeriodOfPaymentSection').show();
+                await this.loadPeriodOfPaymentGrid(po);
             } else {
                 $('#cancelPeriodTermOfPaymentSection').show();
                 $('#cancelPeriodPeriodOfPaymentSection').hide();
                 await this.loadTermOfPaymentGrid(po);
             }
+
+            // Additional Information section (identik dengan Confirm PO: inject HTML by Type/SubType)
+            await this.buildAndShowAdditionalSection(po);
             
             // Hide loading and show data (same pattern as PRListView)
             this.showViewCancelPeriodData();
@@ -261,142 +272,203 @@ class CancelPeriodView {
     }
 
     /**
-     * Populate additional information (PR Additional) into view
+     * Build and show Additional Information section (identik dengan Confirm PO view).
+     * HTML disuntikkan berdasarkan Type ID & Sub Type ID; field = label + input disabled; data dari viewPOAdditional (trxPROPurchaseRequestAdditional).
      */
-    populateAdditionalInformation(prAdditional) {
-        try {
-            if (!prAdditional) {
-                $('#cancel-site-id').text('-');
-                $('#cancel-site-name').text('-');
-                $('#cancel-regional-id').text('-');
-                $('#cancel-regional-name').text('-');
-                $('#cancel-payment-top').text('-');
-                $('#cancel-status-invoice').text('-');
-                $('#cancelPeriodStartPeriod').text('-');
-                $('#cancelPeriodEndPeriod').text('-');
-                $('#cancelPeriodPeriodCount').text('-');
-                $('#cancel-is-generate').text('-');
-                $('#cancel-created-date').text('-');
-                $('#cancel-created-by').text('-');
-                $('#cancel-updated-date').text('-');
-                $('#cancel-updated-by').text('-');
-                $('#cancel-description').text('-');
-                $('#cancelPeriodBillingType').text('-');
-                $('#cancelPeriodTotalMonthPeriod').text('-');
-                $('#cancelPeriodAmortizationType').text('-');
-                return;
-            }
+    async buildAndShowAdditionalSection(po) {
+        const container = document.getElementById('cancel-period-additional-section-container');
+        if (!container) return;
 
-            const startPeriod = prAdditional.startPeriod || prAdditional.StartPeriod || '';
-            const endPeriod = prAdditional.endPeriod || prAdditional.EndPeriod || '';
-            const period = prAdditional.period || prAdditional.Period || '';
-            const billingTypeID = prAdditional.billingTypeID || prAdditional.BillingTypeID || '';
-            const amortizationType = prAdditional.amortizationType || prAdditional.AmortizationType || '';
-            // Basic mapping
-            $('#cancel-site-id').text(prAdditional.siteID || prAdditional.SiteID || prAdditional.mstSiteID || prAdditional.MstSiteID || '-');
-            $('#cancel-site-name').text(prAdditional.siteName || prAdditional.SiteName || prAdditional.mstSiteName || prAdditional.MstSiteName || '-');
-            $('#cancel-regional-id').text(prAdditional.regionalID || prAdditional.RegionalID || '-');
-            $('#cancel-regional-name').text(prAdditional.regionalName || prAdditional.RegionalName || '-');
-            $('#cancel-payment-top').text(prAdditional.topDescription || prAdditional.TOPDescription || prAdditional.paymentTOP || prAdditional.PaymentTOP || '-');
-            $('#cancel-status-invoice').text(prAdditional.statusInvoice || prAdditional.StatusInvoice || '-');
-
-            $('#cancelPeriodStartPeriod').text(startPeriod ? this.formatDate(startPeriod) : '-');
-            $('#cancelPeriodEndPeriod').text(endPeriod ? this.formatDate(endPeriod) : '-');
-            $('#cancelPeriodPeriodCount').text(period || '-');
-            $('#cancel-is-generate').text(prAdditional.isGenerate || prAdditional.IsGenerate ? 'Yes' : 'No');
-            $('#cancel-created-date').text(prAdditional.createdDate ? this.formatDate(prAdditional.createdDate) : (prAdditional.CreatedDate ? this.formatDate(prAdditional.CreatedDate) : '-'));
-            $('#cancel-created-by').text(prAdditional.createdBy || prAdditional.CreatedBy || '-');
-            $('#cancel-updated-date').text(prAdditional.updatedDate ? this.formatDate(prAdditional.updatedDate) : (prAdditional.UpdatedDate ? this.formatDate(prAdditional.UpdatedDate) : '-'));
-            $('#cancel-updated-by').text(prAdditional.updatedBy || prAdditional.UpdatedBy || '-');
-            $('#cancel-description').text(prAdditional.description || prAdditional.Description || '-');
-            $('#cancelPeriodAmortizationType').text(amortizationType || '-');
-
-            // Billing type name / total month period - try to fetch from API response if present
-            if (prAdditional.billingTypeName) {
-                $('#cancelPeriodBillingType').text(prAdditional.billingTypeName);
-            } else if (billingTypeID) {
-                // Attempt to load billing type name via API (best-effort; not blocking)
-                apiCall('Procurement', `/Procurement/Master/BillingTypes?isActive=true`, 'GET')
-                    .then(resp => {
-                        const list = Array.isArray(resp) ? resp : (resp.data || resp.Data || []);
-                        const bt = list.find(x => (x.id || x.ID) === billingTypeID);
-                        if (bt) {
-                            $('#cancelPeriodBillingType').text(bt.name || bt.Name || bt.billingTypeName || bt.BillingTypeName || '-');
-                            $('#cancelPeriodTotalMonthPeriod').text(bt.totalMonthPeriod || bt.TotalMonthPeriod || '-');
-                        } else {
-                            $('#cancelPeriodBillingType').text('-');
-                            $('#cancelPeriodTotalMonthPeriod').text('-');
-                        }
-                    })
-                    .catch(() => {
-                        $('#cancelPeriodBillingType').text('-');
-                        $('#cancelPeriodTotalMonthPeriod').text('-');
-                    });
-            } else {
-                $('#cancelPeriodBillingType').text('-');
-                $('#cancelPeriodTotalMonthPeriod').text('-');
-            }
-        } catch (e) {
-            console.error('Error populating additional information:', e);
+        if (!this.viewPOAdditional) {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            return;
         }
-    }
 
-    /**
-     * Check and load period of payment
-     * Uses the same logic as Invoice Create
-     */
-    async checkAndLoadPeriodOfPayment(prNumber, po) {
-        try {
-            if (!this.manager || !this.manager.apiModule) {
-                return false;
-            }
+        const additional = this.viewPOAdditional;
+        const purchType = po.purchType || po.PurchType || '';
+        const purchSubType = po.purchSubType || po.PurchSubType || '';
 
-            // Get PurchaseRequestAdditional by PRNumber (same as Invoice Create)
-            const prAdditional = await this.manager.apiModule.getPRAdditional(prNumber);
-            
-            if (!prAdditional) {
-                return false;
+        let typeId = null;
+        let subTypeId = null;
+
+        if (!this.allPurchaseTypes && purchType && this.manager && this.manager.apiModule) {
+            try {
+                this.allPurchaseTypes = await this.manager.apiModule.getPurchaseTypes();
+            } catch (e) {
+                console.error('Error loading purchase types:', e);
             }
-            
-            // Populate additional information section
-            this.populateAdditionalInformation(prAdditional);
-            
-            // Check if StartPeriod or EndPeriod exists (same as Invoice Create)
-            const startPeriod = prAdditional.startPeriod || prAdditional.StartPeriod;
-            const endPeriod = prAdditional.endPeriod || prAdditional.EndPeriod;
-            
-            if (!startPeriod && !endPeriod) {
-                return false;
-            }
-            
-            // Get Period and BillingTypeID
-            const period = prAdditional.period || prAdditional.Period || 0;
-            const billingTypeID = prAdditional.billingTypeID || prAdditional.BillingTypeID;
-            
-            if (!billingTypeID || period <= 0) {
-                return false;
-            }
-            
-            // Get BillingType to get TotalMonthPeriod (same as Invoice Create)
-            const billingTypesResponse = await apiCall('Procurement', '/Procurement/Master/BillingTypes?isActive=true', 'GET');
-            const billingTypes = Array.isArray(billingTypesResponse) ? billingTypesResponse : (billingTypesResponse.data || billingTypesResponse.Data || []);
-            const billingType = billingTypes.find(bt => (bt.id || bt.ID) === billingTypeID);
-            
-            if (!billingType) {
-                console.warn('BillingType not found for ID:', billingTypeID);
-                return false;
-            }
-            
-            const totalMonthPeriod = billingType.totalMonthPeriod || billingType.TotalMonthPeriod || 1;
-            
-            // Generate amortization and load Period of Payment grid (same as Invoice Create)
-            await this.loadPeriodOfPaymentGrid(startPeriod, endPeriod, period, totalMonthPeriod, po);
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to check Period of Payment:', error);
-            return false;
         }
+
+        if (this.allPurchaseTypes && purchType) {
+            let type = this.allPurchaseTypes.find(t => {
+                const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
+                const category = t.Category || t.category || '';
+                const formattedDisplay = category && typeValue !== category ? `${typeValue} ${category}` : typeValue;
+                return typeValue === purchType || formattedDisplay === purchType;
+            });
+            if (!type) {
+                const typeIdInt = parseInt(String(purchType).trim(), 10);
+                if (!isNaN(typeIdInt) && typeIdInt > 0) {
+                    type = this.allPurchaseTypes.find(t => parseInt(t.ID || t.id || '0', 10) === typeIdInt);
+                }
+            }
+            if (type) typeId = parseInt(type.ID || type.id || '0', 10);
+        }
+
+        if (typeId && purchSubType && this.manager && this.manager.apiModule) {
+            try {
+                const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
+                let subType = subTypes && subTypes.find(st => (st.PurchaseRequestSubType || st.purchaseRequestSubType) === purchSubType);
+                if (!subType) {
+                    const subTypeIdInt = parseInt(String(purchSubType).trim(), 10);
+                    if (!isNaN(subTypeIdInt) && subTypeIdInt > 0) {
+                        subType = subTypes && subTypes.find(st => parseInt(st.ID || st.id || '0', 10) === subTypeIdInt);
+                    }
+                }
+                if (subType) subTypeId = parseInt(subType.ID || subType.id || '0', 10);
+            } catch (e) {
+                console.error('Error loading purchase sub types:', e);
+            }
+        }
+
+        const shouldShowBillingTypeSection = typeId === 6 && subTypeId === 2;
+        const shouldShowSonumbSection =
+            (typeId === 8 && subTypeId === 4) ||
+            (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) ||
+            (typeId === 4 && subTypeId === 3) ||
+            (typeId === 3 && (subTypeId === 4 || subTypeId === 5));
+        const shouldShowSubscribeSection = typeId === 5 || typeId === 7;
+
+        if (!shouldShowBillingTypeSection && !shouldShowSonumbSection && !shouldShowSubscribeSection) {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            return;
+        }
+
+        const formatDate = (dateValue) => {
+            if (!dateValue || dateValue === '-') return '-';
+            try {
+                const date = new Date(dateValue);
+                if (isNaN(date.getTime())) return dateValue;
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch {
+                return dateValue;
+            }
+        };
+
+        let summaryHTML = `
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+                        <h6 class="card-title mb-0">Additional Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+        `;
+
+        if (shouldShowBillingTypeSection) {
+            const billingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
+            const startPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
+            const period = additional.period || additional.Period || '-';
+            const endPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Billing Type</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(billingTypeName)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(String(period))}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Start Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(startPeriod)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">End Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(endPeriod)}" disabled>
+                </div>
+            `;
+        } else if (shouldShowSonumbSection) {
+            const sonumb = additional.sonumb || additional.Sonumb || '-';
+            const siteName = additional.siteName || additional.SiteName || '-';
+            const siteID = additional.siteID || additional.SiteID || '-';
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Sonumb</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(sonumb)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site Name</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(siteName)}" disabled>
+                </div>
+                ${siteID && siteID !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site ID</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(siteID)}" disabled>
+                </div>
+                ` : ''}
+            `;
+        } else if (shouldShowSubscribeSection) {
+            const subscribeSonumb = additional.sonumb || additional.Sonumb || '-';
+            const subscribeSiteName = additional.siteName || additional.SiteName || '-';
+            const subscribeSiteID = additional.siteID || additional.SiteID || '-';
+            const subscribeBillingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
+            const subscribeStartPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
+            const subscribePeriod = additional.period || additional.Period || '-';
+            const subscribeEndPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Sonumb</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSonumb)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site Name</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSiteName)}" disabled>
+                </div>
+                ${subscribeSiteID && subscribeSiteID !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site ID</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSiteID)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeBillingTypeName && subscribeBillingTypeName !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Billing Type</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeBillingTypeName)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeStartPeriod && subscribeStartPeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Start Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeStartPeriod)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribePeriod && subscribePeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(String(subscribePeriod))}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeEndPeriod && subscribeEndPeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">End Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeEndPeriod)}" disabled>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        summaryHTML += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = summaryHTML;
+        container.style.display = 'block';
     }
 
     /**
@@ -477,9 +549,9 @@ class CancelPeriodView {
     }
 
     /**
-     * Load period of payment grid from database amortization table
+     * Load period of payment grid from amortization API (data.periodOfPayment)
      */
-    async loadPeriodOfPaymentGrid(startPeriod, endPeriod, period, totalMonthPeriod, po) {
+    async loadPeriodOfPaymentGrid(po) {
         try {
             const tbody = document.getElementById('cancelPeriodPeriodOfPaymentBody');
             tbody.innerHTML = '';
@@ -970,7 +1042,14 @@ class CancelPeriodView {
         // Hide view section and show list section (same pattern as ConfirmPO/ApprovalPO)
         this.showListSection();
         this.currentPO = null;
-        
+        this.viewPOAdditional = null;
+
+        const additionalContainer = document.getElementById('cancel-period-additional-section-container');
+        if (additionalContainer) {
+            additionalContainer.innerHTML = '';
+            additionalContainer.style.display = 'none';
+        }
+
         // Clear all fields
         $('#cancelPeriodPurchOrderID').val('');
         $('#cancelPeriodPurchOrderName').val('');
@@ -997,14 +1076,6 @@ class CancelPeriodView {
         $('#cancelPeriodAccountNumber').val('');
         $('#cancelPeriodCurrency').val('');
         $('#cancelPeriodVendorStatus').val('');
-        
-        // Clear additional information fields
-        $('#cancelPeriodStartPeriod').text('');
-        $('#cancelPeriodEndPeriod').text('');
-        $('#cancelPeriodPeriodCount').text('');
-        $('#cancelPeriodBillingType').text('');
-        $('#cancelPeriodTotalMonthPeriod').text('');
-        $('#cancelPeriodAmortizationType').text('');
 
         // Clear tables
         document.getElementById('cancelPeriodItemListBody').innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No PO selected</td></tr>';
