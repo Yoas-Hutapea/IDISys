@@ -51,6 +51,22 @@ class PurchaseOrderController extends Controller
             return response('Purchase Order not found', 404);
         }
 
+        $poNumber = trim((string) ($po->PurchaseOrderNumber ?? ''));
+
+        // Jika format=pdf atau download=1: return PDF dengan Content-Disposition attachment agar langsung terdownload
+        if ($request->query('format') === 'pdf' || $request->query('download') === '1') {
+            $pdfContent = $this->generatePODocumentPdfContent($poNumber);
+            if ($pdfContent === null || $pdfContent === '') {
+                return response('Failed to generate PDF', 500);
+            }
+            $filename = 'PO-' . preg_replace('/[^a-zA-Z0-9\-_]/', '_', $poNumber) . '.pdf';
+            return response($pdfContent, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Length'      => (string) strlen($pdfContent),
+            ]);
+        }
+
         $data = $this->buildPODocumentViewData($po, $paramEncrypted);
         return view('procurement.purchase_order.document.PODocument', $data);
     }

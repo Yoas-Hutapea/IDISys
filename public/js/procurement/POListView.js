@@ -1305,21 +1305,48 @@ class POListView {
     }
 
     /**
-     * Print PO document
+     * Print/Preview PO document - tampilkan di modal iframe (sama seperti preview document di Confirm PO)
      */
     printPODocument(poNumber, poId) {
         try {
-            // Encode parameters
             const params = {
                 ID: poId,
                 PurchOrderID: poNumber
             };
             const paramEncrypted = btoa(JSON.stringify(params));
-            
-            // Open document in new window
-            // Route: Procurement/PurchaseOrder/Document/DownloadDocument (based on SubAreaRouteConvention)
-            const url = `/Procurement/PurchaseOrder/Document/DownloadDocument?paramEncrypted=${encodeURIComponent(paramEncrypted)}`;
-            window.open(url, '_blank');
+            const previewUrl = `/Procurement/PurchaseOrder/Document/DownloadDocument?paramEncrypted=${encodeURIComponent(paramEncrypted)}`;
+
+            if (typeof window.__currentPODocumentPreview === 'undefined') {
+                window.__currentPODocumentPreview = { poNumber: '', downloadUrl: null };
+            }
+            window.__currentPODocumentPreview.poNumber = poNumber || 'PO Document';
+            window.__currentPODocumentPreview.downloadUrl = previewUrl;
+
+            const filenameEl = document.getElementById('documentPreviewFilename');
+            const frame = document.getElementById('documentPreviewFrame');
+            const modalEl = document.getElementById('documentPreviewModal');
+
+            if (filenameEl) filenameEl.textContent = 'Purchase Order - ' + (poNumber || '');
+            if (frame) frame.src = previewUrl;
+
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                try {
+                    if (modalEl.parentNode !== document.body) {
+                        document.body.appendChild(modalEl);
+                    }
+                    if (!modalEl.hasAttribute('data-po-doc-cleanup')) {
+                        modalEl.setAttribute('data-po-doc-cleanup', '1');
+                        modalEl.addEventListener('hidden.bs.modal', function () {
+                            const f = document.getElementById('documentPreviewFrame');
+                            if (f) f.removeAttribute('src');
+                        });
+                    }
+                } catch (e) {}
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modalInstance.show();
+            } else {
+                window.open(previewUrl, '_blank');
+            }
         } catch (error) {
             console.error('Error printing PO document:', error);
             this.showError('Failed to open PO document: ' + error.message);
@@ -1348,5 +1375,26 @@ class POListView {
 // Make available globally
 if (typeof window !== 'undefined') {
     window.POListView = POListView;
+    window.downloadPODocumentFromModal = function () {
+        try {
+            const info = window.__currentPODocumentPreview;
+            if (!info || !info.downloadUrl) {
+                alert('No document selected');
+                return;
+            }
+            var downloadUrl = info.downloadUrl;
+            downloadUrl += (downloadUrl.indexOf('?') >= 0 ? '&' : '?') + 'format=pdf';
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = (info.poNumber ? 'PO-' + info.poNumber + '.pdf' : 'PO-Document.pdf');
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            console.error('Download PO document failed:', e);
+            alert('Download failed');
+        }
+    };
 }
 
