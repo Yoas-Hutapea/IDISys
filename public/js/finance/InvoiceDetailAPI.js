@@ -70,7 +70,8 @@ class InvoiceDetailAPI {
         
         return await this.getCachedData(cacheKey, async () => {
             const response = await apiCall('Procurement', `/Finance/Invoice/Invoices/${invoiceId}`, 'GET');
-            return response.data || response;
+            const data = response?.data ?? response?.Data ?? response?.result ?? response;
+            return data && typeof data === 'object' ? data : response;
         });
     }
 
@@ -82,7 +83,8 @@ class InvoiceDetailAPI {
         
         return await this.getCachedData(cacheKey, async () => {
             const response = await apiCall('Procurement', `/Finance/Invoice/Invoices/${invoiceId}/Items`, 'GET');
-            return Array.isArray(response) ? response : (response.data || response.Data || []);
+            const arr = Array.isArray(response) ? response : (response?.data ?? response?.Data ?? []);
+            return Array.isArray(arr) ? arr : [];
         });
     }
 
@@ -126,7 +128,40 @@ class InvoiceDetailAPI {
         return await this.getCachedData(cacheKey, async () => {
             const encodedPONumber = encodeURIComponent(poNumber);
             const response = await apiCall('Procurement', `/Procurement/PurchaseOrder/PurchaseOrders/${encodedPONumber}`, 'GET');
-            return response.data || response;
+            const data = response?.data ?? response?.Data ?? response;
+            return data && typeof data === 'object' ? data : response;
+        });
+    }
+
+    /**
+     * Get GRN items for a PO (from trxInventoryGoodReceiveNote) for View Invoice item list
+     */
+    async getGRNItemsForInvoice(poNumber) {
+        const cacheKey = `grnItemsForInvoice_${poNumber}`;
+        return await this.getCachedData(cacheKey, async () => {
+            const encoded = encodeURIComponent(poNumber);
+            const response = await apiCall('Inventory', `/Inventory/GoodReceiveNotes/ItemsForInvoice/${encoded}`, 'GET');
+            const arr = response?.data ?? response?.Data ?? response;
+            return Array.isArray(arr) ? arr : [];
+        });
+    }
+
+    /**
+     * Get amortization rows (Term & Period) for a PO from trxPROPurchaseOrderAmortization (for status)
+     */
+    async getAmortizations(poNumber) {
+        const cacheKey = `amortizations_${poNumber}`;
+        return await this.getCachedData(cacheKey, async () => {
+            const encoded = encodeURIComponent(poNumber);
+            const response = await apiCall('Procurement', `/Procurement/PurchaseOrder/CancelPeriod/${encoded}/Amortizations`, 'GET');
+            const data = response?.data ?? response?.Data ?? response;
+            if (!data || typeof data !== 'object') {
+                return { termOfPayment: [], periodOfPayment: [] };
+            }
+            return {
+                termOfPayment: Array.isArray(data.termOfPayment) ? data.termOfPayment : [],
+                periodOfPayment: Array.isArray(data.periodOfPayment) ? data.periodOfPayment : []
+            };
         });
     }
 

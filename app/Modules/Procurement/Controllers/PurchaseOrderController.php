@@ -392,6 +392,8 @@ class PurchaseOrderController extends Controller
             'ContractNumber' => $contractNumber,
             'contractPeriod' => $contractPeriod,
             'ContractPeriod' => $contractPeriod,
+            'top' => $assignVendor ? ($assignVendor->SeqTOP ?? null) : null,
+            'TOP' => $assignVendor ? ($assignVendor->SeqTOP ?? null) : null,
             'topDescription' => $topDescription,
             'TOPDescription' => $topDescription,
             'descriptionVendor' => $descriptionVendor,

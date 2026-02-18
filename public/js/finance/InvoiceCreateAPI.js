@@ -112,6 +112,26 @@ class InvoiceCreateAPI {
     }
 
     /**
+     * Get GRN items for Invoice (actual received) by PO Number.
+     * Returns items from trxInventoryGoodReceiveNote so invoice can bill what was received.
+     * Returns [] if no GRN data or API error (then use getPOItems as fallback).
+     */
+    async getGRNItemsForInvoice(poNumber) {
+        if (!poNumber) return [];
+        const cacheKey = `grnItemsForInvoice_${poNumber}`;
+        try {
+            return await this.getCachedData(cacheKey, async () => {
+                const encoded = encodeURIComponent(poNumber);
+                const response = await apiCall('Inventory', `/Inventory/GoodReceiveNotes/ItemsForInvoice/${encoded}`, 'GET');
+                const data = response?.data ?? response;
+                return Array.isArray(data) ? data : [];
+            });
+        } catch (e) {
+            return [];
+        }
+    }
+
+    /**
      * Get Tax list
      */
     async getTaxList() {

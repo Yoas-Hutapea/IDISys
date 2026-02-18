@@ -137,6 +137,21 @@
             </ul>
         </li>
 
+        <!-- Inventory -->
+        <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-group"></i>
+                <div data-i18n="Inventory">Inventory</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item">
+                    <a href="/Inventory/GoodReceiveNotes/List" class="menu-link">
+                        <div data-i18n="Good Receive Notes">Good Receive Notes</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
         <!-- Vendor Management -->
         <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">

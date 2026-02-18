@@ -1,22 +1,43 @@
-{{-- List Partial for Purchase Order List --}}
+{{-- List Partial for Purchase Order List - thead & tbody rata tengah (sama seperti Approval PO) --}}
 <div class="list-partial-content">
     <div class="table-responsive">
         <style>
-            .list-partial-content .table {
+            /* Table layout - main table dan DataTables scroll clone */
+            .list-partial-content #poTable,
+            .list-partial-content .dataTables_scrollHead #poTable,
+            .list-partial-content .dataTables_scrollBody #poTable {
                 table-layout: auto;
                 width: auto;
                 min-width: 100%;
             }
-            .list-partial-content .table th,
-            .list-partial-content .table td {
+            /* Rata tengah: thead & tbody */
+            .list-partial-content #poTable th,
+            .list-partial-content #poTable td,
+            .list-partial-content .dataTables_scrollHead #poTable th,
+            .list-partial-content .dataTables_scrollBody #poTable th,
+            .list-partial-content .dataTables_scrollBody #poTable td {
                 white-space: nowrap;
-                vertical-align: middle;
-                text-align: center;
+                vertical-align: middle !important;
+                text-align: center !important;
             }
-            .list-partial-content .table th:nth-child(1) { width: 120px; }
-            .list-partial-content .table th:nth-child(7),
-            .list-partial-content .table td:nth-child(7) { text-align: right; }
-            .list-partial-content .table td .employee-name {
+            /* Kolom 1 (Action) */
+            .list-partial-content #poTable th:nth-child(1),
+            .list-partial-content #poTable td:nth-child(1),
+            .list-partial-content .dataTables_scrollHead #poTable th:nth-child(1),
+            .list-partial-content .dataTables_scrollBody #poTable td:nth-child(1) {
+                width: 120px;
+                min-width: 120px;
+                text-align: center !important;
+            }
+            /* Kolom 7 (PO Amount) - rata kanan */
+            .list-partial-content #poTable th:nth-child(7),
+            .list-partial-content #poTable td:nth-child(7),
+            .list-partial-content .dataTables_scrollHead #poTable th:nth-child(7),
+            .list-partial-content .dataTables_scrollBody #poTable td:nth-child(7) {
+                text-align: right !important;
+            }
+            .list-partial-content #poTable td .employee-name,
+            .list-partial-content .dataTables_scrollBody #poTable td .employee-name {
                 display: inline-block;
                 width: 160px;
                 max-width: 30vw;
@@ -26,7 +47,7 @@
                 margin: 0 auto;
             }
         </style>
-        <table class="table table-striped table-hover" id="poTable">
+        <table class="table table-striped table-hover list-partial-table" id="poTable">
             <thead class="table-light dark:table-dark">
                 <tr>
                     <th width="120">Action</th>
@@ -45,7 +66,7 @@
             </thead>
             <tbody id="poTableBody">
                 <tr>
-                    <td colspan="12" class="text-center py-4">
+                    <td colspan="12" class="text-center py-4 align-middle">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>

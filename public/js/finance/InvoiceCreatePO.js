@@ -9,6 +9,7 @@ class InvoiceCreatePO {
         this.choosePOTable = null;
         this.selectedPO = null;
         this.poDetailItems = [];
+        this.itemsSource = 'po'; // 'grn' = from Good Receive Notes (actual received), 'po' = from PO items
         this.purchaseRequestAdditional = null;
         this.currentTermValue = null;
 
@@ -178,8 +179,9 @@ class InvoiceCreatePO {
             const prNumber = poData.prNumber || poData.PRNumber || poData.trxPROPurchaseRequestNumber || poData.TrxPROPurchaseRequestNumber || '';
             const vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID;
 
-            // PHASE 2: Load critical data in parallel (PO Items, Vendor, Master Data)
+            // PHASE 2: Load critical data in parallel (GRN items for invoice, PO Items fallback, Vendor, Master Data)
             const [
+                grnItemsResult,
                 poItemsResult,
                 vendorResult,
                 purchaseTypesResult,
@@ -187,7 +189,9 @@ class InvoiceCreatePO {
                 billingTypesResult,
                 existingInvoicesResult
             ] = await Promise.allSettled([
-                // Load PO Items (critical for table)
+                // Prefer GRN items (actual received) so we bill what was received
+                this.manager.apiModule.getGRNItemsForInvoice ? this.manager.apiModule.getGRNItemsForInvoice(poNumber) : Promise.resolve([]),
+                // PO Items (fallback when no GRN data)
                 this.manager.apiModule.getPOItems(poNumber),
                 // Load Vendor Information (if vendorID exists)
                 vendorID ? this.manager.apiModule.getVendorDetails(vendorID).catch(() => null) : Promise.resolve(null),
@@ -201,12 +205,14 @@ class InvoiceCreatePO {
                 this.manager.apiModule.getExistingInvoices(poNumber)
             ]);
 
-            // Process PO Items result
-            if (poItemsResult.status === 'fulfilled') {
-                this.poDetailItems = poItemsResult.value || [];
-                // Store existing invoices for use in loadPODetail
+            // Use GRN items (actual received) when available, else PO items
+            const grnItems = grnItemsResult.status === 'fulfilled' && grnItemsResult.value && grnItemsResult.value.length > 0 ? grnItemsResult.value : [];
+            const poItems = poItemsResult.status === 'fulfilled' ? (poItemsResult.value || []) : [];
+            this.poDetailItems = grnItems.length > 0 ? grnItems : poItems;
+            this.itemsSource = grnItems.length > 0 ? 'grn' : 'po';
+
+            if (this.poDetailItems.length > 0 || grnItemsResult.status === 'fulfilled' || poItemsResult.status === 'fulfilled') {
                 const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
-                // Populate PO Items table (pass existing invoices to avoid duplicate API call)
                 this.loadPODetailOptimized(poNumber, existingInvoices).catch(err => console.error('Error loading PO detail:', err));
             }
 
@@ -1063,6 +1069,9 @@ class InvoiceCreatePO {
 
             if (this.poDetailItems.length > 0) {
                 const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+                const isGRNSource = this.itemsSource === 'grn';
+                const qtyHeader = document.querySelector('#tblPODetail thead th:nth-child(5)');
+                if (qtyHeader) qtyHeader.textContent = isGRNSource ? 'Qty Received' : 'Qty PO';
 
                 // Get term value for calculation (only if not period payment)
                 if (!this.purchaseRequestAdditional) {
@@ -1147,6 +1156,8 @@ class InvoiceCreatePO {
                 }
             } else {
                 tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
+                const qtyHeaderReset = document.querySelector('#tblPODetail thead th:nth-child(5)');
+                if (qtyHeaderReset) qtyHeaderReset.textContent = 'Qty PO';
             }
         } catch (error) {
             console.error('Failed to load PO detail:', error);

@@ -15,6 +15,8 @@ class InvoiceDetailManager {
         this.vendorData = null;
         this.poItems = [];
         this.invoiceItems = [];
+        this.grnItems = [];
+        this.amortizations = null;
         this.invoiceDocuments = [];
         this.invoiceDetailsByPO = [];
         this.prAdditional = null;
@@ -36,9 +38,10 @@ class InvoiceDetailManager {
     async init(invoiceId, options = {}) {
         this.invoiceId = invoiceId;
         
-        // Get element IDs from options or use defaults
+        // Get element IDs from options or use defaults (used to scope population to View Invoice section)
         const loadingElementId = options.loadingElementId || 'loadingSection';
         const dataElementId = options.dataElementId || 'dataSection';
+        this.dataElementId = dataElementId;
         
         if (!this.invoiceId) {
             this.showError('Invoice ID is required');
@@ -50,14 +53,15 @@ class InvoiceDetailManager {
             await this.loadMasterDataParallel();
 
             // Step 2: Load invoice detail first (we need this to get PO number)
-            this.invoice = await this.apiModule.getInvoiceDetails(this.invoiceId);
+            const rawInvoice = await this.apiModule.getInvoiceDetails(this.invoiceId);
+            this.invoice = rawInvoice && typeof rawInvoice === 'object' ? rawInvoice : null;
             
             if (!this.invoice) {
                 this.showError('Invoice not found');
                 return;
             }
 
-            const purchOrderID = this.invoice.purchOrderID || this.invoice.PurchOrderID || '';
+            const purchOrderID = String(this.getProp(this.invoice, 'purchOrderID', 'PurchOrderID', 'PurchaseOrderNumber', 'trxPROPurchaseOrderNumber') || '').trim();
 
             // Step 3: Load all dependent data in parallel (after we have invoice and PO number)
             await this.loadDependentDataParallel(purchOrderID);
@@ -137,6 +141,8 @@ class InvoiceDetailManager {
             promises.push(this.apiModule.getPODetails(purchOrderID));
             promises.push(this.apiModule.getPOItems(purchOrderID));
             promises.push(this.apiModule.getInvoiceDetailsByPO(purchOrderID));
+            promises.push(this.apiModule.getGRNItemsForInvoice(purchOrderID));
+            promises.push(this.apiModule.getAmortizations(purchOrderID));
         }
 
         // Execute all in parallel
@@ -157,35 +163,50 @@ class InvoiceDetailManager {
         }
         resultIndex++;
 
-        // PO Details
+        // PO Details (normalize: API may return { data: po } or raw row)
         if (purchOrderID && results[resultIndex].status === 'fulfilled') {
-            this.poData = results[resultIndex].value || null;
+            const raw = results[resultIndex].value;
+            this.poData = raw && typeof raw === 'object' ? (raw.data ?? raw.Data ?? raw) : null;
         }
         resultIndex++;
 
-        // PO Items
+        // PO Items (ensure array)
         if (purchOrderID && results[resultIndex].status === 'fulfilled') {
-            this.poItems = results[resultIndex].value || [];
+            const raw = results[resultIndex].value;
+            this.poItems = Array.isArray(raw) ? raw : (raw?.data ?? raw?.Data ?? []) || [];
         }
         resultIndex++;
 
         // Invoice Details By PO
         if (purchOrderID && results[resultIndex].status === 'fulfilled') {
-            this.invoiceDetailsByPO = results[resultIndex].value || [];
+            const raw = results[resultIndex].value;
+            this.invoiceDetailsByPO = Array.isArray(raw) ? raw : (raw?.data ?? raw?.Data ?? []) || [];
+        }
+        resultIndex++;
+
+        // GRN items for PO (trxInventoryGoodReceiveNote)
+        if (purchOrderID && results[resultIndex].status === 'fulfilled') {
+            const raw = results[resultIndex].value;
+            this.grnItems = Array.isArray(raw) ? raw : [];
+        }
+        resultIndex++;
+
+        // Amortizations (trxPROPurchaseOrderAmortization - for Term/Period status)
+        if (purchOrderID && results[resultIndex].status === 'fulfilled') {
+            const raw = results[resultIndex].value;
+            this.amortizations = raw && typeof raw === 'object' ? raw : null;
         }
 
         // Now load PR Additional and Vendor Details in parallel (after we have PO data)
         const secondaryPromises = [];
         
-        // Get PR number from PO data
         if (this.poData) {
-            const prNumber = this.poData.prNumber || this.poData.PRNumber || this.poData.trxPROPurchaseRequestNumber || this.poData.TrxPROPurchaseRequestNumber || '';
+            const prNumber = this.getProp(this.poData, 'prNumber', 'PRNumber', 'trxPROPurchaseRequestNumber', 'TrxPROPurchaseRequestNumber', 'PurchaseRequestNumber');
             if (prNumber) {
                 secondaryPromises.push(this.apiModule.getPRAdditional(prNumber));
             }
             
-            // Load vendor details
-            const vendorID = this.poData.mstVendorVendorID || this.poData.MstVendorVendorID;
+            const vendorID = this.getProp(this.poData, 'mstVendorVendorID', 'MstVendorVendorID', 'VendorID', 'vendorID', 'VendorId');
             if (vendorID) {
                 secondaryPromises.push(this.loadVendorDetailsOptimized(vendorID));
             }
@@ -230,23 +251,43 @@ class InvoiceDetailManager {
     }
 
     /**
+     * Get the container element for View/Detail section (so we only touch elements inside it)
+     */
+    getDataContainer() {
+        const id = this.dataElementId || 'dataSection';
+        return document.getElementById(id) || document.body;
+    }
+
+    /**
+     * Get first defined value from object with multiple possible keys (supports DB column names)
+     */
+    getProp(obj, ...keys) {
+        if (!obj || typeof obj !== 'object') return '';
+        for (const k of keys) {
+            const v = obj[k];
+            if (v !== undefined && v !== null && v !== '') return v;
+        }
+        return '';
+    }
+
+    /**
      * Populate all UI sections
      */
     async populateAllSections() {
         // Populate Invoice Information
         this.populateInvoiceInformation();
 
-        // Populate PO Information
+        // Populate PO Information (always: at least PO number from invoice; full section when poData exists)
+        this.populatePOInformation();
+
+        // Populate Vendor Information
+        if (this.vendorData) {
+            this.populateVendorInformation();
+        }
+
+        // Term / Period of Payment sections
         if (this.poData) {
-            this.populatePOInformation();
-
-            // Populate Vendor Information
-            if (this.vendorData) {
-                this.populateVendorInformation();
-            }
-
-            // Check and load Period of Payment or Term of Payment
-            const prNumber = this.poData.prNumber || this.poData.PRNumber || '';
+            const prNumber = this.getProp(this.poData, 'prNumber', 'PRNumber', 'trxPROPurchaseRequestNumber', 'TrxPROPurchaseRequestNumber');
             if (prNumber && this.prAdditional) {
                 const hasPeriodPayment = this.checkAndLoadPeriodOfPayment();
                 if (hasPeriodPayment) {
@@ -257,6 +298,8 @@ class InvoiceDetailManager {
             } else {
                 this.populateTermOfPayment();
             }
+        } else {
+            this.populateTermOfPayment();
         }
 
         // Populate Invoice Items
@@ -273,21 +316,23 @@ class InvoiceDetailManager {
         const invoice = this.invoice;
         if (!invoice) return;
 
-        const invoiceNumber = invoice.invoiceNumber || invoice.InvoiceNumber || '';
-        const purchOrderID = invoice.purchOrderID || invoice.PurchOrderID || '';
+        const container = this.getDataContainer();
+        const $scope = typeof $ !== 'undefined' ? $(container) : null;
+
+        const invoiceNumber = this.getProp(invoice, 'invoiceNumber', 'InvoiceNumber', 'InvoiceNo');
+        const purchOrderID = this.getProp(invoice, 'purchOrderID', 'PurchOrderID', 'PurchaseOrderNumber', 'trxPROPurchaseOrderNumber');
         
-        // Get term position text from invoiceDetailsByPO
         let termPositionText = '';
         if (invoiceNumber && purchOrderID && this.invoiceDetailsByPO.length > 0) {
             const matchingInvoices = this.invoiceDetailsByPO.filter(inv => {
-                const invNumber = inv.invoiceNumber || inv.InvoiceNumber || '';
-                return invNumber && invNumber.trim() === invoiceNumber.trim();
+                const invNumber = this.getProp(inv, 'invoiceNumber', 'InvoiceNumber');
+                return invNumber && String(invNumber).trim() === String(invoiceNumber).trim();
             });
             
             if (matchingInvoices.length > 0) {
                 const periodNumbers = [];
                 matchingInvoices.forEach(inv => {
-                    const termPos = inv.termPosition || inv.TermPosition || 0;
+                    const termPos = parseInt(this.getProp(inv, 'termPosition', 'TermPosition'), 10) || 0;
                     if (termPos > 0 && !periodNumbers.includes(termPos)) {
                         periodNumbers.push(termPos);
                     }
@@ -301,85 +346,86 @@ class InvoiceDetailManager {
         }
         
         if (!termPositionText) {
-            const singleTermPos = invoice.termPosition || invoice.TermPosition || 0;
+            const singleTermPos = parseInt(this.getProp(invoice, 'termPosition', 'TermPosition'), 10) || 0;
             if (singleTermPos > 0) {
                 termPositionText = `Period ${singleTermPos}`;
             }
         }
 
-        $('#detailTermPosition').val(termPositionText);
-        $('#detailInvoiceNumber').val(invoiceNumber);
-        $('#detailInvoiceDate').val(this.formatDate(invoice.invoiceDate || invoice.InvoiceDate));
+        const setVal = (id, val) => {
+            if ($scope && $scope.length) $scope.find('#' + id).val(val);
+            else { const el = container.querySelector('#' + id); if (el) el.value = val; }
+        };
+        setVal('detailTermPosition', termPositionText);
+        setVal('detailInvoiceNumber', invoiceNumber);
+        setVal('detailInvoiceDate', this.formatDate(this.getProp(invoice, 'invoiceDate', 'InvoiceDate', 'CreatedDate')));
         
-        // Format Tax Code
-        const taxCodeId = invoice.taxCode || invoice.TaxCode || '';
-        const taxName = this.getTaxName(taxCodeId);
-        $('#detailTaxCode').val(taxName);
-        $('#detailTaxNumber').val(invoice.taxNumber || invoice.TaxNumber || '');
-        $('#detailTaxDate').val(this.formatDate(invoice.taxDate || invoice.TaxDate));
-        $('#detailPICName').val(invoice.picName || invoice.PICName || '');
-        $('#detailPICEmail').val(invoice.emailAddress || invoice.EmailAddress || '');
+        const taxCodeId = this.getProp(invoice, 'taxCode', 'TaxCode', 'mstTaxID');
+        setVal('detailTaxCode', this.getTaxName(taxCodeId));
+        setVal('detailTaxNumber', this.getProp(invoice, 'taxNumber', 'TaxNumber'));
+        setVal('detailTaxDate', this.formatDate(this.getProp(invoice, 'taxDate', 'TaxDate')));
+        setVal('detailPICName', this.getProp(invoice, 'picName', 'PICName', 'PicName'));
+        setVal('detailPICEmail', this.getProp(invoice, 'emailAddress', 'EmailAddress'));
         
-        // Invoice Amount Summary
-        $('#detailTermInvoice').val(invoice.termValue ? `${invoice.termValue}%` : '');
-        $('#detailInvoiceAmount').val(this.formatCurrency(invoice.invoiceAmount || invoice.InvoiceAmount || 0));
-        $('#detailDPPAmount').val(this.formatCurrency(invoice.dppAmount || invoice.DPPAmount || 0));
-        $('#detailTaxAmount').val(this.formatCurrency(invoice.taxAmount || invoice.TaxAmount || 0));
-        $('#detailTotalAmount').val(this.formatCurrency(invoice.totalAmount || invoice.TotalAmount || 0));
+        const termVal = this.getProp(invoice, 'termValue', 'TermValue');
+        setVal('detailTermInvoice', termVal ? `${termVal}%` : '');
+        setVal('detailInvoiceAmount', this.formatCurrency(this.getProp(invoice, 'invoiceAmount', 'InvoiceAmount') || 0));
+        setVal('detailDPPAmount', this.formatCurrency(this.getProp(invoice, 'dppAmount', 'DPPAmount') || 0));
+        setVal('detailTaxAmount', this.formatCurrency(this.getProp(invoice, 'taxAmount', 'TaxAmount') || 0));
+        setVal('detailTotalAmount', this.formatCurrency(this.getProp(invoice, 'totalAmount', 'TotalAmount') || 0));
     }
 
     /**
-     * Populate PO Information section
+     * Populate PO Information section (always run: at least PO number from invoice)
      */
     populatePOInformation() {
         const po = this.poData;
         const invoice = this.invoice;
-        if (!po) return;
+        if (!invoice) return;
 
-        const purchOrderID = invoice.purchOrderID || invoice.PurchOrderID || '';
-        
-        $('#detailPurchOrderID').val(purchOrderID);
-        $('#detailPurchOrderName').val(po.purchOrderName || po.PurchOrderName || '');
-        $('#detailPODate').val(this.formatDate(po.poDate || po.PODate));
-        $('#detailPOAmount').val(this.formatCurrency(po.poAmount || po.POAmount || 0));
-        
-        // Site field
-        const siteName = po.mstSiteName || po.MstSiteName || invoice.siteName || invoice.SiteName || '';
-        const siteID = po.mstSiteID || po.MstSiteID || invoice.siteID || invoice.SiteID || '';
-        const siteValue = siteName || siteID;
-        if (siteValue) {
-            $('#detailSiteFieldWrapper').show();
-            $('#detailSite').val(siteValue);
-        } else {
-            $('#detailSiteFieldWrapper').hide();
+        const container = this.getDataContainer();
+        const $scope = typeof $ !== 'undefined' ? $(container) : null;
+        const setVal = (id, val) => {
+            if ($scope && $scope.length) $scope.find('#' + id).val(val);
+            else { const el = container.querySelector('#' + id); if (el) el.value = val; }
+        };
+        const setVisible = (id, visible) => {
+            const el = container.querySelector('#' + id);
+            if (el) el.style.display = visible ? '' : 'none';
+        };
+
+        const purchOrderID = String(this.getProp(invoice, 'purchOrderID', 'PurchOrderID', 'PurchaseOrderNumber', 'trxPROPurchaseOrderNumber') || '').trim();
+        setVal('detailPurchOrderID', purchOrderID);
+
+        if (po) {
+            setVal('detailPurchOrderName', this.getProp(po, 'purchOrderName', 'PurchOrderName', 'PurchaseOrderName', 'trxPROPurchaseOrderName'));
+            setVal('detailPODate', this.formatDate(this.getProp(po, 'poDate', 'PODate', 'PurchaseOrderDate')));
+            setVal('detailPOAmount', this.formatCurrency(this.getProp(po, 'poAmount', 'POAmount', 'Amount') || 0));
+            
+            const siteName = this.getProp(po, 'mstSiteName', 'MstSiteName');
+            const siteID = this.getProp(po, 'mstSiteID', 'MstSiteID');
+            const siteFromInv = this.getProp(invoice, 'siteName', 'SiteName', 'siteID', 'SiteID');
+            const siteValue = siteName || siteID || siteFromInv;
+            setVisible('detailSiteFieldWrapper', !!siteValue);
+            if (siteValue) setVal('detailSite', siteValue);
+            
+            setVal('detailStatusPO', this.getProp(po, 'approvalStatus', 'ApprovalStatus', 'Status'));
+            setVal('detailPurchType', this.formatPurchaseType(this.getProp(po, 'purchType', 'PurchType', 'PurchaseType')));
+            setVal('detailPurchSubType', this.formatPurchaseSubType(this.getProp(po, 'purchSubType', 'PurchSubType', 'PurchaseSubType')));
+            setVal('detailTermOfPayment', this.getProp(po, 'topDescription', 'TOPDescription', 'TermOfPayment'));
+            setVal('detailCompany', this.getProp(po, 'companyName', 'CompanyName', 'Company'));
         }
+
+        const workType = this.getProp(invoice, 'workType', 'WorkType') || (po ? this.getProp(po, 'workType', 'WorkType') : '');
+        setVal('detailWorkType', workType);
         
-        $('#detailStatusPO').val(po.approvalStatus || po.ApprovalStatus || '');
-        const formattedPurchaseType = this.formatPurchaseType(po.purchType || po.PurchType || '');
-        const formattedPurchaseSubType = this.formatPurchaseSubType(po.purchSubType || po.PurchSubType || '');
-        $('#detailPurchType').val(formattedPurchaseType);
-        $('#detailPurchSubType').val(formattedPurchaseSubType);
-        $('#detailTermOfPayment').val(po.topDescription || po.TOPDescription || '');
-        $('#detailCompany').val(po.companyName || po.CompanyName || '');
+        const productTypeValue = this.getProp(invoice, 'product', 'Product', 'productType', 'ProductType') || (po ? this.getProp(po, 'productType', 'ProductType') : '');
+        setVisible('detailProductTypeFieldWrapper', !!productTypeValue);
+        if (productTypeValue) setVal('detailProductType', productTypeValue);
         
-        // Work Type, Product Type, Sonumb
-        $('#detailWorkType').val(invoice.workType || invoice.WorkType || po.workType || po.WorkType || '');
-        
-        const productTypeValue = invoice.product || invoice.Product || po.productType || po.ProductType || '';
-        if (productTypeValue) {
-            $('#detailProductTypeFieldWrapper').show();
-            $('#detailProductType').val(productTypeValue);
-        } else {
-            $('#detailProductTypeFieldWrapper').hide();
-        }
-        
-        const sonumberValue = invoice.sonumber || invoice.SONumber || po.sonumber || po.SONumber || '';
-        if (sonumberValue) {
-            $('#detailSonumbFieldWrapper').show();
-            $('#detailSONumber').val(sonumberValue);
-        } else {
-            $('#detailSonumbFieldWrapper').hide();
-        }
+        const sonumberValue = this.getProp(invoice, 'sonumber', 'SONumber', 'SoNumber') || (po ? this.getProp(po, 'sonumber', 'SONumber') : '');
+        setVisible('detailSonumbFieldWrapper', !!sonumberValue);
+        if (sonumberValue) setVal('detailSONumber', sonumberValue);
     }
 
     /**
@@ -389,24 +435,29 @@ class InvoiceDetailManager {
         const vendor = this.vendorData;
         if (!vendor) return;
 
-        $('#detailVendorName').val(vendor.vendorName || vendor.VendorName || '');
-        $('#detailContactPerson').val(vendor.cp || vendor.CP || '');
-        $('#detailEmailAddress').val(vendor.cpEmail || vendor.CPEmail || vendor.emailCorresspondence || vendor.EmailCorresspondence || '');
-        $('#detailPhoneNumber').val(vendor.cpPhone || vendor.CPPhone || vendor.telephone || vendor.Telephone || '');
-        $('#detailNPWP').val(vendor.npwp || vendor.NPWP || '');
-        $('#detailBank').val(vendor.bankName || vendor.BankName || '');
-        $('#detailAccountName').val(vendor.recipientName || vendor.RecipientName || '');
-        $('#detailAccountNumber').val(vendor.bankAccount || vendor.BankAccount || '');
+        const container = this.getDataContainer();
+        const $scope = typeof $ !== 'undefined' ? $(container) : null;
+        const setVal = (id, val) => {
+            if ($scope && $scope.length) $scope.find('#' + id).val(val);
+            else { const el = container.querySelector('#' + id); if (el) el.value = val; }
+        };
+
+        setVal('detailVendorName', vendor.vendorName || vendor.VendorName || '');
+        setVal('detailContactPerson', vendor.cp || vendor.CP || '');
+        setVal('detailEmailAddress', vendor.cpEmail || vendor.CPEmail || vendor.emailCorresspondence || vendor.EmailCorresspondence || '');
+        setVal('detailPhoneNumber', vendor.cpPhone || vendor.CPPhone || vendor.telephone || vendor.Telephone || '');
+        setVal('detailNPWP', vendor.npwp || vendor.NPWP || '');
+        setVal('detailBank', vendor.bankName || vendor.BankName || '');
+        setVal('detailAccountName', vendor.recipientName || vendor.RecipientName || '');
+        setVal('detailAccountNumber', vendor.bankAccount || vendor.BankAccount || '');
         
-        // Currency from PO items
         if (this.poItems && this.poItems.length > 0) {
             const firstItem = this.poItems[0];
-            const currencyCode = firstItem.currencyCode || firstItem.CurrencyCode || '';
-            $('#detailCurrency').val(currencyCode);
+            setVal('detailCurrency', firstItem.currencyCode || firstItem.CurrencyCode || '');
         }
         
         const isActive = vendor.isActive !== undefined ? vendor.isActive : (vendor.IsActive !== undefined ? vendor.IsActive : false);
-        $('#detailVendorStatus').val(isActive ? 'Active' : 'Inactive');
+        setVal('detailVendorStatus', isActive ? 'Active' : 'Inactive');
     }
 
     /**
@@ -439,8 +490,11 @@ class InvoiceDetailManager {
         const invoice = this.invoice;
         if (!po || !this.prAdditional) return;
 
-        $('#detailTermOfPaymentSection').hide();
-        $('#detailPeriodOfPaymentSection').show();
+        const container = this.getDataContainer();
+        const termSection = container.querySelector('#detailTermOfPaymentSection');
+        const periodSection = container.querySelector('#detailPeriodOfPaymentSection');
+        if (termSection) termSection.style.display = 'none';
+        if (periodSection) periodSection.style.display = '';
 
         const startPeriod = this.prAdditional.startPeriod || this.prAdditional.StartPeriod;
         const endPeriod = this.prAdditional.endPeriod || this.prAdditional.EndPeriod;
@@ -461,48 +515,82 @@ class InvoiceDetailManager {
     populateTermOfPayment() {
         const po = this.poData;
         const invoice = this.invoice;
-        if (!po) return;
+        const container = this.getDataContainer();
+        const termSection = container.querySelector('#detailTermOfPaymentSection');
+        const periodSection = container.querySelector('#detailPeriodOfPaymentSection');
+        if (termSection) termSection.style.display = '';
+        if (periodSection) periodSection.style.display = 'none';
 
-        $('#detailTermOfPaymentSection').show();
-        $('#detailPeriodOfPaymentSection').hide();
+        if (!po) {
+            const tbody = container.querySelector('#tblDetailTermOfPaymentBody');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No PO data available</td></tr>';
+            return;
+        }
         
         this.loadTermOfPaymentGrid(po, invoice);
     }
 
     /**
-     * Load Term of Payment grid
+     * Load Term of Payment grid.
+     * Uses trxPROPurchaseOrderAmortization when available (Status from DB); otherwise falls back to TOP description.
      */
     loadTermOfPaymentGrid(po, invoice) {
-        const tbody = document.getElementById('tblDetailTermOfPaymentBody');
+        const container = this.getDataContainer();
+        const tbody = container.querySelector('#tblDetailTermOfPaymentBody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
+        const currentInvoiceNumber = this.getProp(invoice, 'invoiceNumber', 'InvoiceNumber', 'InvoiceNo');
         
-        const topDescription = po.topDescription || po.TOPDescription || '';
+        const termRows = this.amortizations && this.amortizations.termOfPayment && this.amortizations.termOfPayment.length > 0
+            ? this.amortizations.termOfPayment
+            : null;
+        
+        if (termRows && termRows.length > 0) {
+            termRows.forEach((amort) => {
+                const periodNumber = amort.periodNumber ?? amort.period ?? 0;
+                const termValue = amort.termValue ?? amort.term ?? 0;
+                const invoiceAmount = amort.invoiceAmount ?? amort.InvoiceAmount ?? 0;
+                const statusFromDb = amort.status ?? amort.Status ?? '';
+                const amortInvoiceNumber = amort.invoiceNumber ?? amort.InvoiceNumber ?? '';
+                const isCurrent = currentInvoiceNumber && String(amortInvoiceNumber).trim() === String(currentInvoiceNumber).trim();
+                const statusClass = isCurrent ? 'text-success fw-bold' : (statusFromDb ? 'text-success' : 'text-muted');
+                const statusText = statusFromDb || (isCurrent ? 'Current Invoice' : '');
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-center">Term ${periodNumber}</td>
+                    <td class="text-center">${termValue}%</td>
+                    <td class="text-center ${statusClass}">${statusText}</td>
+                    <td class="text-center">${this.formatCurrency(invoiceAmount)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            return;
+        }
+        
+        const topDescription = this.getProp(po, 'topDescription', 'TOPDescription');
         if (!topDescription) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No Term of Payment available</td></tr>';
             return;
         }
         
-        const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+        const termValues = topDescription.split('|').map(v => parseFloat(String(v).trim())).filter(v => !isNaN(v));
         if (termValues.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Invalid Term of Payment format</td></tr>';
             return;
         }
         
-        const poAmount = parseFloat(po.poAmount || po.POAmount || 0);
+        const poAmount = parseFloat(this.getProp(po, 'poAmount', 'POAmount') || 0);
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                            'July', 'August', 'September', 'October', 'November', 'December'];
-        const currentTermPosition = invoice.termPosition || invoice.TermPosition || 0;
+        const currentTermPosition = parseInt(this.getProp(invoice, 'termPosition', 'TermPosition'), 10) || 0;
         
-        // Get submitted terms from invoiceDetailsByPO
         const submittedTerms = new Set();
         if (this.invoiceDetailsByPO && this.invoiceDetailsByPO.length > 0) {
             this.invoiceDetailsByPO.forEach(inv => {
-                const termPos = inv.termPosition || inv.TermPosition || 0;
-                if (termPos > 0) {
-                    submittedTerms.add(termPos);
-                }
+                const termPos = parseInt(this.getProp(inv, 'termPosition', 'TermPosition'), 10) || 0;
+                if (termPos > 0) submittedTerms.add(termPos);
             });
         }
         
@@ -512,19 +600,8 @@ class InvoiceDetailManager {
             const invoiceAmount = (poAmount * termValue) / 100;
             const hasInvoice = submittedTerms.has(termNumber);
             const isCurrentTerm = currentTermPosition === termNumber;
-            
-            let status = '';
-            let statusClass = '';
-            if (isCurrentTerm) {
-                status = 'Current Invoice';
-                statusClass = 'text-success fw-bold';
-            } else if (hasInvoice) {
-                status = 'Submitted';
-                statusClass = 'text-success';
-            } else {
-                status = 'Not Submitted';
-                statusClass = 'text-muted';
-            }
+            let status = isCurrentTerm ? 'Current Invoice' : (hasInvoice ? 'Submitted' : 'Not Submitted');
+            const statusClass = isCurrentTerm ? 'text-success fw-bold' : (hasInvoice ? 'text-success' : 'text-muted');
             
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -538,13 +615,45 @@ class InvoiceDetailManager {
     }
 
     /**
-     * Load Period of Payment grid
+     * Load Period of Payment grid.
+     * Uses trxPROPurchaseOrderAmortization when available (Status from DB); otherwise generates from PR dates.
      */
     loadPeriodOfPaymentGrid(startPeriod, endPeriod, period, totalMonthPeriod, po, invoice) {
-        const tbody = document.getElementById('tblDetailPeriodOfPaymentBody');
+        const container = this.getDataContainer();
+        const tbody = container.querySelector('#tblDetailPeriodOfPaymentBody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
+        const currentInvoiceNumber = this.getProp(invoice, 'invoiceNumber', 'InvoiceNumber', 'InvoiceNo');
+        
+        const periodRows = this.amortizations && this.amortizations.periodOfPayment && this.amortizations.periodOfPayment.length > 0
+            ? this.amortizations.periodOfPayment
+            : null;
+        
+        if (periodRows && periodRows.length > 0) {
+            periodRows.forEach((amort) => {
+                const periodNumber = amort.periodNumber ?? amort.period ?? 0;
+                const termValue = amort.termValue ?? amort.term ?? 100;
+                const invoiceAmount = amort.invoiceAmount ?? amort.InvoiceAmount ?? 0;
+                const statusFromDb = amort.status ?? amort.Status ?? '';
+                const amortInvoiceNumber = amort.invoiceNumber ?? amort.InvoiceNumber ?? '';
+                const isCurrent = currentInvoiceNumber && String(amortInvoiceNumber).trim() === String(currentInvoiceNumber).trim();
+                const statusClass = isCurrent ? 'text-success fw-bold' : (statusFromDb ? 'text-success' : 'text-muted');
+                const statusText = statusFromDb || (isCurrent ? 'Current Invoice' : '');
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-center">Period ${periodNumber}</td>
+                    <td class="text-center">${termValue}%</td>
+                    <td class="text-center">${this.formatDate(amort.startDate)}</td>
+                    <td class="text-center">${this.formatDate(amort.endDate)}</td>
+                    <td class="text-center ${statusClass}">${statusText}</td>
+                    <td class="text-center">${this.formatCurrency(invoiceAmount)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            return;
+        }
         
         const startDate = new Date(startPeriod);
         const endDate = new Date(endPeriod);
@@ -554,10 +663,9 @@ class InvoiceDetailManager {
             return;
         }
         
-        const poAmount = parseFloat(po.poAmount || po.POAmount || 0);
+        const poAmount = parseFloat(this.getProp(po, 'poAmount', 'POAmount') || 0);
         const termValue = 100;
         const invoiceAmount = poAmount;
-        const currentInvoiceNumber = invoice.invoiceNumber || invoice.InvoiceNumber || '';
         
         const amortizations = this.generateAmortization(startDate, endDate, period, totalMonthPeriod);
         if (amortizations.length === 0) {
@@ -565,14 +673,12 @@ class InvoiceDetailManager {
             return;
         }
         
-        // Get submitted periods from invoiceDetailsByPO
         const submittedPeriods = new Set();
         const currentInvoicePeriods = new Set();
         if (this.invoiceDetailsByPO && this.invoiceDetailsByPO.length > 0) {
             this.invoiceDetailsByPO.forEach(inv => {
-                const termPos = inv.termPosition || inv.TermPosition || 0;
-                const invNumber = inv.invoiceNumber || inv.InvoiceNumber || '';
-                
+                const termPos = parseInt(this.getProp(inv, 'termPosition', 'TermPosition'), 10) || 0;
+                const invNumber = this.getProp(inv, 'invoiceNumber', 'InvoiceNumber');
                 if (termPos > 0) {
                     submittedPeriods.add(termPos);
                     if (currentInvoiceNumber && invNumber === currentInvoiceNumber) {
@@ -586,19 +692,8 @@ class InvoiceDetailManager {
             const periodNumber = index + 1;
             const hasInvoice = submittedPeriods.has(periodNumber);
             const isCurrentInvoicePeriod = currentInvoicePeriods.has(periodNumber);
-            
-            let status = '';
-            let statusClass = '';
-            if (isCurrentInvoicePeriod) {
-                status = 'Current Invoice';
-                statusClass = 'text-success fw-bold';
-            } else if (hasInvoice) {
-                status = 'Submitted';
-                statusClass = 'text-success';
-            } else {
-                status = 'Not Submitted';
-                statusClass = 'text-muted';
-            }
+            let status = isCurrentInvoicePeriod ? 'Current Invoice' : (hasInvoice ? 'Submitted' : 'Not Submitted');
+            const statusClass = isCurrentInvoicePeriod ? 'text-success fw-bold' : (hasInvoice ? 'text-success' : 'text-muted');
             
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -661,33 +756,55 @@ class InvoiceDetailManager {
     }
 
     /**
-     * Populate Invoice Items section
+     * Populate Invoice Items section.
+     * Uses GRN items (trxInventoryGoodReceiveNote) for the PO when available; otherwise invoice items.
      */
     populateInvoiceItems() {
-        const tbody = document.getElementById('tblItemListBody');
+        const container = this.getDataContainer();
+        const tbody = container.querySelector('#tblItemListBody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
         
-        if (this.invoiceItems.length > 0) {
-            this.invoiceItems.forEach(item => {
-                const itemID = item.mstPROPurchaseItemInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.itemID || item.ItemID || '';
-                const poItem = this.poItems.find(po => 
-                    (po.mstPROPurchaseItemInventoryItemID || po.MstPROPurchaseItemInventoryItemID || po.mstPROInventoryItemID || po.MstPROInventoryItemID) === itemID
-                );
-                const unitName = poItem ? (poItem.itemUnit || poItem.ItemUnit || '') : (item.itemUnit || item.ItemUnit || item.unit || item.Unit || '');
+        const useGRN = this.grnItems && this.grnItems.length > 0;
+        const items = useGRN ? this.grnItems : this.invoiceItems;
+        
+        if (items.length > 0) {
+            items.forEach(grnOrInvItem => {
+                const itemID = this.getProp(grnOrInvItem, 'mstPROPurchaseItemInventoryItemID', 'MstPROPurchaseItemInventoryItemID', 'mstPROInventoryItemID', 'ItemID', 'itemID');
+                const itemName = this.getProp(grnOrInvItem, 'itemName', 'ItemName');
+                const unitName = this.getProp(grnOrInvItem, 'itemUnit', 'ItemUnit', 'Unit', 'unit');
+                const desc = this.getProp(grnOrInvItem, 'itemDescription', 'ItemDescription', 'description', 'Description');
+                let qtyPO = this.getProp(grnOrInvItem, 'itemQty', 'ItemQty', 'ActualReceived', 'quantityPO', 'QuantityPO') || 0;
+                let pricePO = this.getProp(grnOrInvItem, 'unitPrice', 'UnitPrice', 'pricePO', 'PricePO') || 0;
+                let lineAmountPO = this.getProp(grnOrInvItem, 'amount', 'Amount', 'lineAmountPO', 'LineAmountPO') || 0;
+                let qtyInv = '';
+                let lineAmountInv = '';
+                if (useGRN && this.invoiceItems && this.invoiceItems.length > 0) {
+                    const invItem = this.invoiceItems.find(inv => {
+                        const id = this.getProp(inv, 'mstPROPurchaseItemInventoryItemID', 'MstPROPurchaseItemInventoryItemID', 'ItemID', 'itemID');
+                        return String(id) === String(itemID);
+                    });
+                    if (invItem) {
+                        qtyInv = this.getProp(invItem, 'quantityInvoice', 'QuantityInvoice') || 0;
+                        lineAmountInv = this.getProp(invItem, 'lineAmountInvoice', 'LineAmountInvoice') || 0;
+                    }
+                } else {
+                    qtyInv = this.getProp(grnOrInvItem, 'quantityInvoice', 'QuantityInvoice') || 0;
+                    lineAmountInv = this.getProp(grnOrInvItem, 'lineAmountInvoice', 'LineAmountInvoice') || 0;
+                }
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="text-center">${itemID}</td>
-                    <td class="text-center">${item.itemName || item.ItemName || ''}</td>
+                    <td class="text-center">${itemName}</td>
                     <td class="text-center">${unitName}</td>
-                    <td class="text-center">${item.itemDescription || item.ItemDescription || item.description || item.Description || ''}</td>
-                    <td class="text-center">${item.quantityPO || item.QuantityPO || 0}</td>
-                    <td class="text-center">${this.formatCurrency(item.pricePO || item.PricePO || 0)}</td>
-                    <td class="text-center">${this.formatCurrency(item.lineAmountPO || item.LineAmountPO || 0)}</td>
-                    <td class="text-center">${item.quantityInvoice || item.QuantityInvoice || 0}</td>
-                    <td class="text-center">${this.formatCurrency(item.lineAmountInvoice || item.LineAmountInvoice || 0)}</td>
+                    <td class="text-center">${desc}</td>
+                    <td class="text-center">${qtyPO}</td>
+                    <td class="text-center">${this.formatCurrency(pricePO)}</td>
+                    <td class="text-center">${this.formatCurrency(lineAmountPO)}</td>
+                    <td class="text-center">${qtyInv}</td>
+                    <td class="text-center">${this.formatCurrency(lineAmountInv)}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -718,7 +835,8 @@ class InvoiceDetailManager {
                    itemTermNumber === searchTermNumber;
         });
 
-        const tbody = document.getElementById('tblDocumentChecklistBody');
+        const container = this.getDataContainer();
+        const tbody = container.querySelector('#tblDocumentChecklistBody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
