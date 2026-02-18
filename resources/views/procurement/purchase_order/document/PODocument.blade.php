@@ -156,6 +156,7 @@
         .po-info-table td {
             padding: 4px 6px;
             font-size: 11px;
+            vertical-align: middle;
         }
         /* Lebar kolom label / : / value untuk dokumen yang di-generate (PDF); DomPDF mengikuti style ini, bukan colgroup */
         .po-info-table .label {
