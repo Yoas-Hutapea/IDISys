@@ -952,12 +952,8 @@ class ProcurementWizardItems {
             return;
         }
 
-        // Limit display to 5 items
-        const displayUnits = filteredUnits.slice(0, 5);
-        const hasMore = filteredUnits.length > 5;
-
-        // Render units
-        displayUnits.forEach(unit => {
+        // Render all filtered units (scrollbar appears when list exceeds max-height of container)
+        filteredUnits.forEach(unit => {
             const unitId = unit.UnitId || unit.unitId;
             const unitText = unit.Unit || unit.unit || unit.UnitId || unit.unitId;
             
@@ -1008,14 +1004,6 @@ class ProcurementWizardItems {
             
             unitDropdownItems.appendChild(li);
         });
-
-        // Show "more" indicator if there are more items
-        if (hasMore) {
-            const moreLi = document.createElement('li');
-            moreLi.className = 'px-3 py-2 text-muted text-center small';
-            moreLi.textContent = `+${filteredUnits.length - 5} more (use search to find)`;
-            unitDropdownItems.appendChild(moreLi);
-        }
     }
 
     /**
