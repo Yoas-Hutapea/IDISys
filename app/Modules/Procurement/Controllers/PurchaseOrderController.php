@@ -3,6 +3,7 @@
 namespace App\Modules\Procurement\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendPOReleasedEmailJob;
 use App\Mail\POReleasedNotificationMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -1203,11 +1204,7 @@ class PurchaseOrderController extends Controller
                 $decodedNumberForEmail = $decodedNumber;
                 $remarkForEmail = $remark;
                 DB::afterCommit(function () use ($decodedNumberForEmail, $remarkForEmail) {
-                    try {
-                        $this->sendPOReleasedEmail($decodedNumberForEmail, $remarkForEmail);
-                    } catch (\Throwable $e) {
-                        // Log but do not fail the approval response
-                    }
+                    SendPOReleasedEmailJob::dispatch($decodedNumberForEmail, $remarkForEmail);
                 });
             }
 
@@ -1306,11 +1303,7 @@ class PurchaseOrderController extends Controller
                         $poNumberForEmail = $poNumber;
                         $remarkForEmail = $remark;
                         DB::afterCommit(function () use ($poNumberForEmail, $remarkForEmail) {
-                            try {
-                                $this->sendPOReleasedEmail($poNumberForEmail, $remarkForEmail);
-                            } catch (\Throwable $e) {
-                                // ignore
-                            }
+                            SendPOReleasedEmailJob::dispatch($poNumberForEmail, $remarkForEmail);
                         });
                     }
                 });
@@ -1946,6 +1939,21 @@ class PurchaseOrderController extends Controller
             return 'yoas.hutapea@ideanet.net.id';
         }
         return null;
+    }
+
+    /**
+     * Public entry point for sending PO Released email (used by SendPOReleasedEmailJob).
+     * Send PO Released notification email to Requestor with CC to vendor when Approval PO 2 completes (Fully Approved).
+     */
+    public function runSendPOReleasedEmail(string $poNumber, string $approvalRemarks): void
+    {
+        try {
+            $this->sendPOReleasedEmail($poNumber, $approvalRemarks);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
     }
 
     /**

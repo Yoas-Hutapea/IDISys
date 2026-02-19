@@ -125,15 +125,15 @@
         }
         .po-title {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
+            font-size: 12pt;
             font-weight: bold;
             text-decoration: underline;
             margin: 0 0 2px 0;
         }
         .po-number {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 14pt;
+            font-weight: normal;
             margin: 0;
         }
         .po-meta {
@@ -141,8 +141,9 @@
             text-align: left;
             margin-top: 6px;
             margin-bottom: 10px;
-            font-size: 11px;
+            font-size: 10pt;
         }
+        .po-meta strong { font-weight: bold; }
 
         .po-info-table {
             width: 100%;
@@ -160,12 +161,16 @@
         .po-info-table td {
             padding: 4px 6px;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
+            font-size: 8pt;
             vertical-align: middle;
         }
-        /* Lebar kolom label / : / value untuk dokumen yang di-generate (PDF); DomPDF mengikuti style ini, bukan colgroup */
+        .po-info-table .po-to-label { font-size: 10pt; font-weight: normal; }
+        .po-info-table .po-company-name { font-size: 10pt; font-weight: bold; }
+        .po-info-table .po-company-address { font-size: 8pt; }
+        /* Lebar kolom label / : / value; label Vendor/dll 8pt no bold */
         .po-info-table .label {
-            font-weight: bold;
+            font-size: 8pt;
+            font-weight: normal;
             white-space: nowrap;
             text-align: left;
         }
@@ -194,9 +199,9 @@
         }
 
         .po-section-title {
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: 100;
-            font-size: 11px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 10pt;
             padding: 10px 0 6px 0;
         }
 
@@ -208,14 +213,14 @@
             padding: 4px 6px;
             font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 9pt;
             border-bottom: 1px solid #333;
             background: #f5f5f5;
         }
         .po-items-table td {
             padding: 4px 6px;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
+            font-size: 8pt;
             border-bottom: 1px solid #ddd;
         }
         .po-items-table .col-no { width: 4%; text-align: center; }
@@ -234,6 +239,17 @@
             min-width: 52px;
             width: 7%;
             vertical-align: top;
+            font-size: 8pt;
+            font-weight: bold;
+        }
+        .po-notes-block .grand-total-label { font-size: 9pt; font-weight: bold; }
+        .po-notes-block .grand-total-value { font-size: 11pt; font-weight: normal; }
+        .po-notes-block .term-label { font-size: 9pt; font-weight: bold; text-decoration: underline; }
+        .po-notes-block .terbilang-value { text-transform: uppercase; font-size: 9pt; }
+        .po-notes-block .note-num {
+            white-space: nowrap;
+            min-width: 18px;
+            width: 2%;
         }
         .po-notes-block .note-item {
             margin-bottom: 4px;
@@ -263,13 +279,18 @@
             font-size: 11px;
             vertical-align: middle;
         }
+        .po-npwp-label { font-size: 8pt; font-weight: bold; }
         .po-npwp-box {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
+            font-size: 7pt;
+            font-weight: normal;
             border: 1px solid #333;
             padding: 8px;
             min-height: 80px;
         }
+        .po-npwp-box .po-npwp-company { font-size: 8pt; font-weight: bold; }
+        .po-npwp-box .po-npwp-address { font-size: 7pt; font-weight: normal; }
+        .po-npwp-box .po-npwp-number { font-size: 8pt; font-weight: bold; }
         .po-qr-box {
             text-align: center;
         }
@@ -340,16 +361,16 @@
             <td style="width:34%; padding:0; border:none; font-size:0; line-height:0;"></td>
         </tr>
         <tr>
-            <td class="label-w b-t b-l pad-sm txt-bold">TO</td>
+            <td class="label-w b-t b-l pad-sm po-to-label">TO</td>
             <td class="po-colon b-t pad-sm txt-c">:</td>
             <td class="value-w b-t b-r pad-sm"></td>
-            <td class="b-t b-l b-r pad-sm txt-bold" colspan="3">{{ $company['CompanyName'] ?? '-' }}</td>
+            <td class="b-t b-l b-r pad-sm po-company-name" colspan="3">{{ $company['CompanyName'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="label label-w b-l pad-sm">Vendor Code</td>
             <td class="po-colon pad-sm txt-c">:</td>
             <td class="value-w b-r pad-sm value">{{ $vendor['VendorID'] ?? '-' }}</td>
-            <td class="b-l b-r pad-sm value" rowspan="2" colspan="3">
+            <td class="b-l b-r pad-sm value po-company-address" rowspan="2" colspan="3">
                 {{ $company['CompanyAddress'] ?? '' }}<br/>
                 {{ $company['CompanyAddress1'] ?? '' }}<br/>
                 {{ $company['CompanyAddress2'] ?? '' }}
@@ -422,7 +443,7 @@
         </tr>
         <tr>
             <td class="b-l b-r b-b pad-sm" colspan="3"></td>
-            <td class="label label-w-r b-l no-b-r b-b pad-sm">Delivery </br>Address</td>
+            <td class="label label-w-r b-l no-b-r b-b pad-sm">Delivery<br/>Address</td>
             <td class="po-colon no-border-keep-b pad-sm txt-c">:</td>
             <td class="value-w-r b-r b-b pad-sm value">{{ $company['DeliveryAddress'] ?? '-' }}</td>
         </tr>
@@ -464,28 +485,28 @@
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
                 <td class="pad-sm txt-bold notes-label">Note*:</td>
-                <td class="pad-sm txt-c" style="width: 2%;">1.</td>
+                <td class="pad-sm txt-c note-num">1.</td>
                 <td class="pad-sm" style="width: 36%;">Total Harga Di Atas Belum Termasuk Pajak Pertambahan Nilai</td>
                 <td style="width: 10%;"></td>
-                <td class="pad-sm txt-bold b-t" style="width: 15%;">Grand Total*</td>
+                <td class="pad-sm b-t grand-total-label" style="width: 15%;">Grand Total*</td>
                 <td class="pad-sm b-t" style="width: 2%;">:</td>
-                <td class="pad-sm txt-r b-t" style="width: 20%;">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
+                <td class="pad-sm txt-r b-t grand-total-value" style="width: 20%;">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
             </tr>
             <tr>
                 <td class="pad-sm"></td>
-                <td class="pad-sm txt-c">2.</td>
+                <td class="pad-sm txt-c note-num">2.</td>
                 <td class="pad-sm">Invoice Harus Melampirkan Salinan NPWP</td>
                 <td colspan="4"></td>
             </tr>
             <tr>
-                <td class="pad-sm txt-bold txt-underline" colspan="3">Term of Payment :</td>
+                <td class="pad-sm term-label" colspan="3">Term of Payment :</td>
                 <td></td>
-                <td class="pad-sm txt-bold txt-underline" colspan="3">Says/Terbilang :</td>
+                <td class="pad-sm term-label" colspan="3">Says/Terbilang :</td>
             </tr>
             <tr>
                 <td class="pad-sm" colspan="3">{{ $header['TOPRemarks'] ?? '-' }}</td>
                 <td></td>
-                <td class="pad-sm" colspan="3">{{ $terbilang ?? '-' }}</td>
+                <td class="pad-sm terbilang-value" colspan="3">{{ $terbilang ?? '-' }}</td>
             </tr>
         </table>
     </div>
@@ -494,13 +515,13 @@
     <table class="po-footer-table" border="0" cellspacing="0" cellpadding="0">
         <tr>
             <td style="width: 45%;">
-                <div class="txt-bold pad-sm b-b">NPWP Address</div>
+                <div class="po-npwp-label pad-sm b-b">NPWP Address</div>
                 <div class="po-npwp-box">
-                    {{ $company['CompanyName'] ?? '' }}<br/><br/>
-                    {{ $company['NPWPAddress'] ?? '' }}<br/>
+                    <span class="po-npwp-company">{{ $company['CompanyName'] ?? '' }}</span><br/><br/>
+                    <span class="po-npwp-address">{{ $company['NPWPAddress'] ?? '' }}<br/>
                     {{ $company['NPWPAddress1'] ?? '' }}<br/>
-                    {{ $company['NPWPAddress2'] ?? '' }}<br/><br/>
-                    NPWP : {{ $company['NPWP'] ?? '-' }}
+                    {{ $company['NPWPAddress2'] ?? '' }}</span><br/><br/>
+                    <span class="po-npwp-number">NPWP : {{ $company['NPWP'] ?? '-' }}</span>
                 </div>
             </td>
             <td style="width: 10%;"></td>
