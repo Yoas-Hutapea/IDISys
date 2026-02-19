@@ -233,36 +233,13 @@ class ApprovalListTable {
     }
 
     /**
-     * Format currency
+     * Format number (no currency symbol)
      */
     formatCurrency(amount) {
-        // Handle null, undefined, empty string
         if (amount === null || amount === undefined || amount === '') return '-';
-        // Convert to number and handle NaN - show as Rp 0
         const numAmount = parseFloat(amount);
-        if (isNaN(numAmount)) {
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(0);
-        }
-        // Handle 0 - show as Rp 0
-        if (numAmount === 0) {
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(0);
-        }
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(numAmount);
+        if (isNaN(numAmount)) return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(0);
+        return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(numAmount);
     }
 
     /**

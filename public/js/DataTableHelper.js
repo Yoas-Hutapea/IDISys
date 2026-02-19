@@ -425,15 +425,15 @@ function exportExcel(tableId) {
     }
 }
 
-// Helper functions for formatting
+// Helper functions for formatting (number only, no currency symbol)
 function formatCurrency(amount) {
     if (!amount && amount !== 0) return '-';
+    const num = parseFloat(amount);
+    if (isNaN(num)) return '-';
     return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(amount);
+    }).format(num);
 }
 
 function formatDateTime(date) {

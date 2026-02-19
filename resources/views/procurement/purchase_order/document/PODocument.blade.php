@@ -439,8 +439,8 @@
                 <th class="col-desc">Item Description</th>
                 <th class="col-qty">Qty</th>
                 <th class="col-uom">UoM</th>
-                <th class="col-price">Unit Price (IDR)</th>
-                <th class="col-total">Total (IDR)</th>
+                <th class="col-price">Unit Price</th>
+                <th class="col-total">Total</th>
             </tr>
         </thead>
         <tbody>

@@ -540,16 +540,15 @@
             if (this.itemDataTable) {
                 const self = this;
 
-                // Format currency helper with Rp prefix
+                // Format number (no currency symbol)
                 const formatCurrency = (value) => {
-                    if (value === null || value === undefined || value === '') return 'Rp 0';
+                    if (value === null || value === undefined || value === '') return '0';
                     const numValue = parseFloat(value);
-                    if (isNaN(numValue)) return 'Rp 0';
-                    const formatted = numValue.toLocaleString('id-ID', {
+                    if (isNaN(numValue)) return '0';
+                    return numValue.toLocaleString('id-ID', {
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 2
                     });
-                    return `Rp ${formatted}`;
                 };
 
                 // Format date from YYYY-MM-DD to compact format (30 Nov 2025)

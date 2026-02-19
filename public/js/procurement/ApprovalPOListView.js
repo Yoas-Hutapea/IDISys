@@ -378,24 +378,10 @@ class ApprovalPOListView {
 
         // Format currency
         const formatCurrency = (amount) => {
-            if (amount === null || amount === undefined || amount === '') {
-                return '-';
-            }
+            if (amount === null || amount === undefined || amount === '') return '-';
             const numAmount = parseFloat(amount);
-            if (isNaN(numAmount) || numAmount === 0) {
-                return new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                }).format(0);
-            }
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(numAmount);
+            if (isNaN(numAmount)) return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(0);
+            return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(numAmount);
         };
 
         // Format date
@@ -422,32 +408,12 @@ class ApprovalPOListView {
                 const unitPrice = item.UnitPrice ?? item.unitPrice ?? null;
                 const amount = item.Amount ?? item.amount ?? null;
                 
-                // Format currency with NaN/0 handling
+                // Format number (no currency symbol)
                 const formatCurrencySafe = (amount) => {
                     if (amount === null || amount === undefined || amount === '') return '-';
                     const numAmount = parseFloat(amount);
-                    if (isNaN(numAmount)) {
-                        return new Intl.NumberFormat('id-ID', {
-                            style: 'currency',
-                            currency: 'IDR',
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0
-                        }).format(0);
-                    }
-                    if (numAmount === 0) {
-                        return new Intl.NumberFormat('id-ID', {
-                            style: 'currency',
-                            currency: 'IDR',
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0
-                        }).format(0);
-                    }
-                    return new Intl.NumberFormat('id-ID', {
-                        style: 'currency',
-                        currency: 'IDR',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                    }).format(numAmount);
+                    if (isNaN(numAmount)) return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(0);
+                    return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(numAmount);
                 };
                 
                 return `

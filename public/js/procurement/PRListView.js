@@ -748,7 +748,7 @@ class PRListView {
         if (value == null || value === '' || isNaN(value)) return '-';
         const num = parseFloat(value);
         if (isNaN(num)) return '-';
-        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
     }
 
     showError(message) {
