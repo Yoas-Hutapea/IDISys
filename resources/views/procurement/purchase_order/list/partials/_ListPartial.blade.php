@@ -94,7 +94,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary d-flex align-items-center" id="documentPreviewDownloadBtn" onclick="downloadPODocumentFromModal()">
+                <button type="button" class="btn btn-primary d-flex align-items-center" id="documentPreviewDownloadBtn" onclick="documentPreviewDownloadBtnClick()">
                     <i class="bx bx-download me-2"></i>
                     <span>Download</span>
                 </button>

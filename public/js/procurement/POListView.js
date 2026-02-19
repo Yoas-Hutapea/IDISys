@@ -593,7 +593,7 @@ class POListView {
             }).join('')
             : '<tr><td colspan="8" class="text-center text-muted">No items</td></tr>';
 
-        // Format documents table with separate download column
+        // Format documents table with Preview and Download (no viewed badge; same as PR list view_pr)
         const documentsTableRows = this.viewPRDocuments && this.viewPRDocuments.length > 0
             ? this.viewPRDocuments.map(doc => {
                 const docId = doc.id || doc.ID || 0;
@@ -607,8 +607,8 @@ class POListView {
                         <td>${escapedFileName}</td>
                         <td>${this.escapeHtml(fileSize)}</td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-primary" title="Download" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                                <i class="icon-base bx bx-download"></i>
+                            <button type="button" class="btn btn-sm btn-primary" title="Preview" onclick="openSupportingDocumentPreview.call(this)" data-document-id="${docId}" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                                <i class="icon-base bx bx-show"></i>
                             </button>
                         </td>
                     </tr>
@@ -1287,6 +1287,9 @@ class POListView {
             }
             window.__currentPODocumentPreview.poNumber = poNumber || 'PO Document';
             window.__currentPODocumentPreview.downloadUrl = previewUrl;
+            if (window.__currentDocumentPreview) {
+                window.__currentDocumentPreview.downloadUrl = null;
+            }
 
             const filenameEl = document.getElementById('documentPreviewFilename');
             const frame = document.getElementById('documentPreviewFrame');
@@ -1341,6 +1344,131 @@ class POListView {
 // Make available globally
 if (typeof window !== 'undefined') {
     window.POListView = POListView;
+
+    window.__currentDocumentPreview = window.__currentDocumentPreview || { id: null, fileName: '', filePath: '', downloadUrl: null };
+
+    window.openSupportingDocumentPreview = function () {
+        try {
+            const button = (this && this.nodeName === 'BUTTON') ? this : null;
+            if (!button) return;
+            const documentId = button.getAttribute('data-document-id');
+            const fileName = button.getAttribute('data-file-name') || 'document';
+            const filePath = button.getAttribute('data-file-path') || '';
+            if (!documentId) return;
+
+            let downloadUrl = null;
+            if (filePath && typeof apiStorage === 'function') {
+                try {
+                    downloadUrl = apiStorage('Procurement', filePath);
+                } catch (e) { }
+            }
+            if (!downloadUrl) {
+                if (typeof window.normalizedApiUrls === 'undefined' && typeof API_URLS !== 'undefined') {
+                    window.normalizedApiUrls = {};
+                    for (const k in API_URLS) {
+                        if (API_URLS.hasOwnProperty(k)) window.normalizedApiUrls[k.toLowerCase()] = API_URLS[k];
+                    }
+                }
+                const baseUrl = window.normalizedApiUrls && window.normalizedApiUrls.procurement;
+                if (baseUrl) {
+                    downloadUrl = baseUrl + '/Procurement/PurchaseRequest/PurchaseRequestDocuments/' + documentId + '/download';
+                }
+            }
+            if (!downloadUrl) {
+                alert('API configuration not found');
+                return;
+            }
+
+            window.__currentDocumentPreview.id = documentId;
+            window.__currentDocumentPreview.fileName = fileName;
+            window.__currentDocumentPreview.filePath = filePath;
+            window.__currentDocumentPreview.downloadUrl = downloadUrl;
+            if (window.__currentPODocumentPreview) {
+                window.__currentPODocumentPreview.downloadUrl = null;
+            }
+
+            const filenameEl = document.getElementById('documentPreviewFilename');
+            const frame = document.getElementById('documentPreviewFrame');
+            const modalEl = document.getElementById('documentPreviewModal');
+            if (filenameEl) filenameEl.textContent = fileName;
+            if (frame) frame.src = downloadUrl;
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                try {
+                    if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
+                } catch (e) { }
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modalInstance.show();
+            } else {
+                window.open(downloadUrl, '_blank');
+            }
+        } catch (e) {
+            console.error('Error opening document preview:', e);
+            alert('Failed to open document preview');
+        }
+    };
+
+    window.downloadDocumentFromModal = function () {
+        try {
+            const info = window.__currentDocumentPreview;
+            if (!info || !info.downloadUrl) {
+                alert('No document selected');
+                return;
+            }
+            const link = document.createElement('a');
+            link.href = info.downloadUrl;
+            link.download = info.fileName || 'document';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            console.error('Error downloading document from modal:', e);
+            alert('Download failed');
+        }
+    };
+
+    window.downloadDocument = function (documentId) {
+        try {
+            const button = (this && this.nodeName === 'BUTTON') ? this : null;
+            const fileName = (button && button.getAttribute('data-file-name')) || 'document';
+            const filePath = (button && button.getAttribute('data-file-path')) || '';
+            if (!documentId) return;
+
+            let downloadUrl = null;
+            if (filePath && typeof apiStorage === 'function') {
+                try {
+                    downloadUrl = apiStorage('Procurement', filePath);
+                } catch (e) { }
+            }
+            if (!downloadUrl) {
+                if (typeof window.normalizedApiUrls === 'undefined' && typeof API_URLS !== 'undefined') {
+                    window.normalizedApiUrls = window.normalizedApiUrls || {};
+                    for (const k in API_URLS) {
+                        if (API_URLS.hasOwnProperty(k)) window.normalizedApiUrls[k.toLowerCase()] = API_URLS[k];
+                    }
+                }
+                const baseUrl = window.normalizedApiUrls && window.normalizedApiUrls.procurement;
+                if (baseUrl) {
+                    downloadUrl = baseUrl + '/Procurement/PurchaseRequest/PurchaseRequestDocuments/' + documentId + '/download';
+                }
+            }
+            if (!downloadUrl) {
+                alert('API configuration not found');
+                return;
+            }
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            console.error('Error downloading document:', e);
+            alert('Download failed');
+        }
+    };
+
     window.downloadPODocumentFromModal = function () {
         try {
             const info = window.__currentPODocumentPreview;
@@ -1360,6 +1488,16 @@ if (typeof window !== 'undefined') {
         } catch (e) {
             console.error('Download PO document failed:', e);
             alert('Download failed');
+        }
+    };
+
+    window.documentPreviewDownloadBtnClick = function () {
+        if (window.__currentDocumentPreview && window.__currentDocumentPreview.downloadUrl) {
+            window.downloadDocumentFromModal();
+        } else if (window.__currentPODocumentPreview && window.__currentPODocumentPreview.downloadUrl) {
+            window.downloadPODocumentFromModal();
+        } else {
+            alert('No document selected');
         }
     };
 }
