@@ -179,6 +179,7 @@ class PurchaseOrderController extends Controller
             }
         }
 
+        $additionalRow = null;
         $soNumber = null;
         if (Schema::hasTable('trxPROPurchaseRequestAdditional')) {
             $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
@@ -189,7 +190,7 @@ class PurchaseOrderController extends Controller
                     $additionalQuery->where('IsActive', true);
                 }
                 $additionalRow = $additionalQuery->first();
-                if ($additionalRow && isset($additionalRow->Sonumb)) {
+                if ($additionalRow && isset($additionalRow->Sonumb) && trim((string) $additionalRow->Sonumb) !== '') {
                     $soNumber = $additionalRow->Sonumb;
                 }
             }
@@ -203,6 +204,11 @@ class PurchaseOrderController extends Controller
                 $soNumber = $invoiceRow->SONumber;
             }
         }
+
+        // Periode: dari trxPROPurchaseRequestAdditional.StartPeriod s/d EndPeriod bila ada; bila tidak dari PO/assignVendor
+        $periodStart = $additionalRow ? ($additionalRow->StartPeriod ?? $po->StartPeriod ?? null) : ($po->StartPeriod ?? null);
+        $periodEnd = $additionalRow ? ($additionalRow->EndPeriod ?? $po->EndPeriod ?? null) : ($po->EndPeriod ?? null);
+        $contractPeriodForDoc = $additionalRow ? null : ($assignVendor->ContractPeriod ?? null);
 
         $validityDate = null;
         if (!empty($po->EndPeriod)) {
@@ -228,15 +234,30 @@ class PurchaseOrderController extends Controller
             'ContractNumber' => $assignVendor->ContractNumber ?? null,
             'TotalAmountPO' => $totalAmount,
             'TOPRemarks' => $topRemarks ?? ($assignVendor->DescriptionVendor ?? null),
-            'StartPeriod' => $po->StartPeriod ?? null,
-            'EndPeriod' => $po->EndPeriod ?? null,
-            'StrStartDate' => $this->safeFormatDate($po->StartPeriod ?? null, 'd-M-Y'),
-            'StrEndDate' => $this->safeFormatDate($po->EndPeriod ?? null, 'd-M-Y'),
+            'StartPeriod' => $periodStart,
+            'EndPeriod' => $periodEnd,
+            'StrStartDate' => $this->safeFormatDate($periodStart, 'd-M-Y'),
+            'StrEndDate' => $this->safeFormatDate($periodEnd, 'd-M-Y'),
             'StrValidityDate' => $this->safeFormatDate($validityDate, 'd-M-Y'),
             'StrDateLock' => $this->safeFormatDate($dateLock, 'd-M-Y'),
-            'ContractPeriod' => $assignVendor->ContractPeriod ?? null,
+            'ContractPeriod' => $contractPeriodForDoc,
             'SONumber' => $soNumber,
         ];
+
+        // Delivery Address: dari trxPROPurchaseRequestAdditional.SiteName hanya jika PR punya Sonumb di additional; else company address
+        $deliveryAddress = null;
+        if ($additionalRow && trim((string) ($additionalRow->Sonumb ?? '')) !== '') {
+            $deliveryAddress = trim((string) ($additionalRow->SiteName ?? ''));
+        }
+        if ($deliveryAddress === null || $deliveryAddress === '') {
+            $deliveryAddress = trim(implode(' ', array_filter([
+                $company['CompanyAddress'] ?? '',
+                $company['CompanyAddress1'] ?? '',
+                $company['CompanyAddress2'] ?? '',
+            ])));
+            $deliveryAddress = $deliveryAddress !== '' ? $deliveryAddress : '-';
+        }
+        $company['DeliveryAddress'] = $deliveryAddress;
 
         $logoBase64 = null;
         $logoPath = public_path('assets/img/logo.png');

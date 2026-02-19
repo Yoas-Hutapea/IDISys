@@ -36,7 +36,7 @@
     <meta name="viewport" content="width=device-width" />
     <title>Purchase Order - {{ $header['PurchOrderID'] ?? 'PO' }}</title>
     <style>
-        /* Nilai literal (tanpa var) agar DomPDF render PDF dengan benar */
+        /* Font & ukuran mengikuti referensi COMPAS: Courier New 14px untuk isi, 18px/20px untuk judul PO */
         * {
             box-sizing: border-box;
         }
@@ -44,9 +44,9 @@
         body {
             margin: 0;
             padding: 12px 16px;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
-            color: #222;
+            color: black;
             line-height: 1.35;
         }
 
@@ -74,6 +74,7 @@
 
         /* Utility */
         .no-border { border: none !important; }
+        .no-border-keep-b { border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 1px solid #333 !important; }
         .no-b-r { border-right: none !important; }
         .b-t { border-top: 1px solid #333 !important; }
         .b-b { border-bottom: 1px solid #333 !important; }
@@ -123,17 +124,20 @@
             display: block;
         }
         .po-title {
-            font-size: 18px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
             font-weight: bold;
             text-decoration: underline;
             margin: 0 0 2px 0;
         }
         .po-number {
-            font-size: 13px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
             font-weight: bold;
             margin: 0;
         }
         .po-meta {
+            font-family: 'Courier New', Courier, monospace;
             text-align: left;
             margin-top: 6px;
             margin-bottom: 10px;
@@ -155,6 +159,7 @@
         }
         .po-info-table td {
             padding: 4px 6px;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
             vertical-align: middle;
         }
@@ -189,8 +194,9 @@
         }
 
         .po-section-title {
-            font-weight: bold;
-            font-size: 13px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 100;
+            font-size: 11px;
             padding: 10px 0 6px 0;
         }
 
@@ -200,6 +206,7 @@
         }
         .po-items-table th {
             padding: 4px 6px;
+            font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
             font-size: 11px;
             border-bottom: 1px solid #333;
@@ -207,6 +214,7 @@
         }
         .po-items-table td {
             padding: 4px 6px;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
             border-bottom: 1px solid #ddd;
         }
@@ -251,10 +259,13 @@
         }
         .po-footer-table td {
             padding: 6px 8px;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
             vertical-align: middle;
         }
         .po-npwp-box {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
             border: 1px solid #333;
             padding: 8px;
             min-height: 80px;
@@ -268,9 +279,10 @@
             margin-top: 10px;
         }
         .po-disclaimer {
+            font-family: 'Courier New', Courier, monospace;
             font-style: italic;
             font-size: 10px;
-            color: #555;
+            color: black;
             margin-top: 4px;
         }
 
@@ -389,12 +401,30 @@
             <td class="value-w-r b-r pad-sm value">{{ $header['PRNumber'] ?? '-' }}</td>
         </tr>
         <tr>
-            <td class="label label-w b-l b-b pad-sm">Email</td>
-            <td class="po-colon b-b pad-sm txt-c">:</td>
-            <td class="value-w b-r b-b pad-sm value">{{ $vendor['EmailCorrespondence'] ?? '-' }}</td>
-            <td class="label label-w-r b-l no-b-r b-b pad-sm">Delivery Address</td>
-            <td class="po-colon no-border b-b pad-sm txt-c">:</td>
-            <td class="value-w-r b-r b-b pad-sm value">{{ $company['CompanyAddress'] ?? '' }} {{ $company['CompanyAddress1'] ?? '' }} {{ $company['CompanyAddress2'] ?? '' }}</td>
+            <td class="label label-w b-l pad-sm">Email</td>
+            <td class="po-colon pad-sm txt-c">:</td>
+            <td class="value-w b-r pad-sm value">{{ $vendor['EmailCorrespondence'] ?? '-' }}</td>
+            <td class="label label-w-r b-l no-b-r pad-sm">Validity Date</td>
+            <td class="po-colon no-border pad-sm txt-c">:</td>
+            <td class="value-w-r b-r pad-sm value">{{ $header['StrValidityDate'] ?? $header['StrDateLock'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="b-l b-r pad-sm" colspan="3"></td>
+            <td class="label label-w-r b-l no-b-r pad-sm">Periode</td>
+            <td class="po-colon no-border pad-sm txt-c">:</td>
+            <td class="value-w-r b-r pad-sm value">@if(!empty($header['ContractPeriod'])){{ $header['ContractPeriod'] }}@elseif(!empty($header['StrStartDate']) || !empty($header['StrEndDate'])){{ ($header['StrStartDate'] ?? '-') . ' s/d ' . ($header['StrEndDate'] ?? '-') }}@else-@endif</td>
+        </tr>
+        <tr>
+            <td class="b-l b-r pad-sm" colspan="3"></td>
+            <td class="label label-w-r b-l no-b-r pad-sm">SO Number</td>
+            <td class="po-colon no-border pad-sm txt-c">:</td>
+            <td class="value-w-r b-r pad-sm value">{{ $header['SONumber'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="b-l b-r b-b pad-sm" colspan="3"></td>
+            <td class="label label-w-r b-l no-b-r b-b pad-sm">Delivery </br>Address</td>
+            <td class="po-colon no-border-keep-b pad-sm txt-c">:</td>
+            <td class="value-w-r b-r b-b pad-sm value">{{ $company['DeliveryAddress'] ?? '-' }}</td>
         </tr>
     </table>
 
