@@ -2,42 +2,87 @@
 <div class="list-partial-content">
     <div class="table-responsive">
         <style>
-            /* Table layout - main table dan DataTables scroll clone */
-            .list-partial-content #poTable,
-            .list-partial-content .dataTables_scrollHead #poTable,
-            .list-partial-content .dataTables_scrollBody #poTable {
+            /* Table layout - main table dan DataTables scroll clone (selector seperti PR List) */
+            .list-partial-content .table {
                 table-layout: auto;
                 width: auto;
                 min-width: 100%;
             }
-            /* Rata tengah: thead & tbody */
-            .list-partial-content #poTable th,
-            .list-partial-content #poTable td,
-            .list-partial-content .dataTables_scrollHead #poTable th,
-            .list-partial-content .dataTables_scrollBody #poTable th,
-            .list-partial-content .dataTables_scrollBody #poTable td {
+            .list-partial-content .dataTables_scrollHead .table,
+            .list-partial-content .dataTables_scrollBody .table {
+                table-layout: auto;
+                width: auto;
+                min-width: 100%;
+            }
+            /* Rata tengah: thead & tbody (semua kolom center) */
+            .list-partial-content .table th,
+            .list-partial-content .table td,
+            .list-partial-content .dataTables_scrollHead .table th,
+            .list-partial-content .dataTables_scrollBody .table th,
+            .list-partial-content .dataTables_scrollBody .table td {
                 white-space: nowrap;
                 vertical-align: middle !important;
                 text-align: center !important;
             }
-            /* Kolom 1 (Action) */
-            .list-partial-content #poTable th:nth-child(1),
-            .list-partial-content #poTable td:nth-child(1),
-            .list-partial-content .dataTables_scrollHead #poTable th:nth-child(1),
-            .list-partial-content .dataTables_scrollBody #poTable td:nth-child(1) {
+            /* Kolom 1 (Action) - lebar tetap */
+            .list-partial-content .table th:nth-child(1),
+            .list-partial-content .table td:nth-child(1),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(1),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(1) {
                 width: 120px;
                 min-width: 120px;
                 text-align: center !important;
             }
-            /* Kolom 7 (PO Amount) - rata kanan */
-            .list-partial-content #poTable th:nth-child(7),
-            .list-partial-content #poTable td:nth-child(7),
-            .list-partial-content .dataTables_scrollHead #poTable th:nth-child(7),
-            .list-partial-content .dataTables_scrollBody #poTable td:nth-child(7) {
-                text-align: right !important;
+            /* Purchase Order Name, Purchase Type, Purchase Sub Type, Status, PO Amount, PO Date, PR Number, Vendor Name, Company, PO Author - center */
+            .list-partial-content .table th:nth-child(3),
+            .list-partial-content .table td:nth-child(3),
+            .list-partial-content .table th:nth-child(4),
+            .list-partial-content .table td:nth-child(4),
+            .list-partial-content .table th:nth-child(5),
+            .list-partial-content .table td:nth-child(5),
+            .list-partial-content .table th:nth-child(6),
+            .list-partial-content .table td:nth-child(6),
+            .list-partial-content .table th:nth-child(7),
+            .list-partial-content .table td:nth-child(7),
+            .list-partial-content .table th:nth-child(8),
+            .list-partial-content .table td:nth-child(8),
+            .list-partial-content .table th:nth-child(9),
+            .list-partial-content .table td:nth-child(9),
+            .list-partial-content .table th:nth-child(10),
+            .list-partial-content .table td:nth-child(10),
+            .list-partial-content .table th:nth-child(11),
+            .list-partial-content .table td:nth-child(11),
+            .list-partial-content .table th:nth-child(12),
+            .list-partial-content .table td:nth-child(12),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(3),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(4),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(5),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(6),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(7),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(8),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(9),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(10),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(11),
+            .list-partial-content .dataTables_scrollHead .table th:nth-child(12),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(3),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(4),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(5),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(6),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(7),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(8),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(9),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(10),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(11),
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(12) {
+                text-align: center !important;
             }
-            .list-partial-content #poTable td .employee-name,
-            .list-partial-content .dataTables_scrollBody #poTable td .employee-name {
+            /* PO Author (kolom 12) - employee-name center */
+            .list-partial-content .table td:nth-child(12) .employee-name,
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(12) .employee-name {
+                text-align: center !important;
+            }
+            .list-partial-content .table td .employee-name,
+            .list-partial-content .dataTables_scrollBody .table td .employee-name {
                 display: inline-block;
                 width: 160px;
                 max-width: 30vw;
