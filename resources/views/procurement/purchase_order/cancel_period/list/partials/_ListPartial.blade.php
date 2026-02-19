@@ -51,6 +51,25 @@
                 text-overflow: clip;
                 margin: 0 auto;
             }
+            /* Action buttons: icon, cursor and size like Approval PO list */
+            .list-partial-content #poTable .action-btn,
+            .list-partial-content .dataTables_scrollBody #poTable .action-btn {
+                cursor: pointer;
+                min-width: 38px;
+                min-height: 38px;
+                padding: 0.5rem 0.75rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 0.375rem;
+                font-size: 0.875rem;
+                line-height: 1.5;
+            }
+            .list-partial-content #poTable .action-btn i,
+            .list-partial-content .dataTables_scrollBody #poTable .action-btn i {
+                font-size: 1rem;
+                line-height: 1;
+            }
         </style>
         <table class="table table-striped table-hover list-partial-table" id="poTable">
             <thead class="table-light dark:table-dark">

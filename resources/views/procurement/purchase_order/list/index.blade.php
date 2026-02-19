@@ -226,7 +226,7 @@
                 </div>
             </header>
 
-            <div id="viewPOSummaryContainer">
+            <div id="viewPOSummaryContainer" class="p-4">
                 @include('procurement.purchase_order.view._ViewPO')
             </div>
         </section>

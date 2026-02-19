@@ -1,12 +1,10 @@
-<div class="section-card" id="cancelPeriodPeriodOfPaymentSection" style="display: none;">
-    <div class="section-header">
-        <h5 class="fw-semibold mb-0">
-            <i class="icon-base bx bx-calendar-check me-2"></i>
-            Period Of Payment
-        </h5>
-    </div>
-    <div class="section-body">
-        <div class="table-responsive">
+<div class="col-12" id="cancelPeriodPeriodOfPaymentSection" style="display: none;">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+            <h6 class="card-title mb-0">Period Of Payment</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
             <table class="table table-striped table-hover" id="cancelPeriodPeriodOfPaymentTable">
                 <thead class="table-light dark:table-dark">
                     <tr>
@@ -25,6 +23,7 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
         </div>
     </div>
 </div>

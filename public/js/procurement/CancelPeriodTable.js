@@ -46,7 +46,7 @@ class CancelPeriodTable {
                     buttons: [
                         {
                             label: 'Select',
-                            icon: '<i class="bx bx-check"></i>',
+                            icon: '<i class="bx bx-pointer"></i>',
                             className: 'btn-primary',
                             title: 'Select PO',
                             showIf: () => true

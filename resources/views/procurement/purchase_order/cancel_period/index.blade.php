@@ -196,14 +196,22 @@
                 </div>
 
                 <div id="viewCancelPeriodData" style="display: none;">
-                    @include('procurement.purchase_order.cancel_period.partials._POInformationPartial')
-                    @include('procurement.purchase_order.cancel_period.partials._AdditionalInformationPartial')
-                    @include('procurement.purchase_order.cancel_period.partials._VendorInformationPartial')
-                    @include('procurement.purchase_order.cancel_period.partials._ItemListPartial')
-                    {{-- Term Of Payment vs Period Of Payment: tampil salah satu berdasarkan response getAmortizations. Jika data.periodOfPayment tidak kosong tampil Period Of Payment; jika tidak tampil Term Of Payment. Logic di CancelPeriodView.js selectPO() setelah getAmortizations(poNumber). --}}
-                    @include('procurement.purchase_order.cancel_period.partials._TermOfPaymentPartial')
-                    @include('procurement.purchase_order.cancel_period.partials._PeriodOfPaymentPartial')
-                    @include('procurement.purchase_order.cancel_period.partials._SubmitButtonsPartial')
+                    <div class="row g-4 p-4">
+                        @include('procurement.purchase_order.cancel_period.partials._POInformationPartial')
+                        <div class="col-12">
+                            @include('procurement.purchase_order.cancel_period.partials._AdditionalInformationPartial')
+                        </div>
+                        @include('procurement.purchase_order.cancel_period.partials._VendorInformationPartial')
+                        @include('procurement.purchase_order.cancel_period.partials._ItemListPartial')
+                        {{-- Term Of Payment vs Period Of Payment: tampil salah satu berdasarkan response getAmortizations. Jika data.periodOfPayment tidak kosong tampil Period Of Payment; jika tidak tampil Term Of Payment. Logic di CancelPeriodView.js selectPO() setelah getAmortizations(poNumber). --}}
+                        @include('procurement.purchase_order.cancel_period.partials._TermOfPaymentPartial')
+                        @include('procurement.purchase_order.cancel_period.partials._PeriodOfPaymentPartial')
+                    </div>
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            @include('procurement.purchase_order.cancel_period.partials._SubmitButtonsPartial')
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
