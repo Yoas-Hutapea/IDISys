@@ -1,12 +1,10 @@
-<div class="section-card">
-    <div class="section-header">
-        <h5 class="fw-semibold mb-0">
-            <i class="icon-base bx bx-file me-2"></i>
-            Invoice Basic Information
-        </h5>
-    </div>
-    <div class="section-body">
-        <div class="row g-3">
+<div class="col-12">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+            <h6 class="card-title mb-0">Invoice Basic Information</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
             <div class="col-md-6">
                 <div class="mb-3">
                     <label class="form-label form-label-required">Term Position</label>
@@ -52,6 +50,7 @@
                     <div class="invalid-feedback">Email Address is required and must be a valid email format.</div>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </div>

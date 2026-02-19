@@ -1,12 +1,10 @@
-<div class="section-card">
-    <div class="section-header">
-        <h5 class="fw-semibold mb-0">
-            <i class="icon-base bx bx-building me-2"></i>
-            Vendor Information
-        </h5>
-    </div>
-    <div class="section-body">
-        <div class="row g-3">
+<div class="col-12">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+            <h6 class="card-title mb-0">Vendor Information</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
             <div class="col-md-6">
                 <div class="mb-3">
                     <label class="form-label">Vendor Name</label>
@@ -51,6 +49,7 @@
                     <input type="text" class="form-control readonly-field" id="txtVendorStatus" readonly>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </div>

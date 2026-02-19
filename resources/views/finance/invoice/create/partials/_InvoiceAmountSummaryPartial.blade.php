@@ -1,12 +1,10 @@
-<div class="section-card">
-    <div class="section-header">
-        <h5 class="fw-semibold mb-0">
-            <i class="icon-base bx bx-calculator me-2"></i>
-            Invoice Amount Summary
-        </h5>
-    </div>
-    <div class="section-body">
-        <div class="row g-3">
+<div class="col-12">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+            <h6 class="card-title mb-0">Invoice Amount Summary</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
             <div class="col-md-6">
                 <div class="mb-3">
                     <label class="form-label form-label-required">Term Invoice</label>
@@ -31,6 +29,7 @@
                     <input type="text" class="form-control readonly-field" id="txtTotalAmount" readonly disabled>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </div>

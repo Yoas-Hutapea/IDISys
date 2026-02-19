@@ -8,35 +8,6 @@
             contain: layout style;
         }
 
-        .section-card {
-            background-color: white;
-            border-radius: 0.375rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            margin-bottom: 1.5rem;
-            contain: layout;
-        }
-
-        [data-bs-theme="dark"] .section-card {
-            background-color: #2b2b2b;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.3);
-        }
-
-        .section-header {
-            background-color: #f8f9fa;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e9ecef;
-            border-radius: 0.375rem 0.375rem 0 0;
-        }
-
-        [data-bs-theme="dark"] .section-header {
-            background-color: #3a3a3a;
-            border-bottom-color: #495057;
-        }
-
-        .section-body {
-            padding: 1.5rem;
-        }
-
         .form-label-required::after {
             content: " *";
             color: #dc3545;
@@ -201,23 +172,26 @@
             </div>
         </div>
 
-        @include('finance.invoice.create.partials._POInformationPartial')
-        @include('finance.invoice.create.partials._VendorInformationPartial')
-        @include('finance.invoice.create.partials._ItemListPartial')
+        <div class="row g-4">
+            @include('finance.invoice.create.partials._POInformationPartial')
+            @include('finance.invoice.create.partials._VendorInformationPartial')
+            @include('finance.invoice.create.partials._ItemListPartial')
+            @include('finance.invoice.create.partials._TermOfPaymentPartial')
+            @include('finance.invoice.create.partials._PeriodOfPaymentPartial')
 
-        @include('finance.invoice.create.partials._TermOfPaymentPartial')
-        @include('finance.invoice.create.partials._PeriodOfPaymentPartial')
+            <!-- Invoice Information (hidden until term/period selected) -->
+            <div class="col-12" id="invoiceInformationSection" style="display: none;">
+                <form id="invoiceForm" novalidate>
+                    <div class="row g-4">
+                        @include('finance.invoice.create.partials._InvoiceBasicInformationPartial')
+                        @include('finance.invoice.create.partials._InvoiceAmountSummaryPartial')
+                    </div>
+                </form>
+            </div>
 
-        <!-- Invoice Information (hidden until term/period selected) -->
-        <div id="invoiceInformationSection" style="display: none;">
-            <form id="invoiceForm" novalidate>
-                @include('finance.invoice.create.partials._InvoiceBasicInformationPartial')
-                @include('finance.invoice.create.partials._InvoiceAmountSummaryPartial')
-            </form>
+            @include('finance.invoice.create.partials._DocumentChecklistPartial')
+            @include('finance.invoice.create.partials._SubmitButtonsPartial')
         </div>
-
-        @include('finance.invoice.create.partials._DocumentChecklistPartial')
-        @include('finance.invoice.create.partials._SubmitButtonsPartial')
 
         @include('finance.invoice.create.partials._ChoosePOModalPartial')
     </div>
