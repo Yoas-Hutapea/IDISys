@@ -336,20 +336,23 @@ class GRNListView {
             const qty = Number(item.ItemQty || item.itemQty || 0);
             const unitPrice = Number(item.UnitPrice || item.unitPrice || 0);
             const saved = lineMap[itemId] || {};
-            const actualReceived = saved.actualReceived != null ? Number(saved.actualReceived) : qty;
+            let actualReceived = saved.actualReceived != null ? Number(saved.actualReceived) : qty;
+            if (actualReceived > qty) actualReceived = qty;
             const amount = actualReceived * unitPrice;
             total += amount;
             const remark = saved.remark || '';
-            let tanggalTerima = saved.tanggalTerima || '';
-            if (tanggalTerima && tanggalTerima.length >= 16) {
-                tanggalTerima = tanggalTerima.substring(0, 16);
-            } else if (tanggalTerima) {
-                try { tanggalTerima = new Date(tanggalTerima).toISOString().slice(0, 16); } catch (_) {}
+            let receiveDate = saved.tanggalTerima || '';
+            if (receiveDate && receiveDate.length >= 10) {
+                receiveDate = receiveDate.substring(0, 10);
+            } else if (receiveDate) {
+                try { receiveDate = new Date(receiveDate).toISOString().slice(0, 10); } catch (_) {}
             }
 
+            const qtyRemain = Math.max(0, qty - actualReceived);
             const tr = document.createElement('tr');
             tr.dataset.itemId = itemId;
             tr.dataset.unitPrice = unitPrice;
+            tr.dataset.itemQty = qty;
             tr.innerHTML = `
                 <td>${this.escapeHtml(poNumber)}</td>
                 <td>${this.escapeHtml(itemId)}</td>
@@ -357,18 +360,20 @@ class GRNListView {
                 <td>${this.escapeHtml(item.ItemDescription || item.itemDescription || '')}</td>
                 <td>${this.escapeHtml(item.ItemUnit || item.itemUnit || '')}</td>
                 <td class="text-end">${fmtNum(qty)}</td>
-                <td class="text-end"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end grn-actual-received" value="${actualReceived}" data-idx="${idx}"></td>
+                <td class="text-end"><input type="number" step="0.01" min="0" max="${qty}" class="form-control form-control-sm text-end grn-actual-received" value="${actualReceived}" data-idx="${idx}" placeholder="≤ ${qty}"></td>
+                <td class="text-end grn-qty-remain-cell">${fmtNum(qtyRemain)}</td>
                 <td>${this.escapeHtml(item.CurrencyCode || item.currencyCode || '')}</td>
                 <td class="text-end">${fmtCur(unitPrice)}</td>
                 <td class="text-end"><input type="text" class="form-control form-control-sm text-end grn-amount" readonly value="${fmtCur(amount)}" data-idx="${idx}"></td>
+                <td><input type="date" class="form-control form-control-sm grn-tanggal-terima" value="${receiveDate}" data-idx="${idx}"></td>
                 <td><input type="text" class="form-control form-control-sm grn-remark" value="${this.escapeHtml(remark)}" data-idx="${idx}" maxlength="255"></td>
-                <td><input type="datetime-local" class="form-control form-control-sm grn-tanggal-terima" value="${tanggalTerima}" data-idx="${idx}"></td>
             `;
             tbody.appendChild(tr);
         });
 
         tbody.querySelectorAll('.grn-actual-received').forEach(input => {
             input.addEventListener('input', () => this.recalcRowAmount(input));
+            input.addEventListener('change', () => this.recalcRowAmount(input));
         });
 
         document.getElementById('grn-amount-total').value = fmtCur(total);
@@ -376,8 +381,19 @@ class GRNListView {
 
     recalcRowAmount(input) {
         const tr = input.closest('tr');
+        const itemQty = parseFloat(tr.dataset.itemQty || 0);
         const unitPrice = parseFloat(tr.dataset.unitPrice || 0);
-        const actual = parseFloat(input.value) || 0;
+        let actual = parseFloat(input.value) || 0;
+        if (actual > itemQty) {
+            actual = itemQty;
+            input.value = itemQty;
+            input.classList.add('is-invalid');
+        } else {
+            input.classList.remove('is-invalid');
+        }
+        const qtyRemain = Math.max(0, itemQty - actual);
+        const qtyRemainCell = tr.querySelector('.grn-qty-remain-cell');
+        if (qtyRemainCell) qtyRemainCell.textContent = new Intl.NumberFormat('id-ID').format(qtyRemain);
         const amount = actual * unitPrice;
         const amountInput = tr.querySelector('.grn-amount');
         if (amountInput) amountInput.value = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0 }).format(amount);
@@ -394,6 +410,18 @@ class GRNListView {
     async submitGRN() {
         if (!this.currentPONumber) return;
         const tbody = document.getElementById('grn-items-tbody');
+        const fmtNum = n => new Intl.NumberFormat('id-ID').format(Number(n) || 0);
+        for (const tr of tbody.querySelectorAll('tr')) {
+            const itemQty = parseFloat(tr.dataset.itemQty || 0);
+            const actualInput = tr.querySelector('.grn-actual-received');
+            const actual = actualInput ? parseFloat(actualInput.value) || 0 : 0;
+            if (actual > itemQty) {
+                actualInput.classList.add('is-invalid');
+                this.showError(`Actual Received (${fmtNum(actual)}) cannot exceed Item Qty (${fmtNum(itemQty)}). Please correct the row and try again.`);
+                return;
+            }
+            actualInput.classList.remove('is-invalid');
+        }
         const lines = [];
         tbody.querySelectorAll('tr').forEach(tr => {
             const itemId = tr.dataset.itemId;
