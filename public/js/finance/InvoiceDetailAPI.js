@@ -134,14 +134,15 @@ class InvoiceDetailAPI {
     }
 
     /**
-     * Get GRN items for a PO (from trxInventoryGoodReceiveNote) for View Invoice item list
+     * Get items for Invoice (GRN or PO fallback) for View Invoice item list.
+     * Backend returns { items: array, source: 'grn'|'po' }; we return the items array.
      */
     async getGRNItemsForInvoice(poNumber) {
         const cacheKey = `grnItemsForInvoice_${poNumber}`;
         return await this.getCachedData(cacheKey, async () => {
             const encoded = encodeURIComponent(poNumber);
             const response = await apiCall('Inventory', `/Inventory/GoodReceiveNotes/ItemsForInvoice/${encoded}`, 'GET');
-            const arr = response?.data ?? response?.Data ?? response;
+            const arr = Array.isArray(response) ? response : (response?.items ?? response?.data ?? response?.Data ?? response);
             return Array.isArray(arr) ? arr : [];
         });
     }

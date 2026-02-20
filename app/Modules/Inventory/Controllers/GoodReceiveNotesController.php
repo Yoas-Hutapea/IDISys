@@ -5,6 +5,7 @@ namespace App\Modules\Inventory\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\TrxInventoryGoodReceiveNote;
 use App\Services\BaseService;
+use App\Services\PurchaseOrderAmortizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -110,6 +111,13 @@ class GoodReceiveNotesController extends Controller
             }
         }
 
+        try {
+            PurchaseOrderAmortizationService::recalculateFromGRN($poNumber);
+        } catch (\Throwable $e) {
+            // Don't fail GRN save if amortization recalc fails (e.g. table/column missing)
+            report($e);
+        }
+
         return response()->json(['success' => true, 'message' => 'Good Receive Note saved.']);
     }
 
@@ -144,45 +152,88 @@ class GoodReceiveNotesController extends Controller
     }
 
     /**
-     * Get GRN items for Invoice Create: returns rows from trxInventoryGoodReceiveNote
-     * so invoice can bill based on actual received qty/amount.
-     * Shape compatible with PO items: ItemQty = ActualReceived, Amount = GRN Amount.
+     * Get items for Invoice Create: returns GRN items (trxInventoryGoodReceiveNote) when the PO
+     * has any GRN lines; otherwise returns PO items from trxPROPurchaseOrderItem.
+     * Shape is always compatible with invoice item list (ItemName, ItemQty, UnitPrice, Amount, etc.).
      */
     public function itemsForInvoice(string $poNumber)
     {
         $decoded = urldecode($poNumber);
-        if (!Schema::hasTable(self::TABLE_NAME)) {
-            return response()->json(['data' => []]);
+
+        if (Schema::hasTable(self::TABLE_NAME)) {
+            $orderColumn = Schema::hasColumn(self::TABLE_NAME, 'mstPROPurchaseItemInventoryItemID')
+                ? 'mstPROPurchaseItemInventoryItemID'
+                : 'ID';
+            $rows = collect([]);
+
+            foreach (['trxPROPurchaseOrderNumber', 'PurchaseOrderNumber'] as $candidate) {
+                if (!Schema::hasColumn(self::TABLE_NAME, $candidate)) {
+                    continue;
+                }
+                $query = DB::table(self::TABLE_NAME)->where($candidate, $decoded);
+                if (Schema::hasColumn(self::TABLE_NAME, 'IsActive')) {
+                    $query->where('IsActive', true);
+                }
+                $rows = $query->orderBy($orderColumn)->get();
+                if ($rows->isNotEmpty()) {
+                    break;
+                }
+            }
+
+            if ($rows->isNotEmpty()) {
+                $data = $rows->map(function ($row) {
+                    return [
+                        'mstPROPurchaseItemInventoryItemID' => $row->mstPROPurchaseItemInventoryItemID ?? null,
+                        'ItemName' => $row->ItemName ?? null,
+                        'itemName' => $row->ItemName ?? null,
+                        'ItemDescription' => $row->ItemDescription ?? null,
+                        'itemDescription' => $row->ItemDescription ?? null,
+                        'ItemUnit' => $row->ItemUnit ?? null,
+                        'itemUnit' => $row->ItemUnit ?? null,
+                        'ItemQty' => $row->ActualReceived ?? 0,
+                        'itemQty' => $row->ActualReceived ?? 0,
+                        'ActualReceived' => $row->ActualReceived ?? 0,
+                        'CurrencyCode' => $row->CurrencyCode ?? null,
+                        'UnitPrice' => $row->UnitPrice ?? 0,
+                        'unitPrice' => $row->UnitPrice ?? 0,
+                        'Amount' => $row->Amount ?? 0,
+                        'amount' => $row->Amount ?? 0,
+                    ];
+                })->values();
+
+                return response()->json(['items' => $data, 'source' => 'grn']);
+            }
         }
 
-        $query = DB::table(self::TABLE_NAME)
-            ->where('trxPROPurchaseOrderNumber', $decoded);
-        if (Schema::hasColumn(self::TABLE_NAME, 'IsActive')) {
-            $query->where('IsActive', true);
-        }
-        $rows = $query->orderBy('mstPROPurchaseItemInventoryItemID')->get();
-
-        $data = $rows->map(function ($row) {
+        // No GRN items for this PO: return items from trxPROPurchaseOrderItem (same shape for invoice list)
+        $poItems = $this->getPOItems($decoded);
+        $data = collect($poItems)->map(function ($item) {
+            $qty = (float) ($item->ItemQty ?? $item->itemQty ?? 0);
+            $unitPrice = (float) ($item->UnitPrice ?? $item->unitPrice ?? 0);
+            $amount = (float) ($item->Amount ?? $item->amount ?? 0);
+            if ($amount <= 0 && $qty > 0 && $unitPrice >= 0) {
+                $amount = $qty * $unitPrice;
+            }
             return [
-                'mstPROPurchaseItemInventoryItemID' => $row->mstPROPurchaseItemInventoryItemID ?? null,
-                'ItemName' => $row->ItemName ?? null,
-                'itemName' => $row->ItemName ?? null,
-                'ItemDescription' => $row->ItemDescription ?? null,
-                'itemDescription' => $row->ItemDescription ?? null,
-                'ItemUnit' => $row->ItemUnit ?? null,
-                'itemUnit' => $row->ItemUnit ?? null,
-                'ItemQty' => $row->ActualReceived ?? 0,
-                'itemQty' => $row->ActualReceived ?? 0,
-                'ActualReceived' => $row->ActualReceived ?? 0,
-                'CurrencyCode' => $row->CurrencyCode ?? null,
-                'UnitPrice' => $row->UnitPrice ?? 0,
-                'unitPrice' => $row->UnitPrice ?? 0,
-                'Amount' => $row->Amount ?? 0,
-                'amount' => $row->Amount ?? 0,
+                'mstPROPurchaseItemInventoryItemID' => $item->mstPROPurchaseItemInventoryItemID ?? $item->MstPROPurchaseItemInventoryItemID ?? null,
+                'ItemName' => $item->ItemName ?? $item->itemName ?? null,
+                'itemName' => $item->ItemName ?? $item->itemName ?? null,
+                'ItemDescription' => $item->ItemDescription ?? $item->itemDescription ?? null,
+                'itemDescription' => $item->ItemDescription ?? $item->itemDescription ?? null,
+                'ItemUnit' => $item->ItemUnit ?? $item->itemUnit ?? null,
+                'itemUnit' => $item->ItemUnit ?? $item->itemUnit ?? null,
+                'ItemQty' => $qty,
+                'itemQty' => $qty,
+                'ActualReceived' => $qty,
+                'CurrencyCode' => $item->CurrencyCode ?? $item->currencyCode ?? null,
+                'UnitPrice' => $unitPrice,
+                'unitPrice' => $unitPrice,
+                'Amount' => $amount,
+                'amount' => $amount,
             ];
         })->values();
 
-        return response()->json(['data' => $data]);
+        return response()->json(['items' => $data, 'source' => 'po']);
     }
 
     private function getPOItems(string $poNumber): array
@@ -198,6 +249,22 @@ class GoodReceiveNotesController extends Controller
         }
 
         return $query->orderBy('ID')->get()->all();
+    }
+
+    /**
+     * Recalculate amortization (trxPROPurchaseOrderAmortization) for this PO from GRN total.
+     * Call when opening Create Invoice for a PO that has GRN so Term/Period amounts reflect 27M not PR 32.4M.
+     */
+    public function recalcAmortization(string $poNumber)
+    {
+        $decoded = urldecode($poNumber);
+        try {
+            PurchaseOrderAmortizationService::recalculateFromGRN($decoded);
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
     private function getCurrentEmployeeId()

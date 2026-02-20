@@ -49,9 +49,11 @@ class InvoiceCreateTerm {
     }
 
     /**
-     * Load Term of Payment Grid (Optimized - uses pre-fetched existingInvoices and amortizations from database)
+     * Load Term of Payment Grid (Optimized - uses pre-fetched existingInvoices and optional amortizationsData from database)
+     * @param {Array|null} existingInvoices - pre-fetched invoice details for eligibility
+     * @param {Object|null} amortizationsData - optional { termOfPayment: [] } from getAmortizations (avoids duplicate API call)
      */
-    async loadTermOfPaymentGridOptimized(existingInvoices = null) {
+    async loadTermOfPaymentGridOptimized(existingInvoices = null, amortizationsData = null) {
         try {
             const tbody = document.getElementById('tblTermOfPaymentBody');
             if (!tbody) return;
@@ -64,48 +66,41 @@ class InvoiceCreateTerm {
                 return;
             }
 
-            // Load amortizations from API (database)
             const poNumber = selectedPO.purchOrderID || selectedPO.PurchOrderID || '';
             let termAmortizations = [];
 
-            if (poNumber && this.manager && this.manager.apiModule) {
+            const dataPayload = amortizationsData && typeof amortizationsData === 'object' ? (amortizationsData.data || amortizationsData) : amortizationsData;
+            if (dataPayload && Array.isArray(dataPayload.termOfPayment) && dataPayload.termOfPayment.length > 0) {
+                termAmortizations = dataPayload.termOfPayment;
+            } else if (poNumber && this.manager && this.manager.apiModule) {
                 try {
-                    const amortizationsData = await this.manager.apiModule.getAmortizations(poNumber);
-                    termAmortizations = amortizationsData?.termOfPayment || [];
+                    const fetched = await this.manager.apiModule.getAmortizations(poNumber);
+                    const payload = fetched && typeof fetched === 'object' ? (fetched.data || fetched) : fetched;
+                    termAmortizations = (payload && Array.isArray(payload.termOfPayment)) ? payload.termOfPayment : [];
                 } catch (error) {
                     console.warn('Failed to load amortizations from API, falling back to TOPDescription:', error);
-                    // Fallback: use TOPDescription if API fails
-                    const topDescription = selectedPO.topDescription || selectedPO.TOPDescription || '';
-                    if (topDescription) {
-                        const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                        const poAmount = parseFloat(selectedPO.poAmount || selectedPO.POAmount || 0);
-                        termAmortizations = termValues.map((termValue, index) => ({
-                            periodNumber: index + 1,
-                            termValue: termValue,
-                            invoiceAmount: (poAmount * termValue) / 100,
-                            status: 'Available',
-                            isCanceled: false,
-                            invoiceNumber: null
-                        }));
-                    }
                 }
-            } else {
-                // Fallback: use TOPDescription if no API module
+            }
+
+            if (termAmortizations.length === 0) {
                 const topDescription = selectedPO.topDescription || selectedPO.TOPDescription || '';
-                if (!topDescription) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No Term of Payment available</td></tr>';
-                    return;
+                if (topDescription) {
+                    const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                    const poAmount = parseFloat(selectedPO.poAmount || selectedPO.POAmount || 0);
+                    termAmortizations = termValues.map((termValue, index) => ({
+                        periodNumber: index + 1,
+                        termValue: termValue,
+                        invoiceAmount: (poAmount * termValue) / 100,
+                        status: 'Available',
+                        isCanceled: false,
+                        invoiceNumber: null
+                    }));
                 }
-                const termValues = topDescription.split('|').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                const poAmount = parseFloat(selectedPO.poAmount || selectedPO.POAmount || 0);
-                termAmortizations = termValues.map((termValue, index) => ({
-                    periodNumber: index + 1,
-                    termValue: termValue,
-                    invoiceAmount: (poAmount * termValue) / 100,
-                    status: 'Available',
-                    isCanceled: false,
-                    invoiceNumber: null
-                }));
+            }
+
+            if (termAmortizations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No Term of Payment available</td></tr>';
+                return;
             }
 
             if (termAmortizations.length === 0) {
@@ -527,6 +522,181 @@ class InvoiceCreateTerm {
     }
 
     /**
+     * Load Period of Payment grid from pre-fetched amortization data (same as Cancel Period).
+     * Used when Create Invoice has already fetched getAmortizations and periodOfPayment has items.
+     */
+    async loadPeriodOfPaymentGridFromAmortizations(amortizationsData, existingInvoices = null) {
+        try {
+            const tbody = document.getElementById('tblPeriodOfPaymentBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            const selectedPO = this.manager.poModule?.selectedPO || null;
+            if (!selectedPO) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No PO selected</td></tr>';
+                return;
+            }
+
+            const dataPayload = amortizationsData && typeof amortizationsData === 'object' ? (amortizationsData.data || amortizationsData) : amortizationsData;
+            const rawPeriodAmortizations = (dataPayload && Array.isArray(dataPayload.periodOfPayment)) ? dataPayload.periodOfPayment : [];
+
+            if (rawPeriodAmortizations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No amortization periods found</td></tr>';
+                return;
+            }
+
+            const periodAmortizations = rawPeriodAmortizations.map(amort => ({
+                ...amort,
+                startDate: amort.startDate ? new Date(amort.startDate) : null,
+                endDate: amort.endDate ? new Date(amort.endDate) : null
+            }));
+
+            const termValue = 100;
+            const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
+            const formatDate = this.utils ? this.utils.formatDate.bind(this.utils) : this.formatDate.bind(this);
+
+            periodAmortizations.forEach((amort) => {
+                const periodNumber = parseInt(amort.periodNumber, 10) || 0;
+                const isCanceled = Boolean(amort.isCanceled);
+                const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
+
+                let canSelect = false;
+                if (hasInvoice || isCanceled) {
+                    canSelect = false;
+                } else if (periodNumber === 1) {
+                    canSelect = true;
+                } else {
+                    const prevAmort = periodAmortizations.find(a => (parseInt(a.periodNumber, 10) || 0) === periodNumber - 1);
+                    const prevHasInvoice = prevAmort && (prevAmort.invoiceNumber != null && prevAmort.invoiceNumber !== '');
+                    canSelect = prevHasInvoice;
+                }
+
+                let status = 'Invoice Not Submitted Yet';
+                let statusClass = 'text-warning';
+                if (isCanceled) {
+                    status = 'Canceled';
+                    statusClass = 'text-danger';
+                } else if (hasInvoice) {
+                    status = 'Invoice Submitted';
+                    statusClass = 'text-success';
+                }
+
+                const startDateObj = amort.startDate instanceof Date ? amort.startDate : (amort.startDate ? new Date(amort.startDate) : null);
+                const endDateObj = amort.endDate instanceof Date ? amort.endDate : (amort.endDate ? new Date(amort.endDate) : null);
+                const startDateStr = startDateObj && !isNaN(startDateObj.getTime()) ? startDateObj.toISOString().split('T')[0] : '';
+                const endDateStr = endDateObj && !isNaN(endDateObj.getTime()) ? endDateObj.toISOString().split('T')[0] : '';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-1">
+                            ${!hasInvoice && !isCanceled ? `
+                                <input type="checkbox"
+                                       class="form-check-input period-checkbox"
+                                       id="chkPeriod_${periodNumber}"
+                                       data-period-number="${periodNumber}"
+                                       data-start-date="${startDateStr}"
+                                       data-end-date="${endDateStr}"
+                                       data-term-value="${termValue}"
+                                       data-has-invoice="false"
+                                       ${canSelect ? '' : 'disabled'}
+                                       title="${canSelect ? 'Select Period' : 'Please select previous periods first'}">
+                            ` : `
+                                <span class="badge ${isCanceled ? 'bg-label-danger' : 'bg-label-success'}">${isCanceled ? 'Canceled' : 'Invoice Submitted'}</span>
+                            `}
+                            <button class="btn btn-sm btn-icon btn-outline-info btn-approval-log-period"
+                                    data-period-number="${periodNumber}"
+                                    title="Show Approval Log">
+                                <i class="icon-base bx bx-history"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="text-center">Period ${periodNumber}</td>
+                    <td class="text-center">${termValue}%</td>
+                    <td class="text-center">${formatDate(startDateObj)}</td>
+                    <td class="text-center">${formatDate(endDateObj)}</td>
+                    <td class="text-center ${statusClass}">${status}</td>
+                    <td class="text-center">${formatCurrency(amort.invoiceAmount || 0)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            const self = this;
+            const totalPeriods = periodAmortizations.length;
+            $(document).off('change', '.period-checkbox').on('change', '.period-checkbox', function() {
+                const periodNumber = parseInt($(this).data('period-number')) || 0;
+                const isChecked = $(this).is(':checked');
+
+                if (isChecked) {
+                    let allPreviousSelected = true;
+                    for (let i = 1; i < periodNumber; i++) {
+                        const prevCheckbox = $(`#chkPeriod_${i}`);
+                        if (prevCheckbox.length > 0 && !prevCheckbox.is(':checked')) {
+                            allPreviousSelected = false;
+                            break;
+                        }
+                    }
+
+                    if (!allPreviousSelected) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Invalid Selection',
+                            text: `Please select Period ${periodNumber - 1} first before selecting Period ${periodNumber}.`
+                        });
+                        $(this).prop('checked', false);
+                        return;
+                    }
+
+                    if (!self.selectedPeriods.includes(periodNumber)) {
+                        self.selectedPeriods.push(periodNumber);
+                    }
+                    self.selectedPeriods.sort((a, b) => a - b);
+
+                    // Show Invoice Basic Information, Amount Summary, Document Checklist, Submit Buttons
+                    self.updatePeriodOfPaymentInvoice();
+
+                    // Enable next period checkbox so user can select multiple in sequence
+                    const nextCheckbox = $(`#chkPeriod_${periodNumber + 1}`);
+                    if (nextCheckbox.length > 0) {
+                        nextCheckbox.prop('disabled', false);
+                    }
+                } else {
+                    self.selectedPeriods = self.selectedPeriods.filter(p => p !== periodNumber);
+                    // Uncheck and disable all subsequent periods (keep sequence)
+                    for (let i = periodNumber + 1; i <= totalPeriods; i++) {
+                        const nextCheckbox = $(`#chkPeriod_${i}`);
+                        if (nextCheckbox.length > 0) {
+                            nextCheckbox.prop('checked', false);
+                            nextCheckbox.prop('disabled', true);
+                        }
+                    }
+                    self.selectedPeriods.sort((a, b) => a - b);
+
+                    if (self.selectedPeriods.length > 0) {
+                        self.updatePeriodOfPaymentInvoice();
+                    } else {
+                        const currentInvoiceId = self.manager && self.manager.currentInvoiceId ? self.manager.currentInvoiceId : null;
+                        if (!currentInvoiceId) {
+                            $('#invoiceInformationSection').hide();
+                            $('#documentChecklistSection').hide();
+                            $('#submitButtonsSection').hide();
+                        }
+                    }
+                }
+            });
+
+            $('.btn-approval-log-period').on('click', function() {
+                Swal.fire({ icon: 'info', title: 'Approval Log', text: 'Approval log feature will be implemented soon' });
+            });
+        } catch (error) {
+            console.error('Error loading period of payment grid from amortizations:', error);
+            const tbody = document.getElementById('tblPeriodOfPaymentBody');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Error loading periods</td></tr>';
+        }
+    }
+
+    /**
      * Load Period of Payment Grid
      */
     async loadPeriodOfPaymentGrid(startPeriod, endPeriod, period, totalMonthPeriod) {
@@ -613,8 +783,8 @@ class InvoiceCreateTerm {
 
             // Generate rows for each amortization period from database
             periodAmortizations.forEach((amort) => {
-                const periodNumber = amort.periodNumber;
-                const isCanceled = amort.isCanceled || false;
+                const periodNumber = parseInt(amort.periodNumber, 10) || 0;
+                const isCanceled = Boolean(amort.isCanceled);
                 const hasInvoice = amort.invoiceNumber != null && amort.invoiceNumber !== '';
 
                 // Can't select if canceled or already has invoice
@@ -625,7 +795,7 @@ class InvoiceCreateTerm {
                     canSelect = true;
                 } else {
                     // Check if previous period has invoice (sequential requirement)
-                    const prevAmort = periodAmortizations.find(a => a.periodNumber === periodNumber - 1);
+                    const prevAmort = periodAmortizations.find(a => (parseInt(a.periodNumber, 10) || 0) === periodNumber - 1);
                     const prevHasInvoice = prevAmort && (prevAmort.invoiceNumber != null && prevAmort.invoiceNumber !== '');
                     canSelect = prevHasInvoice;
                 }

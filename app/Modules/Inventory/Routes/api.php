@@ -11,4 +11,6 @@ Route::middleware(['web', 'auth'])
             ->where('poNumber', '.*');
         Route::get('/GoodReceiveNotes/ItemsForInvoice/{poNumber}', [GoodReceiveNotesController::class, 'itemsForInvoice'])
             ->where('poNumber', '.*');
+        Route::get('/GoodReceiveNotes/RecalcAmortization/{poNumber}', [GoodReceiveNotesController::class, 'recalcAmortization'])
+            ->where('poNumber', '.*');
     });

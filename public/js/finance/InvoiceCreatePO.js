@@ -167,6 +167,11 @@ class InvoiceCreatePO {
             const poData = await this.manager.apiModule.getPODetails(poNumber);
 
             this.selectedPO = poData;
+
+            // Invalidate cached GRN/PO items so we always load fresh (e.g. after new GRN saved)
+            if (this.manager.apiModule.invalidatePOItemsCache) {
+                this.manager.apiModule.invalidatePOItemsCache(poNumber);
+            }
             this.purchaseRequestAdditional = null; // Reset PurchaseRequestAdditional
             if (this.manager.termModule) {
                 this.manager.termModule.selectedPeriods = []; // Reset selected periods
@@ -176,7 +181,7 @@ class InvoiceCreatePO {
             const prNumber = poData.prNumber || poData.PRNumber || poData.trxPROPurchaseRequestNumber || poData.TrxPROPurchaseRequestNumber || '';
             const vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID;
 
-            // PHASE 2: Load critical data in parallel (GRN items for invoice, PO Items fallback, Vendor, Master Data)
+            // PHASE 2: Load critical data in parallel (GRN items, PO Items, Vendor, Amortizations, Master Data)
             const [
                 grnItemsResult,
                 poItemsResult,
@@ -184,10 +189,11 @@ class InvoiceCreatePO {
                 purchaseTypesResult,
                 workTypeMappingsResult,
                 billingTypesResult,
-                existingInvoicesResult
+                existingInvoicesResult,
+                amortizationsResult
             ] = await Promise.allSettled([
                 // Prefer GRN items (actual received) so we bill what was received
-                this.manager.apiModule.getGRNItemsForInvoice ? this.manager.apiModule.getGRNItemsForInvoice(poNumber) : Promise.resolve([]),
+                this.manager.apiModule.getGRNItemsForInvoice ? this.manager.apiModule.getGRNItemsForInvoice(poNumber) : Promise.resolve({ items: [], source: 'po' }),
                 // PO Items (fallback when no GRN data)
                 this.manager.apiModule.getPOItems(poNumber),
                 // Load Vendor Information (if vendorID exists)
@@ -199,21 +205,36 @@ class InvoiceCreatePO {
                 // Load Billing Types (master data - cached)
                 this.manager.apiModule.getBillingTypes(),
                 // Load Existing Invoices (for term eligibility)
-                this.manager.apiModule.getExistingInvoices(poNumber)
+                this.manager.apiModule.getExistingInvoices(poNumber),
+                // Amortizations from trxPROPurchaseOrderAmortization (for Term/Period grid like Cancel Period)
+                this.manager.apiModule.getAmortizations ? this.manager.apiModule.getAmortizations(poNumber) : Promise.resolve(null)
             ]);
 
-            // Use GRN items (actual received) when available, else PO items
-            const grnItems = grnItemsResult.status === 'fulfilled' && grnItemsResult.value && grnItemsResult.value.length > 0 ? grnItemsResult.value : [];
-            const poItems = poItemsResult.status === 'fulfilled' ? (poItemsResult.value || []) : [];
-            this.poDetailItems = grnItems.length > 0 ? grnItems : poItems;
-            this.itemsSource = grnItems.length > 0 ? 'grn' : 'po';
+            // Single source: Inventory API returns GRN items if any, else PO items (same backend). Fallback: Procurement PO items.
+            const grnPayload = grnItemsResult.status === 'fulfilled' && grnItemsResult.value ? grnItemsResult.value : { items: [], source: 'po' };
+            const grnItems = Array.isArray(grnPayload.items) ? grnPayload.items : (Array.isArray(grnPayload) ? grnPayload : []);
+            const poItemsRaw = poItemsResult.status === 'fulfilled' ? poItemsResult.value : null;
+            const poItems = Array.isArray(poItemsRaw) ? poItemsRaw : (poItemsRaw && (poItemsRaw.data || poItemsRaw.Data) ? (poItemsRaw.data || poItemsRaw.Data) : []);
 
-            // Populate Currency in Vendor section from first item (so it is set even before loadPODetailOptimized)
+            const itemsToUse = grnItems.length > 0 ? grnItems : poItems;
+            const sourceToUse = itemsToUse.length > 0 ? (grnItems.length > 0 ? (grnPayload.source || 'grn') : 'po') : 'po';
+
+            this.poDetailItems = itemsToUse;
+            this.itemsSource = sourceToUse;
+
+            // Populate Currency in Vendor section from first item
             this.populateCurrencyFromPOItems(this.poDetailItems);
 
-            if (this.poDetailItems.length > 0 || grnItemsResult.status === 'fulfilled' || poItemsResult.status === 'fulfilled') {
-                const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
-                this.loadPODetailOptimized(poNumber, existingInvoices).catch(err => console.error('Error loading PO detail:', err));
+            const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
+            if (this.poDetailItems.length > 0) {
+                this.loadPODetailOptimized(poNumber, existingInvoices, this.poDetailItems).catch(err => console.error('Error loading PO detail:', err));
+            } else {
+                const tbody = document.getElementById('tblPODetailBody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
+                    const qtyHeader = document.querySelector('#tblPODetail thead th:nth-child(5)');
+                    if (qtyHeader) qtyHeader.textContent = 'Qty PO';
+                }
             }
 
             // Process Vendor result
@@ -283,17 +304,44 @@ class InvoiceCreatePO {
                 $('#submitButtonsSection').hide();
             }
 
-            // Show/hide Term or Period of Payment sections
-            if (hasPeriodPayment) {
-                $('#termOfPaymentSection').hide();
-                $('#periodOfPaymentSection').show();
+            // When items are from GRN, recalc amortization so Term/Period amounts use GRN total (e.g. 27M) not PR (32.4M)
+            if (this.itemsSource === 'grn' && poNumber && this.manager.apiModule && this.manager.apiModule.recalcAmortizationFromGRN) {
+                await this.manager.apiModule.recalcAmortizationFromGRN(poNumber);
+            }
+
+            // Show/hide Term or Period of Payment sections from amortization data (same logic as Cancel Period)
+            let amortizationsData = amortizationsResult.status === 'fulfilled' && amortizationsResult.value ? amortizationsResult.value : null;
+            if (this.itemsSource === 'grn' && poNumber && this.manager.apiModule) {
+                try {
+                    amortizationsData = await this.manager.apiModule.getAmortizations(poNumber);
+                } catch (e) {
+                    console.warn('Refetch amortizations after GRN recalc:', e);
+                }
+            }
+            const dataPayload = amortizationsData && typeof amortizationsData === 'object' ? (amortizationsData.data || amortizationsData) : null;
+            const periodList = (dataPayload && Array.isArray(dataPayload.periodOfPayment)) ? dataPayload.periodOfPayment : [];
+            const termList = (dataPayload && Array.isArray(dataPayload.termOfPayment)) ? dataPayload.termOfPayment : [];
+            const hasPeriodFromAmort = periodList.length > 0;
+            const hasTermFromAmort = termList.length > 0;
+
+            if (this.manager.termModule) {
+                if (hasPeriodFromAmort) {
+                    $('#termOfPaymentSection').hide();
+                    $('#periodOfPaymentSection').show();
+                    this.manager.termModule.loadPeriodOfPaymentGridFromAmortizations(dataPayload, existingInvoices).catch(err => console.error('Error loading period grid:', err));
+                } else {
+                    $('#termOfPaymentSection').show();
+                    $('#periodOfPaymentSection').hide();
+                    this.manager.termModule.loadTermOfPaymentGridOptimized(existingInvoices, dataPayload).catch(err => console.error('Error loading term grid:', err));
+                }
             } else {
-                $('#termOfPaymentSection').show();
-                $('#periodOfPaymentSection').hide();
-                // Load Term of Payment grid (async, non-blocking - pass existing invoices to avoid duplicate API call)
-                if (this.manager.termModule) {
-                    const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
-                    this.manager.termModule.loadTermOfPaymentGridOptimized(existingInvoices).catch(err => console.error('Error loading term grid:', err));
+                // Fallback when no term module: use PR Additional flag
+                if (hasPeriodPayment) {
+                    $('#termOfPaymentSection').hide();
+                    $('#periodOfPaymentSection').show();
+                } else {
+                    $('#termOfPaymentSection').show();
+                    $('#periodOfPaymentSection').hide();
                 }
             }
 
@@ -397,12 +445,24 @@ class InvoiceCreatePO {
             }
         }
 
+        // PO Amount: use sum of loaded items (GRN or PO) so it reflects 27M when GRN, 30M when PO — not PR/header 32.4M
+        let displayPOAmount = parseFloat(poData.poAmount || poData.POAmount || 0) || 0;
+        if (this.poDetailItems && this.poDetailItems.length > 0) {
+            const sumFromItems = this.poDetailItems.reduce((sum, item) => {
+                const amt = parseFloat(item.amount || item.Amount || 0) || 0;
+                return sum + amt;
+            }, 0);
+            if (sumFromItems > 0) {
+                displayPOAmount = sumFromItems;
+            }
+        }
+
         $('#txtPurchOrderID').val(poData.purchOrderID || poData.PurchOrderID || '');
         $('#txtPODate').val(formatDate(poData.poDate || poData.PODate) || '-');
         $('#txtPurchOrderName').val(poData.purchOrderName || poData.PurchOrderName || '-');
         $('#txtPOAuthor').val(poAuthorName);
         $('#txtPurchType').val(poData.purchType || poData.PurchType || '-');
-        $('#txtPOAmount').val(formatCurrency(poData.poAmount || poData.POAmount || 0));
+        $('#txtPOAmount').val(formatCurrency(displayPOAmount));
         $('#txtPurchSubType').val(poData.purchSubType || poData.PurchSubType || '-');
         $('#txtPRNumber').val(poData.prNumber || poData.PRNumber || '-');
         $('#txtCompany').val(poData.companyName || poData.CompanyName || '-');
@@ -416,7 +476,7 @@ class InvoiceCreatePO {
             this.selectedPO.workTypeID = poData.workTypeID || poData.WorkTypeID || this.selectedPO.workTypeID;
             this.selectedPO.productTypeID = poData.productTypeID || poData.ProductTypeID || this.selectedPO.productTypeID;
             this.selectedPO.topDescription = poData.topDescription || poData.TOPDescription || this.selectedPO.topDescription;
-            this.selectedPO.poAmount = poData.poAmount || poData.POAmount || this.selectedPO.poAmount;
+            this.selectedPO.poAmount = displayPOAmount;
             this.selectedPO.seqTOPID = poData.seqTOPID || poData.SeqTOPID || this.selectedPO.seqTOPID;
             this.selectedPO.purchaseType = poData.purchType || poData.PurchType || '';
             this.selectedPO.purchaseSubType = poData.purchSubType || poData.PurchSubType || '';
@@ -1091,15 +1151,22 @@ class InvoiceCreatePO {
     }
 
     /**
-     * Load PO Detail Items (Optimized - uses pre-fetched existingInvoices)
+     * Load PO Detail Items (Optimized - uses pre-fetched existingInvoices).
+     * @param {string} poNumber
+     * @param {Array|null} existingInvoices
+     * @param {Array|null} itemsOverride - if provided, use for rendering and set this.poDetailItems (avoids race)
      */
-    async loadPODetailOptimized(poNumber, existingInvoices = null) {
+    async loadPODetailOptimized(poNumber, existingInvoices = null, itemsOverride = null) {
         try {
             if (!this.manager || !this.manager.apiModule) {
                 throw new Error('API module not available');
             }
 
-            // Use pre-fetched existingInvoices if available, otherwise fetch
+            const itemsToRender = Array.isArray(itemsOverride) && itemsOverride.length > 0 ? itemsOverride : this.poDetailItems;
+            if (itemsToRender.length > 0 && itemsOverride) {
+                this.poDetailItems = itemsOverride;
+            }
+
             let invoices = existingInvoices;
             if (!invoices) {
                 invoices = await this.manager.apiModule.getExistingInvoices(poNumber);
@@ -1110,7 +1177,7 @@ class InvoiceCreatePO {
 
             tbody.innerHTML = '';
 
-            if (this.poDetailItems.length > 0) {
+            if (itemsToRender.length > 0) {
                 const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
                 const isGRNSource = this.itemsSource === 'grn';
                 const qtyHeader = document.querySelector('#tblPODetail thead th:nth-child(5)');
@@ -1124,10 +1191,10 @@ class InvoiceCreatePO {
                     this.currentTermValue = null;
                 }
 
-                this.poDetailItems.forEach((item, index) => {
-                    const itemQty = item.itemQty || item.ItemQty || 0;
-                    const unitPrice = item.unitPrice || item.UnitPrice || 0;
-                    const amount = item.amount || item.Amount || 0;
+                itemsToRender.forEach((item, index) => {
+                    const itemQty = parseFloat(item.itemQty || item.ItemQty || 0) || 0;
+                    const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0) || 0;
+                    const amount = parseFloat(item.amount || item.Amount || 0) || 0;
 
                     // Calculate Qty Invoice and Amount Invoice
                     let qtyInvoice = itemQty;
@@ -1147,6 +1214,7 @@ class InvoiceCreatePO {
                         amountInvoice = qtyInvoice * unitPrice;
                     }
 
+                    const qtyInvoiceNum = Number(qtyInvoice);
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td class="text-center">${this.escapeHtml(item.mstPROPurchaseItemInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.mstPROInventoryItemID || item.MstPROInventoryItemID || '')}</td>
@@ -1161,7 +1229,7 @@ class InvoiceCreatePO {
                                    data-line="${index}"
                                    data-unit-price="${unitPrice}"
                                    data-qty-po="${itemQty}"
-                                   value="${qtyInvoice.toFixed(2)}"
+                                   value="${typeof qtyInvoiceNum === 'number' && !isNaN(qtyInvoiceNum) ? qtyInvoiceNum.toFixed(2) : '0.00'}"
                                    min="0"
                                    max="${itemQty}"
                                    step="0.01"
@@ -1277,9 +1345,9 @@ class InvoiceCreatePO {
                 }
 
                 this.poDetailItems.forEach((item, index) => {
-                    const itemQty = item.itemQty || item.ItemQty || 0;
-                    const unitPrice = item.unitPrice || item.UnitPrice || 0;
-                    const amount = item.amount || item.Amount || 0;
+                    const itemQty = parseFloat(item.itemQty || item.ItemQty || 0) || 0;
+                    const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0) || 0;
+                    const amount = parseFloat(item.amount || item.Amount || 0) || 0;
 
                     // Calculate Qty Invoice and Amount Invoice
                     let qtyInvoice = itemQty;
@@ -1299,6 +1367,7 @@ class InvoiceCreatePO {
                         amountInvoice = qtyInvoice * unitPrice;
                     }
 
+                    const qtyInvoiceNum = Number(qtyInvoice);
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td class="text-center">${this.escapeHtml(item.mstPROPurchaseItemInventoryItemID || item.MstPROPurchaseItemInventoryItemID || item.mstPROInventoryItemID || item.MstPROInventoryItemID || '')}</td>
@@ -1313,7 +1382,7 @@ class InvoiceCreatePO {
                                    data-line="${index}"
                                    data-unit-price="${unitPrice}"
                                    data-qty-po="${itemQty}"
-                                   value="${qtyInvoice.toFixed(2)}"
+                                   value="${typeof qtyInvoiceNum === 'number' && !isNaN(qtyInvoiceNum) ? qtyInvoiceNum.toFixed(2) : '0.00'}"
                                    min="0"
                                    max="${itemQty}"
                                    step="0.01"

@@ -112,22 +112,34 @@ class InvoiceCreateAPI {
     }
 
     /**
-     * Get GRN items for Invoice (actual received) by PO Number.
-     * Returns items from trxInventoryGoodReceiveNote so invoice can bill what was received.
-     * Returns [] if no GRN data or API error (then use getPOItems as fallback).
+     * Invalidate cached items for a PO (call when selecting a PO so fresh GRN/PO items are loaded).
+     */
+    invalidatePOItemsCache(poNumber) {
+        if (!poNumber) return;
+        const grnKey = `grnItemsForInvoice_${poNumber}`;
+        const poKey = `poItems_${poNumber}`;
+        this.cache.delete(grnKey);
+        this.cache.delete(poKey);
+    }
+
+    /**
+     * Get items for Invoice by PO Number: GRN items when PO has GRN data, else PO items (trxPROPurchaseOrderItem).
+     * Returns { items: array, source: 'grn'|'po' } so the list always shows (GRN or PO fallback).
      */
     async getGRNItemsForInvoice(poNumber) {
-        if (!poNumber) return [];
+        if (!poNumber) return { items: [], source: 'po' };
         const cacheKey = `grnItemsForInvoice_${poNumber}`;
         try {
             return await this.getCachedData(cacheKey, async () => {
                 const encoded = encodeURIComponent(poNumber);
                 const response = await apiCall('Inventory', `/Inventory/GoodReceiveNotes/ItemsForInvoice/${encoded}`, 'GET');
                 const data = response?.data ?? response;
-                return Array.isArray(data) ? data : [];
+                const items = Array.isArray(data) ? data : (data?.items ? data.items : []);
+                const source = (response?.source || data?.source) === 'po' ? 'po' : 'grn';
+                return { items, source };
             });
         } catch (e) {
-            return [];
+            return { items: [], source: 'po' };
         }
     }
 
@@ -302,6 +314,29 @@ class InvoiceCreateAPI {
             const response = await apiCall('Procurement', endpoint, 'GET');
             return response.data || response;
         });
+    }
+
+    /**
+     * Invalidate amortization cache so next getAmortizations fetches fresh (e.g. after recalc from GRN).
+     */
+    invalidateAmortizationCache(poNumber) {
+        if (!poNumber) return;
+        this.cache.delete(`amortizations_${poNumber}`);
+    }
+
+    /**
+     * Recalculate amortization from GRN total for this PO (so Term/Period amounts use 27M not PR 32.4M).
+     * Call when Create Invoice loads with GRN items; then invalidate cache so term grid shows updated amounts.
+     */
+    async recalcAmortizationFromGRN(poNumber) {
+        if (!poNumber) return;
+        try {
+            const encoded = encodeURIComponent(poNumber);
+            await apiCall('Inventory', `/Inventory/GoodReceiveNotes/RecalcAmortization/${encoded}`, 'GET');
+            this.invalidateAmortizationCache(poNumber);
+        } catch (e) {
+            console.warn('Recalc amortization from GRN:', e);
+        }
     }
 
     /**
