@@ -50,7 +50,7 @@
                     <div class="invalid-feedback">Email Address is required and must be a valid email format.</div>
                 </div>
             </div>
-        </div>
+            </div>
         </div>
     </div>
 </div>

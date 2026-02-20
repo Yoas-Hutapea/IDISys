@@ -130,6 +130,7 @@ class InvoiceCreateForm {
         });
         
         $('#txtInvoiceAmount').val(formatCurrency(total));
+        $('#txtItemListTotalAmount').val(formatCurrency(total));
         this.calculateTax();
     }
 

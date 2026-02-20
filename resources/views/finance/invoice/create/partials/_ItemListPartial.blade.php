@@ -25,7 +25,13 @@
                     </tr>
                 </tbody>
             </table>
-        </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12 text-end">
+                    <label class="form-label fw-semibold me-2">Total Amount:</label>
+                    <input type="text" class="form-control d-inline-block text-end" id="txtItemListTotalAmount" value="0" disabled style="width: 200px;">
+                </div>
+            </div>
         </div>
     </div>
 </div>

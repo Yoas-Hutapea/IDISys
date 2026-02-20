@@ -5,68 +5,59 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label class="form-label form-label-required">Purchase Order Number</label>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Purchase Order Number <span class="text-danger">*</span></label>
                     <div class="input-group">
-                        <input type="text" class="form-control readonly-field" id="txtPurchOrderID" placeholder="Select Purchase Order Number" readonly>
+                        <input type="text" class="form-control" id="txtPurchOrderID" placeholder="Select Purchase Order Number" readonly>
                         <button class="btn btn-primary" type="button" id="btnSearchPO" title="Click to search PO Number">
                             <i class="icon-base bx bx-search"></i>
                         </button>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Purchase Order Name</label>
-                    <textarea class="form-control readonly-field" id="txtPurchOrderName" rows="3" readonly></textarea>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PO Date</label>
+                    <input type="text" class="form-control" id="txtPODate" readonly disabled>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">PO Date</label>
-                    <input type="text" class="form-control readonly-field" id="txtPurchDate" readonly>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Purchase Order Name</label>
+                    <input type="text" class="form-control" id="txtPurchOrderName" readonly disabled>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Amount PO</label>
-                    <input type="text" class="form-control readonly-field" id="txtPOAmount" readonly>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PO Author</label>
+                    <input type="text" class="form-control" id="txtPOAuthor" readonly disabled>
                 </div>
-                <div class="mb-3" id="siteFieldWrapper">
-                    <label class="form-label">Site</label>
-                    <input type="text" class="form-control readonly-field" id="txtSite" readonly>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Purchase Type</label>
+                    <input type="text" class="form-control" id="txtPurchType" readonly disabled>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Status PO</label>
-                    <input type="text" class="form-control readonly-field" id="txtStatusPO" readonly>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PO Amount</label>
+                    <input type="text" class="form-control" id="txtPOAmount" readonly disabled>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Purchase Type</label>
-                    <input type="text" class="form-control readonly-field" id="txtPurchType" readonly>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Purchase Sub Type</label>
+                    <input type="text" class="form-control" id="txtPurchSubType" readonly disabled>
                 </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PR Number</label>
+                    <input type="text" class="form-control" id="txtPRNumber" readonly disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Company</label>
+                    <input type="text" class="form-control" id="txtCompany" readonly disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PR Requestor</label>
+                    <input type="text" class="form-control" id="txtPRRequestor" readonly disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">PR Date</label>
+                    <input type="text" class="form-control" id="txtPRDate" readonly disabled>
+                </div>
+                {{-- Hidden for save: Site ID and Sonumb (filled from Additional/STIP when applicable) --}}
+                <input type="hidden" id="txtSiteID" value="">
+                <input type="hidden" id="txtSONumber" value="">
             </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label class="form-label">Purchase Sub Type</label>
-                    <input type="text" class="form-control readonly-field" id="txtPurchSubType" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Term of Payment</label>
-                    <input type="text" class="form-control readonly-field" id="txtTermOfPayment" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Company</label>
-                    <input type="text" class="form-control readonly-field" id="txtCompany" readonly>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Work Type</label>
-                    <input type="text" class="form-control readonly-field" id="txtWorkType" readonly>
-                </div>
-                <div class="mb-3" id="productTypeFieldWrapper">
-                    <label class="form-label">Product Type</label>
-                    <input type="text" class="form-control readonly-field" id="txtProductType" readonly>
-                </div>
-                <div class="mb-3" id="sonumbFieldWrapper">
-                    <label class="form-label">Sonumb</label>
-                    <input type="text" class="form-control readonly-field" id="txtSONumber" readonly>
-                </div>
-            </div>
-        </div>
         </div>
     </div>
 </div>

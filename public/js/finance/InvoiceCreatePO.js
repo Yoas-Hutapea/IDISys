@@ -172,9 +172,6 @@ class InvoiceCreatePO {
                 this.manager.termModule.selectedPeriods = []; // Reset selected periods
             }
 
-            // Populate basic PO information immediately (no API call needed)
-            this.populatePOInformation(poData);
-
             // Get PR Number and Vendor ID for parallel calls
             const prNumber = poData.prNumber || poData.PRNumber || poData.trxPROPurchaseRequestNumber || poData.TrxPROPurchaseRequestNumber || '';
             const vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID;
@@ -211,6 +208,9 @@ class InvoiceCreatePO {
             this.poDetailItems = grnItems.length > 0 ? grnItems : poItems;
             this.itemsSource = grnItems.length > 0 ? 'grn' : 'po';
 
+            // Populate Currency in Vendor section from first item (so it is set even before loadPODetailOptimized)
+            this.populateCurrencyFromPOItems(this.poDetailItems);
+
             if (this.poDetailItems.length > 0 || grnItemsResult.status === 'fulfilled' || poItemsResult.status === 'fulfilled') {
                 const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
                 this.loadPODetailOptimized(poNumber, existingInvoices).catch(err => console.error('Error loading PO detail:', err));
@@ -232,6 +232,9 @@ class InvoiceCreatePO {
             if (workTypeMappingsResult.status === 'fulfilled') {
                 await this.loadWorkTypeFromMappingOptimized(poData, workTypeMappingsResult.value);
             }
+
+            // Populate PO Information (with PO Author and PR Requestor as employee names)
+            await this.populatePOInformation(poData);
 
             // PHASE 3: Load PR-dependent data (if PR Number exists)
             let prAdditionalResult = null;
@@ -294,6 +297,37 @@ class InvoiceCreatePO {
                 }
             }
 
+            // Inject Additional Information section (from trxPROPurchaseRequestAdditional, same as Confirm PO)
+            try {
+                const additionalHTML = await this.getAdditionalInformationSummaryHTML(this.selectedPO || poData);
+                const additionalContainer = document.getElementById('invoice-additional-section-container');
+                if (additionalContainer) {
+                    if (additionalHTML) {
+                        additionalContainer.innerHTML = additionalHTML;
+                        additionalContainer.style.display = 'block';
+                        if (this.purchaseRequestAdditional) {
+                            const add = this.purchaseRequestAdditional;
+                            const sonumb = add.sonumb || add.Sonumb || '';
+                            const siteID = add.siteID || add.SiteID || '';
+                            $('#txtSONumber').val(sonumb);
+                            $('#txtSiteID').val(siteID);
+                        }
+                    } else {
+                        additionalContainer.innerHTML = '';
+                        additionalContainer.style.display = 'none';
+                        $('#txtSONumber').val('');
+                        $('#txtSiteID').val('');
+                    }
+                }
+            } catch (err) {
+                console.warn('Additional Information section:', err);
+                const additionalContainer = document.getElementById('invoice-additional-section-container');
+                if (additionalContainer) {
+                    additionalContainer.innerHTML = '';
+                    additionalContainer.style.display = 'none';
+                }
+            }
+
             // Close loading indicator
             Swal.close();
 
@@ -334,38 +368,48 @@ class InvoiceCreatePO {
     }
 
     /**
-     * Populate PO Information fields
+     * Populate PO Information fields (same structure as View PO Purchase Information).
+     * PO Author and PR Requestor are resolved to employee names via ProcurementSharedCache.
      */
-    populatePOInformation(poData) {
+    async populatePOInformation(poData) {
         const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
         const formatDate = this.utils ? this.utils.formatDate.bind(this.utils) : this.formatDate.bind(this);
 
+        let poAuthorName = poData.poAuthor || poData.POAuthor || '-';
+        let prRequestorName = poData.prRequestor || poData.PRRequestor || '-';
+
+        const employeeCache = (typeof window !== 'undefined' && window.procurementSharedCache && window.procurementSharedCache.getEmployeeNameByEmployId)
+            ? window.procurementSharedCache
+            : null;
+
+        if (employeeCache) {
+            const poAuthorId = poData.poAuthor || poData.POAuthor || '';
+            const prRequestorId = poData.prRequestor || poData.PRRequestor || '';
+            try {
+                const [authorName, requestorName] = await Promise.all([
+                    poAuthorId && poAuthorId !== '-' ? employeeCache.getEmployeeNameByEmployId(poAuthorId) : Promise.resolve(poAuthorName),
+                    prRequestorId && prRequestorId !== '-' ? employeeCache.getEmployeeNameByEmployId(prRequestorId) : Promise.resolve(prRequestorName)
+                ]);
+                if (authorName) poAuthorName = authorName;
+                if (requestorName) prRequestorName = requestorName;
+            } catch (e) {
+                console.warn('Resolve employee names for PO Author / PR Requestor:', e);
+            }
+        }
+
         $('#txtPurchOrderID').val(poData.purchOrderID || poData.PurchOrderID || '');
-        $('#txtPurchOrderName').val(poData.purchOrderName || poData.PurchOrderName || '');
-        $('#txtPurchDate').val(poData.poDate ? formatDate(poData.poDate) : (poData.PODate ? formatDate(poData.PODate) : ''));
+        $('#txtPODate').val(formatDate(poData.poDate || poData.PODate) || '-');
+        $('#txtPurchOrderName').val(poData.purchOrderName || poData.PurchOrderName || '-');
+        $('#txtPOAuthor').val(poAuthorName);
+        $('#txtPurchType').val(poData.purchType || poData.PurchType || '-');
         $('#txtPOAmount').val(formatCurrency(poData.poAmount || poData.POAmount || 0));
+        $('#txtPurchSubType').val(poData.purchSubType || poData.PurchSubType || '-');
+        $('#txtPRNumber').val(poData.prNumber || poData.PRNumber || '-');
+        $('#txtCompany').val(poData.companyName || poData.CompanyName || '-');
+        $('#txtPRRequestor').val(prRequestorName);
+        $('#txtPRDate').val(formatDate(poData.prDate || poData.PRDate) || '-');
 
-        // Site, ProductType, and SONumber will be populated from STIP if sonumb exists
-        $('#siteFieldWrapper').hide();
-        $('#productTypeFieldWrapper').hide();
-        $('#sonumbFieldWrapper').hide();
-
-        // Clear values
-        $('#txtSite').val('');
-        $('#txtProductType').val('');
-        $('#txtSONumber').val('');
-
-        // Keep SiteID for saving (from PO data as fallback)
-        const siteID = poData.mstSiteID || poData.MstSiteID || '';
-        $('#txtSiteID').val(siteID);
-
-        $('#txtStatusPO').val(poData.approvalStatus || poData.ApprovalStatus || '');
-        $('#txtPurchType').val(poData.purchType || poData.PurchType || '');
-        $('#txtPurchSubType').val(poData.purchSubType || poData.PurchSubType || '');
-        $('#txtTermOfPayment').val(poData.topDescription || poData.TOPDescription || '');
-        $('#txtCompany').val(poData.companyName || poData.CompanyName || '');
-
-        // Store additional data in selectedPO for later use
+        // Store additional data in selectedPO for later use (logic, Vendor, Term, etc.)
         if (this.selectedPO) {
             this.selectedPO.companyID = poData.companyID || poData.CompanyID || this.selectedPO.companyID;
             this.selectedPO.vendorID = poData.mstVendorVendorID || poData.MstVendorVendorID || this.selectedPO.vendorID;
@@ -374,7 +418,6 @@ class InvoiceCreatePO {
             this.selectedPO.topDescription = poData.topDescription || poData.TOPDescription || this.selectedPO.topDescription;
             this.selectedPO.poAmount = poData.poAmount || poData.POAmount || this.selectedPO.poAmount;
             this.selectedPO.seqTOPID = poData.seqTOPID || poData.SeqTOPID || this.selectedPO.seqTOPID;
-            // Store PurchaseType and PurchaseSubType for WorkType mapping
             this.selectedPO.purchaseType = poData.purchType || poData.PurchType || '';
             this.selectedPO.purchaseSubType = poData.purchSubType || poData.PurchSubType || '';
             this.selectedPO.purchaseTypeID = poData.purchaseTypeID || poData.PurchaseTypeID || poData.mstPROPurchaseTypeID || poData.MstPROPurchaseTypeID || null;
@@ -1336,6 +1379,191 @@ class InvoiceCreatePO {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Whether Type ID and SubType ID require Additional Section (from trxPROPurchaseRequestAdditional).
+     * Same logic as Confirm PO.
+     */
+    requiresAdditionalSection(typeId, subTypeId) {
+        if (!typeId) return false;
+        if (typeId === 5 || typeId === 7) return true;
+        if (typeId === 6 && subTypeId === 2) return true;
+        if (typeId === 8 && subTypeId === 4) return true;
+        if (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) return true;
+        if (typeId === 4 && subTypeId === 3) return true;
+        if (typeId === 3 && (subTypeId === 4 || subTypeId === 5)) return true;
+        return false;
+    }
+
+    /**
+     * Build Additional Information HTML from trxPROPurchaseRequestAdditional (same as Confirm PO).
+     */
+    async getAdditionalInformationSummaryHTML(po) {
+        if (!this.purchaseRequestAdditional) return '';
+        const additional = this.purchaseRequestAdditional;
+
+        let typeId = po.purchaseTypeID || po.PurchaseTypeID || po.mstPROPurchaseTypeID || null;
+        let subTypeId = po.purchaseSubTypeID || po.PurchaseSubTypeID || po.mstPROPurchaseSubTypeID || null;
+        const purchType = po.purchType || po.PurchType || '';
+        const purchSubType = po.purchSubType || po.PurchSubType || '';
+
+        if ((!typeId || !subTypeId) && this.manager && this.manager.apiModule) {
+            try {
+                if (!typeId && purchType) {
+                    const types = await this.manager.apiModule.getPurchaseTypes();
+                    const type = types.find(t =>
+                        (t.PurchaseRequestType || t.purchaseRequestType || '') === purchType ||
+                        parseInt(t.ID || t.id || '0', 10) === parseInt(purchType, 10)
+                    );
+                    if (type) typeId = parseInt(type.ID || type.id || '0', 10);
+                }
+                if (typeId && !subTypeId && purchSubType) {
+                    const subTypes = await this.manager.apiModule.getPurchaseSubTypes(typeId);
+                    const sub = subTypes.find(st =>
+                        (st.PurchaseRequestSubType || st.purchaseRequestSubType || '') === purchSubType ||
+                        parseInt(st.ID || st.id || '0', 10) === parseInt(purchSubType, 10)
+                    );
+                    if (sub) subTypeId = parseInt(sub.ID || sub.id || '0', 10);
+                }
+            } catch (e) {
+                console.warn('Resolve type/subType for additional:', e);
+            }
+        }
+        typeId = typeId ? parseInt(typeId, 10) : null;
+        subTypeId = subTypeId ? parseInt(subTypeId, 10) : null;
+
+        const shouldShowBillingTypeSection = typeId === 6 && subTypeId === 2;
+        const shouldShowSonumbSection =
+            (typeId === 8 && subTypeId === 4) ||
+            (typeId === 2 && (subTypeId === 1 || subTypeId === 3)) ||
+            (typeId === 4 && subTypeId === 3) ||
+            (typeId === 3 && (subTypeId === 4 || subTypeId === 5));
+        const shouldShowSubscribeSection = typeId === 5 || typeId === 7;
+
+        if (!shouldShowBillingTypeSection && !shouldShowSonumbSection && !shouldShowSubscribeSection) return '';
+
+        const formatDate = (dateValue) => {
+            if (!dateValue || dateValue === '-') return '-';
+            try {
+                const date = new Date(dateValue);
+                if (isNaN(date.getTime())) return dateValue;
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch {
+                return dateValue;
+            }
+        };
+
+        let summaryHTML = `
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header" style="border-bottom: 1px solid #e9ecef;">
+                        <h6 class="card-title mb-0">Additional Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+        `;
+
+        if (shouldShowBillingTypeSection) {
+            const billingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
+            const startPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
+            const period = additional.period || additional.Period || '-';
+            const endPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Billing Type</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(billingTypeName)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(period)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Start Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(startPeriod)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">End Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(endPeriod)}" disabled>
+                </div>
+            `;
+        } else if (shouldShowSonumbSection) {
+            const sonumb = additional.sonumb || additional.Sonumb || '-';
+            const siteName = additional.siteName || additional.SiteName || '-';
+            const siteID = additional.siteID || additional.SiteID || '-';
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Sonumb</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(sonumb)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site Name</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(siteName)}" disabled>
+                </div>
+                ${siteID && siteID !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site ID</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(siteID)}" disabled>
+                </div>
+                ` : ''}
+            `;
+        } else if (shouldShowSubscribeSection) {
+            const subscribeSonumb = additional.sonumb || additional.Sonumb || '-';
+            const subscribeSiteName = additional.siteName || additional.SiteName || '-';
+            const subscribeSiteID = additional.siteID || additional.SiteID || '-';
+            const subscribeBillingTypeName = additional.billingTypeName || additional.BillingTypeName || '-';
+            const subscribeStartPeriod = formatDate(additional.startPeriod || additional.StartPeriod);
+            const subscribePeriod = additional.period || additional.Period || '-';
+            const subscribeEndPeriod = formatDate(additional.endPeriod || additional.EndPeriod);
+            summaryHTML += `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Sonumb</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSonumb)}" disabled>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site Name</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSiteName)}" disabled>
+                </div>
+                ${subscribeSiteID && subscribeSiteID !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Site ID</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeSiteID)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeBillingTypeName && subscribeBillingTypeName !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Billing Type</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeBillingTypeName)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeStartPeriod && subscribeStartPeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Start Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeStartPeriod)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribePeriod && subscribePeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribePeriod)}" disabled>
+                </div>
+                ` : ''}
+                ${subscribeEndPeriod && subscribeEndPeriod !== '-' ? `
+                <div class="col-sm-6">
+                    <label class="form-label fw-semibold">End Period</label>
+                    <input type="text" class="form-control" value="${this.escapeHtml(subscribeEndPeriod)}" disabled>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        summaryHTML += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        return summaryHTML;
     }
 }
 

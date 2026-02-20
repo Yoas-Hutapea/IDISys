@@ -29,7 +29,7 @@
                     <input type="text" class="form-control readonly-field" id="txtTotalAmount" readonly disabled>
                 </div>
             </div>
-        </div>
+            </div>
         </div>
     </div>
 </div>

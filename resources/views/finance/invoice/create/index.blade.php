@@ -174,6 +174,7 @@
 
         <div class="row g-4">
             @include('finance.invoice.create.partials._POInformationPartial')
+            @include('finance.invoice.create.partials._AdditionalInformationPartial')
             @include('finance.invoice.create.partials._VendorInformationPartial')
             @include('finance.invoice.create.partials._ItemListPartial')
             @include('finance.invoice.create.partials._TermOfPaymentPartial')

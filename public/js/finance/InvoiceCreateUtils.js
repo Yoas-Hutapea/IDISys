@@ -8,12 +8,11 @@ class InvoiceCreateUtils {
     }
 
     /**
-     * Format currency to Indonesian Rupiah format
+     * Format amount as number (Indonesian locale, no currency symbol).
+     * Use this for display so "Rp" is not shown before amount.
      */
     formatCurrency(amount) {
-        return new Intl.NumberFormat('id-ID', { 
-            style: 'currency', 
-            currency: 'IDR', 
+        return new Intl.NumberFormat('id-ID', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount || 0);

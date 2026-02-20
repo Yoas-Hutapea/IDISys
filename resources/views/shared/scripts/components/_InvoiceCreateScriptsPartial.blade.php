@@ -40,10 +40,6 @@
         }
 
         async init() {
-            $('#siteFieldWrapper').hide();
-            $('#productTypeFieldWrapper').hide();
-            $('#sonumbFieldWrapper').hide();
-
             if (this.formModule) {
                 this.formModule.setupValidation();
                 this.formModule.setupEventHandlers();
