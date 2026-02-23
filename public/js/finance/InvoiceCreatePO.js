@@ -227,13 +227,13 @@ class InvoiceCreatePO {
 
             const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
             if (this.poDetailItems.length > 0) {
-                this.loadPODetailOptimized(poNumber, existingInvoices, this.poDetailItems).catch(err => console.error('Error loading PO detail:', err));
+                await this.loadPODetailOptimized(poNumber, existingInvoices, this.poDetailItems).catch(err => console.error('Error loading PO detail:', err));
             } else {
                 const tbody = document.getElementById('tblPODetailBody');
                 if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
-                    const qtyHeader = document.querySelector('#tblPODetail thead th:nth-child(5)');
-                    if (qtyHeader) qtyHeader.textContent = 'Qty PO';
+                    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No items found</td></tr>';
+                    const qtyReceiveHeader = document.querySelector('#tblPODetail thead th:nth-child(6)');
+                    if (qtyReceiveHeader) qtyReceiveHeader.textContent = 'Qty Receive';
                 }
             }
 
@@ -1180,8 +1180,8 @@ class InvoiceCreatePO {
             if (itemsToRender.length > 0) {
                 const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
                 const isGRNSource = this.itemsSource === 'grn';
-                const qtyHeader = document.querySelector('#tblPODetail thead th:nth-child(5)');
-                if (qtyHeader) qtyHeader.textContent = isGRNSource ? 'Qty Received' : 'Qty PO';
+                const qtyReceiveHeader = document.querySelector('#tblPODetail thead th:nth-child(6)');
+                if (qtyReceiveHeader) qtyReceiveHeader.textContent = isGRNSource ? 'Qty Received' : 'Qty Receive';
 
                 // Get term value for calculation (only if not period payment)
                 if (!this.purchaseRequestAdditional) {
@@ -1192,25 +1192,21 @@ class InvoiceCreatePO {
                 }
 
                 itemsToRender.forEach((item, index) => {
-                    const itemQty = parseFloat(item.itemQty || item.ItemQty || 0) || 0;
+                    const orderQty = parseFloat(item.orderQty || item.OrderQty || item.itemQty || item.ItemQty || 0) || 0;
+                    const qtyReceive = parseFloat(item.itemQty || item.ItemQty || item.ActualReceived || 0) || 0;
+                    const qtyRemain = Math.max(0, orderQty - qtyReceive);
                     const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0) || 0;
                     const amount = parseFloat(item.amount || item.Amount || 0) || 0;
 
-                    // Calculate Qty Invoice and Amount Invoice
-                    let qtyInvoice = itemQty;
+                    // Calculate Qty Invoice and Amount Invoice (based on received qty)
+                    let qtyInvoice = qtyReceive;
                     let amountInvoice = amount;
 
                     if (this.currentTermValue !== null && this.currentTermValue > 0) {
-                        // Calculate based on term value percentage
-                        // Qty Invoice = Qty PO * (Term Value / 100)
-                        qtyInvoice = itemQty * (this.currentTermValue / 100);
-                        // Amount Invoice = Qty Invoice * Price
+                        qtyInvoice = qtyReceive * (this.currentTermValue / 100);
                         amountInvoice = qtyInvoice * unitPrice;
                     } else if (this.purchaseRequestAdditional && this.purchaseRequestAdditional.period > 0) {
-                        // For period payment: Term Value = 100% for each period
-                        // Qty Invoice = Qty PO * (100 / 100) = Qty PO
-                        qtyInvoice = itemQty;
-                        // Amount Invoice = Qty Invoice * Price = Qty PO * Price
+                        qtyInvoice = qtyReceive;
                         amountInvoice = qtyInvoice * unitPrice;
                     }
 
@@ -1221,17 +1217,19 @@ class InvoiceCreatePO {
                         <td class="text-center">${this.escapeHtml(item.itemName || item.ItemName || '')}</td>
                         <td class="text-center">${this.escapeHtml(item.itemUnit || item.ItemUnit || '')}</td>
                         <td class="text-center">${this.escapeHtml(item.itemDescription || item.ItemDescription || '')}</td>
-                        <td class="text-center">${itemQty}</td>
+                        <td class="text-center">${orderQty}</td>
+                        <td class="text-center">${qtyReceive}</td>
+                        <td class="text-center">${qtyRemain}</td>
                         <td class="text-center">${formatCurrency(unitPrice)}</td>
                         <td class="text-center">${formatCurrency(amount)}</td>
                         <td class="text-center">
                             <input type="number" class="form-control form-control-sm qty-invoice"
                                    data-line="${index}"
                                    data-unit-price="${unitPrice}"
-                                   data-qty-po="${itemQty}"
+                                   data-qty-po="${qtyReceive}"
                                    value="${typeof qtyInvoiceNum === 'number' && !isNaN(qtyInvoiceNum) ? qtyInvoiceNum.toFixed(2) : '0.00'}"
                                    min="0"
-                                   max="${itemQty}"
+                                   max="${qtyReceive}"
                                    step="0.01"
                                    readonly>
                         </td>
@@ -1266,9 +1264,9 @@ class InvoiceCreatePO {
                     this.manager.formModule.calculateInvoiceAmount();
                 }
             } else {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
-                const qtyHeaderReset = document.querySelector('#tblPODetail thead th:nth-child(5)');
-                if (qtyHeaderReset) qtyHeaderReset.textContent = 'Qty PO';
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No items found</td></tr>';
+                const qtyReceiveHeaderReset = document.querySelector('#tblPODetail thead th:nth-child(6)');
+                if (qtyReceiveHeaderReset) qtyReceiveHeaderReset.textContent = 'Qty Receive';
             }
         } catch (error) {
             console.error('Failed to load PO detail:', error);
@@ -1345,25 +1343,21 @@ class InvoiceCreatePO {
                 }
 
                 this.poDetailItems.forEach((item, index) => {
-                    const itemQty = parseFloat(item.itemQty || item.ItemQty || 0) || 0;
+                    const orderQty = parseFloat(item.orderQty || item.OrderQty || item.itemQty || item.ItemQty || 0) || 0;
+                    const qtyReceive = parseFloat(item.itemQty || item.ItemQty || item.ActualReceived || 0) || 0;
+                    const qtyRemain = Math.max(0, orderQty - qtyReceive);
                     const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0) || 0;
                     const amount = parseFloat(item.amount || item.Amount || 0) || 0;
 
-                    // Calculate Qty Invoice and Amount Invoice
-                    let qtyInvoice = itemQty;
+                    // Calculate Qty Invoice and Amount Invoice (based on received qty)
+                    let qtyInvoice = qtyReceive;
                     let amountInvoice = amount;
 
                     if (this.currentTermValue !== null && this.currentTermValue > 0) {
-                        // Calculate based on term value percentage
-                        // Qty Invoice = Qty PO * (Term Value / 100)
-                        qtyInvoice = itemQty * (this.currentTermValue / 100);
-                        // Amount Invoice = Qty Invoice * Price
+                        qtyInvoice = qtyReceive * (this.currentTermValue / 100);
                         amountInvoice = qtyInvoice * unitPrice;
                     } else if (this.purchaseRequestAdditional && this.purchaseRequestAdditional.period > 0) {
-                        // For period payment: Term Value = 100% for each period
-                        // Qty Invoice = Qty PO * (100 / 100) = Qty PO
-                        qtyInvoice = itemQty;
-                        // Amount Invoice = Qty Invoice * Price = Qty PO * Price
+                        qtyInvoice = qtyReceive;
                         amountInvoice = qtyInvoice * unitPrice;
                     }
 
@@ -1374,17 +1368,19 @@ class InvoiceCreatePO {
                         <td class="text-center">${this.escapeHtml(item.itemName || item.ItemName || '')}</td>
                         <td class="text-center">${this.escapeHtml(item.itemUnit || item.ItemUnit || '')}</td>
                         <td class="text-center">${this.escapeHtml(item.itemDescription || item.ItemDescription || '')}</td>
-                        <td class="text-center">${itemQty}</td>
+                        <td class="text-center">${orderQty}</td>
+                        <td class="text-center">${qtyReceive}</td>
+                        <td class="text-center">${qtyRemain}</td>
                         <td class="text-center">${formatCurrency(unitPrice)}</td>
                         <td class="text-center">${formatCurrency(amount)}</td>
                         <td class="text-center">
                             <input type="number" class="form-control form-control-sm qty-invoice"
                                    data-line="${index}"
                                    data-unit-price="${unitPrice}"
-                                   data-qty-po="${itemQty}"
+                                   data-qty-po="${qtyReceive}"
                                    value="${typeof qtyInvoiceNum === 'number' && !isNaN(qtyInvoiceNum) ? qtyInvoiceNum.toFixed(2) : '0.00'}"
                                    min="0"
-                                   max="${itemQty}"
+                                   max="${qtyReceive}"
                                    step="0.01"
                                    readonly>
                         </td>
@@ -1419,7 +1415,7 @@ class InvoiceCreatePO {
                     this.manager.formModule.calculateInvoiceAmount();
                 }
             } else {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No items found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No items found</td></tr>';
             }
         } catch (error) {
             console.error('Failed to load PO detail:', error);

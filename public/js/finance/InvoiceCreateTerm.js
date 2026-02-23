@@ -108,9 +108,22 @@ class InvoiceCreateTerm {
                 return;
             }
 
-            // Get month names for Term of Payment display
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                               'July', 'August', 'September', 'October', 'November', 'December'];
+            // Total amount = Item List total (so 80% term shows 80% of this value)
+            const parseCurrency = this.utils ? this.utils.parseCurrency.bind(this.utils) : this.parseCurrency.bind(this);
+            let totalAmount = 0;
+            const itemListTotalEl = document.getElementById('txtItemListTotalAmount');
+            if (itemListTotalEl && itemListTotalEl.value) {
+                totalAmount = parseCurrency(itemListTotalEl.value);
+            }
+            if (totalAmount <= 0) {
+                const poDetailItems = this.manager.poModule?.poDetailItems || [];
+                if (poDetailItems.length > 0) {
+                    totalAmount = poDetailItems.reduce((sum, item) => sum + (parseFloat(item.amount || item.Amount || 0) || 0), 0);
+                }
+            }
+            if (totalAmount <= 0) {
+                totalAmount = parseFloat(selectedPO.poAmount || selectedPO.POAmount || 0) || 0;
+            }
 
             // Check existing invoices to determine eligible term number
             let submittedTerms = new Set();
@@ -137,12 +150,11 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
-            // Generate rows for each term from database
+            // Generate rows for each term. Invoice Amount: only recalc for non-Submitted; Submitted keeps DB value
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = amort.termValue || 0;
-                const termMonth = monthNames[termNumber - 1] || `Term ${termNumber}`;
-                const invoiceAmount = amort.invoiceAmount || 0;
+                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termLabel = `Termin ${termNumber}`;
                 const isCanceled = amort.isCanceled || false;
                 const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
 
@@ -163,6 +175,10 @@ class InvoiceCreateTerm {
                     status = isEligible ? 'Eligible to Submit Invoice' : 'Not Eligible to Submit Invoice';
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
+
+                // Submitted/Canceled: keep Invoice Amount from DB; Eligible/Not Eligible: totalAmount * (termValue / 100)
+                const storedAmount = parseFloat(amort.invoiceAmount) || 0;
+                const invoiceAmount = (hasInvoice || isCanceled) ? storedAmount : (totalAmount > 0 ? (totalAmount * termValue) / 100 : storedAmount);
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -186,7 +202,7 @@ class InvoiceCreateTerm {
                             </button>
                         </div>
                     </td>
-                    <td class="text-center">${termMonth}</td>
+                    <td class="text-center">${termLabel}</td>
                     <td class="text-center">${termValue}%</td>
                     <td class="text-center ${statusClass}">${status}</td>
                     <td class="text-center">${formatCurrency(invoiceAmount)}</td>
@@ -284,9 +300,21 @@ class InvoiceCreateTerm {
                 return;
             }
 
-            // Get month names for Term of Payment display
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                               'July', 'August', 'September', 'October', 'November', 'December'];
+            const parseCurrency = this.utils ? this.utils.parseCurrency.bind(this.utils) : this.parseCurrency.bind(this);
+            let totalAmount = 0;
+            const itemListTotalEl = document.getElementById('txtItemListTotalAmount');
+            if (itemListTotalEl && itemListTotalEl.value) {
+                totalAmount = parseCurrency(itemListTotalEl.value);
+            }
+            if (totalAmount <= 0) {
+                const poDetailItems = this.manager.poModule?.poDetailItems || [];
+                if (poDetailItems.length > 0) {
+                    totalAmount = poDetailItems.reduce((sum, item) => sum + (parseFloat(item.amount || item.Amount || 0) || 0), 0);
+                }
+            }
+            if (totalAmount <= 0) {
+                totalAmount = parseFloat(selectedPO.poAmount || selectedPO.POAmount || 0) || 0;
+            }
 
             // Check existing invoices to determine eligible term number
             let submittedTerms = new Set();
@@ -311,11 +339,11 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
-            // Generate rows for each term from database
+            // Submitted/Canceled: keep DB value; Eligible/Not Eligible: totalAmount * (termValue / 100)
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = amort.termValue || 0;
-                const termMonth = monthNames[termNumber - 1] || `Term ${termNumber}`;
+                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termLabel = `Termin ${termNumber}`;
                 const isCanceled = amort.isCanceled || false;
                 const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
 
@@ -336,6 +364,9 @@ class InvoiceCreateTerm {
                     status = isEligible ? 'Eligible to Submit Invoice' : 'Not Eligible to Submit Invoice';
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
+
+                const storedAmount = parseFloat(amort.invoiceAmount) || 0;
+                const invoiceAmount = (hasInvoice || isCanceled) ? storedAmount : (totalAmount > 0 ? (totalAmount * termValue) / 100 : storedAmount);
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -359,7 +390,7 @@ class InvoiceCreateTerm {
                             </button>
                         </div>
                     </td>
-                    <td class="text-center">${termMonth}</td>
+                    <td class="text-center">${termLabel}</td>
                     <td class="text-center">${termValue}%</td>
                     <td class="text-center ${statusClass}">${status}</td>
                     <td class="text-center">${formatCurrency(invoiceAmount)}</td>

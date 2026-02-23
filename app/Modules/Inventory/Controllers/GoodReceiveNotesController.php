@@ -181,18 +181,32 @@ class GoodReceiveNotesController extends Controller
             }
 
             if ($rows->isNotEmpty()) {
-                $data = $rows->map(function ($row) {
+                $poItems = $this->getPOItems($decoded);
+                $poQtyByItem = [];
+                foreach ($poItems as $poItem) {
+                    $itemId = $poItem->mstPROPurchaseItemInventoryItemID ?? $poItem->MstPROPurchaseItemInventoryItemID ?? null;
+                    if ($itemId !== null) {
+                        $poQtyByItem[$itemId] = (float) ($poItem->ItemQty ?? $poItem->itemQty ?? 0);
+                    }
+                }
+
+                $data = $rows->map(function ($row) use ($poQtyByItem) {
+                    $itemId = $row->mstPROPurchaseItemInventoryItemID ?? null;
+                    $orderQty = $itemId !== null ? ($poQtyByItem[$itemId] ?? 0) : 0;
+                    $actualReceived = (float) ($row->ActualReceived ?? 0);
                     return [
-                        'mstPROPurchaseItemInventoryItemID' => $row->mstPROPurchaseItemInventoryItemID ?? null,
+                        'mstPROPurchaseItemInventoryItemID' => $itemId,
                         'ItemName' => $row->ItemName ?? null,
                         'itemName' => $row->ItemName ?? null,
                         'ItemDescription' => $row->ItemDescription ?? null,
                         'itemDescription' => $row->ItemDescription ?? null,
                         'ItemUnit' => $row->ItemUnit ?? null,
                         'itemUnit' => $row->ItemUnit ?? null,
-                        'ItemQty' => $row->ActualReceived ?? 0,
-                        'itemQty' => $row->ActualReceived ?? 0,
-                        'ActualReceived' => $row->ActualReceived ?? 0,
+                        'ItemQty' => $actualReceived,
+                        'itemQty' => $actualReceived,
+                        'OrderQty' => $orderQty,
+                        'orderQty' => $orderQty,
+                        'ActualReceived' => $actualReceived,
                         'CurrencyCode' => $row->CurrencyCode ?? null,
                         'UnitPrice' => $row->UnitPrice ?? 0,
                         'unitPrice' => $row->UnitPrice ?? 0,
@@ -224,6 +238,8 @@ class GoodReceiveNotesController extends Controller
                 'itemUnit' => $item->ItemUnit ?? $item->itemUnit ?? null,
                 'ItemQty' => $qty,
                 'itemQty' => $qty,
+                'OrderQty' => $qty,
+                'orderQty' => $qty,
                 'ActualReceived' => $qty,
                 'CurrencyCode' => $item->CurrencyCode ?? $item->currencyCode ?? null,
                 'UnitPrice' => $unitPrice,

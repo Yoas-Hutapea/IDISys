@@ -12,7 +12,9 @@
                         <th class="text-center">Item Name</th>
                         <th class="text-center">Unit</th>
                         <th class="text-center">Description</th>
-                        <th class="text-center">Qty PO</th>
+                        <th class="text-center">Item Qty</th>
+                        <th class="text-center">Qty Receive</th>
+                        <th class="text-center">Qty Remain</th>
                         <th class="text-center">Price</th>
                         <th class="text-center">Amount</th>
                         <th class="text-center">Qty Invoice</th>
@@ -21,7 +23,7 @@
                 </thead>
                 <tbody id="tblPODetailBody">
                     <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">No PO selected</td>
+                        <td colspan="11" class="text-center py-4 text-muted">No PO selected</td>
                     </tr>
                 </tbody>
             </table>
