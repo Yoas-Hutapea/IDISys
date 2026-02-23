@@ -72,6 +72,11 @@
         tfoot { display: table-row-group; }
         tr { page-break-inside: avoid; }
 
+        /* Wrapper table: .po-doc-thead repeats on every page (header + TO/Vendor + PT Company + SUBJECT) */
+        .po-doc-wrapper { width: 100%; border: 0; border-collapse: collapse; }
+        .po-doc-wrapper thead td { vertical-align: top; padding: 0; border: none; }
+        .po-doc-wrapper tbody td { vertical-align: top; padding: 0; border: none; }
+
         /* Utility */
         .no-border { border: none !important; }
         .no-border-keep-b { border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 1px solid #333 !important; }
@@ -164,10 +169,14 @@
             font-size: 8pt;
             vertical-align: middle;
         }
-        .po-info-table .po-to-label { font-size: 10pt; font-weight: normal; }
-        .po-info-table .po-company-name { font-size: 10pt; font-weight: bold; }
-        .po-info-table .po-company-address { font-size: 8pt; }
-        /* Lebar kolom label / : / value; label Vendor/dll 8pt no bold */
+        .po-info-table .po-to-label { font-size: 10pt; font-weight: normal; vertical-align: middle; }
+        .po-info-table .po-company-name { font-size: 10pt; font-weight: bold; vertical-align: middle; }
+        .po-info-table .po-company-address { font-size: 8pt; vertical-align: middle; }
+        /* Label & value: align middle di blok TO Vendor dan PT Company */
+        .po-info-table .label,
+        .po-info-table .value {
+            vertical-align: middle;
+        }
         .po-info-table .label {
             font-size: 8pt;
             font-weight: normal;
@@ -186,6 +195,7 @@
             text-align: center;
             padding-left: 2px;
             padding-right: 2px;
+            vertical-align: middle;
         }
         .po-info-table .value {
             text-align: left;
@@ -223,7 +233,7 @@
             font-size: 8pt;
             border-bottom: 1px solid #ddd;
         }
-        .po-items-table .col-no { width: 4%; text-align: center; }
+        .po-items-table .col-no { width: 4%; min-width: 2em; text-align: center; white-space: nowrap; }
         .po-items-table .col-desc { width: 38%; }
         .po-items-table .col-qty { width: 8%; text-align: right; }
         .po-items-table .col-uom { width: 8%; text-align: left; }
@@ -325,6 +335,11 @@
     </style>
 </head>
 <body>
+    {{-- Wrapper table: thead repeats on every page (like Word repeat header). --}}
+    <table class="po-doc-wrapper" border="0" cellspacing="0" cellpadding="0">
+        <thead>
+            <tr>
+                <td>
     {{-- Header: Logo (kiri), Title + PO Number (tengah), satu baris middle align. Place/Date di bawah. --}}
     <div class="po-header">
         <table class="po-header-row" border="0" cellspacing="0" cellpadding="0">
@@ -452,6 +467,13 @@
     {{-- Subject --}}
     <div class="po-section-title">SUBJECT: {{ $header['PurchOrderName'] ?? '-' }}</div>
 
+                </td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+
     {{-- Items table --}}
     <table class="po-items-table" border="0" cellspacing="0" cellpadding="0">
         <thead>
@@ -536,6 +558,11 @@
                 <span class="po-disclaimer">*Purchase Order ini dicetak secara elektronik sehingga tidak memerlukan tanda tangan</span>
             </td>
         </tr>
+    </table>
+
+                </td>
+            </tr>
+        </tbody>
     </table>
 </body>
 </html>
