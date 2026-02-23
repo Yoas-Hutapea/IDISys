@@ -17,7 +17,7 @@
                         <th class="text-center">Qty Remain</th>
                         <th class="text-center">Price</th>
                         <th class="text-center">Amount</th>
-                        <th class="text-center">Qty Invoice</th>
+                        <th class="text-center" style="min-width: 120px;">Qty Invoice</th>
                         <th class="text-center">Amount Invoice</th>
                     </tr>
                 </thead>

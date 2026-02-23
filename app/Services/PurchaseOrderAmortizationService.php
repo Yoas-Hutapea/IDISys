@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Recalculate trxPROPurchaseOrderAmortization.InvoiceAmount based on actual received amount (GRN).
- * When GRN exists, term amounts (e.g. 40|40) should be based on received total, not full PO amount.
+ * When GRN exists, term amounts are based on received total. If some terms are already paid (have
+ * InvoiceNumber), only unpaid terms are updated: remainingToPay = newTotal - sum(paid); each
+ * unpaid term gets remainingToPay * (termValue / sumUnpaidTermValues) so the ratio 50|30 is kept
+ * and total remaining = 60_000 (e.g. 80_000 - 20_000) is split 50:30 → 37_500 and 22_500.
  */
 class PurchaseOrderAmortizationService
 {
@@ -42,36 +45,57 @@ class PurchaseOrderAmortizationService
             return;
         }
 
-        $termRows = DB::table('trxPROPurchaseOrderAmortization')
+        $termValueCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'TermValue')
+            ? 'TermValue' : 'termValue';
+        $invoiceAmountCol = 'InvoiceAmount';
+        $invoiceNumberCol = 'InvoiceNumber';
+        $idCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'ID') ? 'ID' : 'id';
+
+        // All term rows (not canceled)
+        $allTermQuery = DB::table('trxPROPurchaseOrderAmortization')
             ->where($poColumn, $poNumber)
             ->where(function ($q) {
                 $col = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'AmortizationType')
                     ? 'AmortizationType' : 'amortizationType';
                 $q->where($col, 'Term');
             });
-
         if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled')) {
-            $termRows->where(function ($q) {
+            $allTermQuery->where(function ($q) {
                 $q->whereNull('IsCanceled')->orWhere('IsCanceled', false);
             });
         }
-        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'InvoiceNumber')) {
-            $termRows->where(function ($q) {
-                $q->whereNull('InvoiceNumber')->orWhere('InvoiceNumber', '');
-            });
+        $allTermRows = $allTermQuery->orderBy(Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber') ? 'PeriodNumber' : 'ID')->get();
+
+        // Sum already paid: terms that have InvoiceNumber set (submitted)
+        $sumPaid = 0;
+        foreach ($allTermRows as $r) {
+            $invNum = $r->{$invoiceNumberCol} ?? $r->invoiceNumber ?? null;
+            if ($invNum !== null && trim((string) $invNum) !== '') {
+                $sumPaid += (float) ($r->{$invoiceAmountCol} ?? $r->invoiceAmount ?? 0);
+            }
         }
 
-        $termValueCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'TermValue')
-            ? 'TermValue' : 'termValue';
-        $invoiceAmountCol = 'InvoiceAmount';
-        $periodCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber')
-            ? 'PeriodNumber' : 'Period';
+        // Remaining to pay = new total (GRN/PO) minus what was already paid (e.g. 80_000 - 20_000 = 60_000)
+        $remainingToPay = max(0, $baseAmount - $sumPaid);
 
-        $rows = $termRows->get();
+        // Unpaid terms: those without InvoiceNumber; distribute remaining in ratio of TermValue (50|30 -> 50/80 and 30/80)
+        $unpaidRows = [];
+        $sumUnpaidTermValues = 0;
+        foreach ($allTermRows as $r) {
+            $invNum = $r->{$invoiceNumberCol} ?? $r->invoiceNumber ?? null;
+            if ($invNum === null || trim((string) $invNum) === '') {
+                $unpaidRows[] = $r;
+                $sumUnpaidTermValues += (float) ($r->{$termValueCol} ?? $r->termValue ?? 0);
+            }
+        }
 
-        foreach ($rows as $row) {
+        if ($sumUnpaidTermValues <= 0) {
+            return;
+        }
+
+        foreach ($unpaidRows as $row) {
             $termValue = (float) ($row->{$termValueCol} ?? 0);
-            $newInvoiceAmount = ($baseAmount * $termValue) / 100;
+            $newInvoiceAmount = ($remainingToPay * $termValue) / $sumUnpaidTermValues;
 
             $update = [$invoiceAmountCol => $newInvoiceAmount];
             if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
@@ -82,7 +106,6 @@ class PurchaseOrderAmortizationService
                 $update['UpdatedBy'] = $emp && is_object($emp) ? ($emp->ID ?? $emp->EmployeeID ?? null) : ($emp['ID'] ?? $emp['EmployeeID'] ?? null);
             }
 
-            $idCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'ID') ? 'ID' : 'id';
             $id = $row->{$idCol} ?? null;
             if ($id !== null) {
                 DB::table('trxPROPurchaseOrderAmortization')->where($idCol, $id)->update($update);

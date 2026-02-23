@@ -150,7 +150,23 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
-            // Generate rows for each term. Invoice Amount: only recalc for non-Submitted; Submitted keeps DB value
+            // When some terms are already paid: remaining to pay = totalAmount - sum(paid); unpaid terms get (remaining * termValue / sumUnpaidTermValues)
+            let sumSubmitted = 0;
+            let sumUnpaidTermValues = 0;
+            termAmortizations.forEach((amort) => {
+                const termNumber = parseInt(amort.periodNumber, 10) || 0;
+                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const isCanceled = amort.isCanceled || false;
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                if (hasInvoice || isCanceled) {
+                    sumSubmitted += parseFloat(amort.invoiceAmount) || 0;
+                } else {
+                    sumUnpaidTermValues += termValue;
+                }
+            });
+            const remainingToPay = Math.max(0, totalAmount - sumSubmitted);
+
+            // Generate rows for each term. Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues)
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
                 const termValue = parseFloat(amort.termValue || 0) || 0;
@@ -176,9 +192,13 @@ class InvoiceCreateTerm {
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
 
-                // Submitted/Canceled: keep Invoice Amount from DB; Eligible/Not Eligible: totalAmount * (termValue / 100)
                 const storedAmount = parseFloat(amort.invoiceAmount) || 0;
-                const invoiceAmount = (hasInvoice || isCanceled) ? storedAmount : (totalAmount > 0 ? (totalAmount * termValue) / 100 : storedAmount);
+                let invoiceAmount = storedAmount;
+                if (hasInvoice || isCanceled) {
+                    invoiceAmount = storedAmount;
+                } else if (totalAmount > 0 && sumUnpaidTermValues > 0) {
+                    invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
+                }
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -339,7 +359,22 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
-            // Submitted/Canceled: keep DB value; Eligible/Not Eligible: totalAmount * (termValue / 100)
+            let sumSubmitted = 0;
+            let sumUnpaidTermValues = 0;
+            termAmortizations.forEach((amort) => {
+                const termNumber = parseInt(amort.periodNumber, 10) || 0;
+                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const isCanceled = amort.isCanceled || false;
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                if (hasInvoice || isCanceled) {
+                    sumSubmitted += parseFloat(amort.invoiceAmount) || 0;
+                } else {
+                    sumUnpaidTermValues += termValue;
+                }
+            });
+            const remainingToPay = Math.max(0, totalAmount - sumSubmitted);
+
+            // Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues)
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
                 const termValue = parseFloat(amort.termValue || 0) || 0;
@@ -366,7 +401,12 @@ class InvoiceCreateTerm {
                 }
 
                 const storedAmount = parseFloat(amort.invoiceAmount) || 0;
-                const invoiceAmount = (hasInvoice || isCanceled) ? storedAmount : (totalAmount > 0 ? (totalAmount * termValue) / 100 : storedAmount);
+                let invoiceAmount = storedAmount;
+                if (hasInvoice || isCanceled) {
+                    invoiceAmount = storedAmount;
+                } else if (totalAmount > 0 && sumUnpaidTermValues > 0) {
+                    invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
+                }
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
