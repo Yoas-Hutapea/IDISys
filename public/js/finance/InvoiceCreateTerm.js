@@ -197,11 +197,13 @@ class InvoiceCreateTerm {
                 let invoiceAmount = storedAmount;
                 if (hasInvoice || isCanceled) {
                     invoiceAmount = storedAmount;
-                } else if (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0) {
-                    invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
-                }
-                if (invoiceAmount <= 0 && storedAmount > 0) {
-                    invoiceAmount = storedAmount;
+                } else {
+                    // Unpaid: prefer trxPROPurchaseOrderAmortization.InvoiceAmount when > 0
+                    const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
+                        ? (remainingToPay * termValue) / sumUnpaidTermValues
+                        : 0;
+                    invoiceAmount = storedAmount > 0 ? storedAmount : formulaAmount;
+                    if (invoiceAmount <= 0 && storedAmount > 0) invoiceAmount = storedAmount;
                 }
 
                 const row = document.createElement('tr');
@@ -409,11 +411,13 @@ class InvoiceCreateTerm {
                 let invoiceAmount = storedAmount;
                 if (hasInvoice || isCanceled) {
                     invoiceAmount = storedAmount;
-                } else if (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0) {
-                    invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
-                }
-                if (invoiceAmount <= 0 && storedAmount > 0) {
-                    invoiceAmount = storedAmount;
+                } else {
+                    // Unpaid: prefer trxPROPurchaseOrderAmortization.InvoiceAmount when > 0
+                    const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
+                        ? (remainingToPay * termValue) / sumUnpaidTermValues
+                        : 0;
+                    invoiceAmount = storedAmount > 0 ? storedAmount : formulaAmount;
+                    if (invoiceAmount <= 0 && storedAmount > 0) invoiceAmount = storedAmount;
                 }
 
                 const row = document.createElement('tr');
@@ -1094,7 +1098,7 @@ class InvoiceCreateTerm {
             this.manager.poModule.currentTermValue = termValue;
         }
 
-        // Target total for this term (sama dengan Invoice Amount di grid): remainingToPay * (termValue/sumUnpaid) atau fullTotal*termValue/100
+        // Target total for this term = Invoice Amount dari trxPROPurchaseOrderAmortization agar sama dengan Term grid
         let targetTotalForTerm = null;
         const poDetailItems = this.manager.poModule ? this.manager.poModule.poDetailItems : [];
         const fullTotal = (poDetailItems || []).reduce((s, it) => s + (parseFloat(it.amount || it.Amount || 0) || 0), 0);
@@ -1107,24 +1111,30 @@ class InvoiceCreateTerm {
                 const payload = amortRes && typeof amortRes === 'object' ? (amortRes.data || amortRes) : null;
                 const termList = (payload && Array.isArray(payload.termOfPayment)) ? payload.termOfPayment : [];
                 const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
-                const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
-                let sumSubmitted = 0;
-                let sumUnpaidTermValues = 0;
-                termList.forEach((amort) => {
-                    const termNum = parseInt(amort.periodNumber, 10) || 0;
-                    const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
-                    const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
-                    if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
-                        sumSubmitted += getAmortInvoiceAmount(amort);
-                    } else {
-                        sumUnpaidTermValues += termVal;
-                    }
-                });
-                const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
-                if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
-                    targetTotalForTerm = (remainingToPay * termValue) / sumUnpaidTermValues;
+                const selectedAmort = termList.find((a) => (parseInt(a.periodNumber, 10) || 0) === termNumber);
+                const storedAmount = selectedAmort ? getAmortInvoiceAmount(selectedAmort) : 0;
+                if (storedAmount > 0) {
+                    targetTotalForTerm = storedAmount;
                 } else {
-                    targetTotalForTerm = (fullTotal * termValue) / 100;
+                    const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
+                    let sumSubmitted = 0;
+                    let sumUnpaidTermValues = 0;
+                    termList.forEach((amort) => {
+                        const termNum = parseInt(amort.periodNumber, 10) || 0;
+                        const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
+                        const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
+                        if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
+                            sumSubmitted += getAmortInvoiceAmount(amort);
+                        } else {
+                            sumUnpaidTermValues += termVal;
+                        }
+                    });
+                    const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
+                    if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
+                        targetTotalForTerm = (remainingToPay * termValue) / sumUnpaidTermValues;
+                    } else {
+                        targetTotalForTerm = (fullTotal * termValue) / 100;
+                    }
                 }
             } catch (e) {
                 targetTotalForTerm = fullTotal > 0 ? (fullTotal * termValue) / 100 : null;

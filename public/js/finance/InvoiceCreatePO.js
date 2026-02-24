@@ -1203,6 +1203,10 @@ class InvoiceCreatePO {
                         const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
                         let sumSubmitted = 0;
                         let sumUnpaidTermValues = 0;
+                        let eligibleTermNumber = 1;
+                        if (submittedTerms.size > 0) {
+                            eligibleTermNumber = Math.max(...submittedTerms) + 1;
+                        }
                         termList.forEach((amort) => {
                             const termNum = parseInt(amort.periodNumber, 10) || 0;
                             const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
@@ -1214,9 +1218,13 @@ class InvoiceCreatePO {
                             }
                         });
                         const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
-                        if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
-                            const currentTermTotal = (remainingToPay * this.currentTermValue) / sumUnpaidTermValues;
-                            effectiveTermRatio = fullTotal > 0 ? currentTermTotal / fullTotal : null;
+                        const currentAmort = termList.find((a) => (parseInt(a.periodNumber, 10) || 0) === eligibleTermNumber);
+                        const currentTermTotalFromDb = currentAmort ? getAmortInvoiceAmount(currentAmort) : 0;
+                        let currentTermTotal = currentTermTotalFromDb > 0
+                            ? currentTermTotalFromDb
+                            : (sumUnpaidTermValues > 0 && remainingToPay >= 0 ? (remainingToPay * this.currentTermValue) / sumUnpaidTermValues : 0);
+                        if (currentTermTotal > 0 && fullTotal > 0) {
+                            effectiveTermRatio = currentTermTotal / fullTotal;
                         }
                     } catch (e) {
                         console.warn('Amortizations for Item List effectiveTermRatio:', e);
