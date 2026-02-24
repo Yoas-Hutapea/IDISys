@@ -1191,6 +1191,38 @@ class InvoiceCreatePO {
                     this.currentTermValue = null;
                 }
 
+                // Full total from items (untuk hitung remainingToPay dan effectiveTermRatio)
+                const fullTotal = itemsToRender.reduce((sum, it) => sum + (parseFloat(it.amount || it.Amount || 0) || 0), 0);
+                let effectiveTermRatio = null;
+                if (this.currentTermValue !== null && this.currentTermValue > 0 && fullTotal > 0 && invoices && invoices.length > 0 && this.manager.apiModule) {
+                    try {
+                        const amortRes = await this.manager.apiModule.getAmortizations(poNumber);
+                        const payload = amortRes && typeof amortRes === 'object' ? (amortRes.data || amortRes) : null;
+                        const termList = (payload && Array.isArray(payload.termOfPayment)) ? payload.termOfPayment : [];
+                        const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
+                        const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
+                        let sumSubmitted = 0;
+                        let sumUnpaidTermValues = 0;
+                        termList.forEach((amort) => {
+                            const termNum = parseInt(amort.periodNumber, 10) || 0;
+                            const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
+                            const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
+                            if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
+                                sumSubmitted += getAmortInvoiceAmount(amort);
+                            } else {
+                                sumUnpaidTermValues += termVal;
+                            }
+                        });
+                        const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
+                        if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
+                            const currentTermTotal = (remainingToPay * this.currentTermValue) / sumUnpaidTermValues;
+                            effectiveTermRatio = fullTotal > 0 ? currentTermTotal / fullTotal : null;
+                        }
+                    } catch (e) {
+                        console.warn('Amortizations for Item List effectiveTermRatio:', e);
+                    }
+                }
+
                 itemsToRender.forEach((item, index) => {
                     const orderQty = parseFloat(item.orderQty || item.OrderQty || item.itemQty || item.ItemQty || 0) || 0;
                     const qtyReceive = parseFloat(item.itemQty || item.ItemQty || item.ActualReceived || 0) || 0;
@@ -1198,13 +1230,18 @@ class InvoiceCreatePO {
                     const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || 0) || 0;
                     const amount = parseFloat(item.amount || item.Amount || 0) || 0;
 
-                    // Calculate Qty Invoice and Amount Invoice (based on received qty)
+                    // Qty Invoice & Amount Invoice: pakai effectiveTermRatio (sisa dibayar) agar Total Item List = Invoice Amount termin di grid
                     let qtyInvoice = qtyReceive;
                     let amountInvoice = amount;
 
                     if (this.currentTermValue !== null && this.currentTermValue > 0) {
-                        qtyInvoice = qtyReceive * (this.currentTermValue / 100);
-                        amountInvoice = qtyInvoice * unitPrice;
+                        if (effectiveTermRatio != null && effectiveTermRatio > 0) {
+                            qtyInvoice = qtyReceive * effectiveTermRatio;
+                            amountInvoice = qtyInvoice * unitPrice;
+                        } else {
+                            qtyInvoice = qtyReceive * (this.currentTermValue / 100);
+                            amountInvoice = qtyInvoice * unitPrice;
+                        }
                     } else if (this.purchaseRequestAdditional && this.purchaseRequestAdditional.period > 0) {
                         qtyInvoice = qtyReceive;
                         amountInvoice = qtyInvoice * unitPrice;

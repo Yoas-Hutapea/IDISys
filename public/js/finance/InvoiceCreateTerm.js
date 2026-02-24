@@ -151,28 +151,29 @@ class InvoiceCreateTerm {
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
             // When some terms are already paid: remaining to pay = totalAmount - sum(paid); unpaid terms get (remaining * termValue / sumUnpaidTermValues)
+            const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
             let sumSubmitted = 0;
             let sumUnpaidTermValues = 0;
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
                 if (hasInvoice || isCanceled) {
-                    sumSubmitted += parseFloat(amort.invoiceAmount) || 0;
+                    sumSubmitted += getAmortInvoiceAmount(amort);
                 } else {
                     sumUnpaidTermValues += termValue;
                 }
             });
             const remainingToPay = Math.max(0, totalAmount - sumSubmitted);
 
-            // Generate rows for each term. Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues)
+            // Generate rows for each term. Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues), fallback to DB value if calc would be 0
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const termLabel = `Termin ${termNumber}`;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
 
                 let status = '';
                 let statusClass = '';
@@ -192,12 +193,15 @@ class InvoiceCreateTerm {
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
 
-                const storedAmount = parseFloat(amort.invoiceAmount) || 0;
+                const storedAmount = getAmortInvoiceAmount(amort);
                 let invoiceAmount = storedAmount;
                 if (hasInvoice || isCanceled) {
                     invoiceAmount = storedAmount;
-                } else if (totalAmount > 0 && sumUnpaidTermValues > 0) {
+                } else if (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0) {
                     invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
+                }
+                if (invoiceAmount <= 0 && storedAmount > 0) {
+                    invoiceAmount = storedAmount;
                 }
 
                 const row = document.createElement('tr');
@@ -359,28 +363,29 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
+            const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
             let sumSubmitted = 0;
             let sumUnpaidTermValues = 0;
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
                 if (hasInvoice || isCanceled) {
-                    sumSubmitted += parseFloat(amort.invoiceAmount) || 0;
+                    sumSubmitted += getAmortInvoiceAmount(amort);
                 } else {
                     sumUnpaidTermValues += termValue;
                 }
             });
             const remainingToPay = Math.max(0, totalAmount - sumSubmitted);
 
-            // Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues)
+            // Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues), fallback to DB value if calc 0
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
-                const termValue = parseFloat(amort.termValue || 0) || 0;
+                const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const termLabel = `Termin ${termNumber}`;
                 const isCanceled = amort.isCanceled || false;
-                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || submittedTerms.has(termNumber);
+                const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
 
                 let status = '';
                 let statusClass = '';
@@ -400,12 +405,15 @@ class InvoiceCreateTerm {
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
 
-                const storedAmount = parseFloat(amort.invoiceAmount) || 0;
+                const storedAmount = getAmortInvoiceAmount(amort);
                 let invoiceAmount = storedAmount;
                 if (hasInvoice || isCanceled) {
                     invoiceAmount = storedAmount;
-                } else if (totalAmount > 0 && sumUnpaidTermValues > 0) {
+                } else if (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0) {
                     invoiceAmount = (remainingToPay * termValue) / sumUnpaidTermValues;
+                }
+                if (invoiceAmount <= 0 && storedAmount > 0) {
+                    invoiceAmount = storedAmount;
                 }
 
                 const row = document.createElement('tr');
@@ -1061,7 +1069,7 @@ class InvoiceCreateTerm {
     /**
      * Select Term of Payment
      */
-    selectTermOfPayment(termNumber, termValue, isEligible) {
+    async selectTermOfPayment(termNumber, termValue, isEligible) {
         // Check if term is eligible
         if (!isEligible) {
             Swal.fire({
@@ -1086,9 +1094,49 @@ class InvoiceCreateTerm {
             this.manager.poModule.currentTermValue = termValue;
         }
 
-        // Recalculate Qty Invoice and Amount Invoice for all items
+        // Target total for this term (sama dengan Invoice Amount di grid): remainingToPay * (termValue/sumUnpaid) atau fullTotal*termValue/100
+        let targetTotalForTerm = null;
+        const poDetailItems = this.manager.poModule ? this.manager.poModule.poDetailItems : [];
+        const fullTotal = (poDetailItems || []).reduce((s, it) => s + (parseFloat(it.amount || it.Amount || 0) || 0), 0);
+        if (fullTotal > 0 && this.manager.apiModule) {
+            const selectedPO = this.manager.poModule?.selectedPO || null;
+            const poNumber = selectedPO ? (selectedPO.purchOrderID || selectedPO.PurchOrderID || '') : '';
+            try {
+                const invoices = await this.manager.apiModule.getExistingInvoices(poNumber);
+                const amortRes = await this.manager.apiModule.getAmortizations(poNumber);
+                const payload = amortRes && typeof amortRes === 'object' ? (amortRes.data || amortRes) : null;
+                const termList = (payload && Array.isArray(payload.termOfPayment)) ? payload.termOfPayment : [];
+                const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
+                const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
+                let sumSubmitted = 0;
+                let sumUnpaidTermValues = 0;
+                termList.forEach((amort) => {
+                    const termNum = parseInt(amort.periodNumber, 10) || 0;
+                    const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
+                    const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
+                    if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
+                        sumSubmitted += getAmortInvoiceAmount(amort);
+                    } else {
+                        sumUnpaidTermValues += termVal;
+                    }
+                });
+                const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
+                if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
+                    targetTotalForTerm = (remainingToPay * termValue) / sumUnpaidTermValues;
+                } else {
+                    targetTotalForTerm = (fullTotal * termValue) / 100;
+                }
+            } catch (e) {
+                targetTotalForTerm = fullTotal > 0 ? (fullTotal * termValue) / 100 : null;
+            }
+        }
+        if (targetTotalForTerm == null && fullTotal > 0) {
+            targetTotalForTerm = (fullTotal * termValue) / 100;
+        }
+
+        // Recalculate Qty Invoice and Amount Invoice (pakai targetTotalForTerm agar Total Item List = Invoice Amount termin)
         if (this.manager && this.manager.formModule && this.manager.poModule) {
-            this.manager.formModule.recalculateInvoiceItems(termValue, this.manager.poModule.poDetailItems);
+            this.manager.formModule.recalculateInvoiceItems(termValue, this.manager.poModule.poDetailItems, targetTotalForTerm);
         }
 
         // Set default Invoice Date and Tax Date to today

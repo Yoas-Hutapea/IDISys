@@ -135,32 +135,33 @@ class InvoiceCreateForm {
     }
 
     /**
-     * Recalculate Invoice Items based on term value
+     * Recalculate Invoice Items based on term value.
+     * @param {number} termValue - e.g. 30 for 30%
+     * @param {Array} poDetailItems - item list
+     * @param {number|null} targetTotalForTerm - optional; total amount for this term (sisa dibayar × termValue/sumUnpaid) agar Total Item List = Invoice Amount di grid
      */
-    recalculateInvoiceItems(termValue, poDetailItems) {
+    recalculateInvoiceItems(termValue, poDetailItems, targetTotalForTerm = null) {
         const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
-        
-        // Recalculate Qty Invoice and Amount Invoice for all items based on term value
+        const fullTotal = (poDetailItems || []).reduce((s, it) => s + (parseFloat(it.amount || it.Amount || 0) || 0), 0);
+        const effectiveTermRatio = (targetTotalForTerm != null && targetTotalForTerm >= 0 && fullTotal > 0)
+            ? targetTotalForTerm / fullTotal
+            : (termValue / 100);
+
         $('.qty-invoice').each(function() {
             const lineIndex = $(this).data('line');
             const item = poDetailItems[lineIndex];
             if (!item) return;
-            
+
             const qtyPO = parseFloat($(this).data('qty-po')) || 0;
             const unitPrice = parseFloat($(this).data('unit-price')) || 0;
-            
-            // Calculate Qty Invoice = Qty PO * (Term Value / 100)
-            const qtyInvoice = qtyPO * (termValue / 100);
-            // Calculate Amount Invoice = Qty Invoice * Price
+
+            const qtyInvoice = qtyPO * effectiveTermRatio;
             const amountInvoice = qtyInvoice * unitPrice;
-            
-            // Update Qty Invoice input
+
             $(this).val(qtyInvoice.toFixed(2));
-            // Update Amount Invoice display
             $(`.line-amount-invoice[data-line="${lineIndex}"]`).text(formatCurrency(amountInvoice));
         });
-        
-        // Recalculate total invoice amount
+
         this.calculateInvoiceAmount();
     }
 
