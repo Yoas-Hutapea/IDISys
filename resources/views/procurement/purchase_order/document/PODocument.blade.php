@@ -536,7 +536,7 @@
     {{-- Footer: NPWP + QR + Disclaimer --}}
     <table class="po-footer-table" border="0" cellspacing="0" cellpadding="0">
         <tr>
-            <td style="width: 45%;">
+            <td style="width: 45%; vertical-align: middle;">
                 <div class="po-npwp-label pad-sm b-b">NPWP Address</div>
                 <div class="po-npwp-box">
                     <span class="po-npwp-company">{{ $company['CompanyName'] ?? '' }}</span><br/><br/>
@@ -547,14 +547,14 @@
                 </div>
             </td>
             <td style="width: 10%;"></td>
-            <td style="width: 20%;" class="po-qr-box">
+            <td style="width: 20%; vertical-align: middle;" class="po-qr-box">
                 @if (!empty($qrCodeDataUri))
                     <img src="{{ $qrCodeDataUri }}" alt="QR Code" />
                 @else
                     <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" />
                 @endif
             </td>
-            <td style="width: 25%;" class="pad">
+            <td style="width: 25%; vertical-align: middle;" class="pad">
                 <span class="po-disclaimer">*Purchase Order ini dicetak secara elektronik sehingga tidak memerlukan tanda tangan</span>
             </td>
         </tr>
