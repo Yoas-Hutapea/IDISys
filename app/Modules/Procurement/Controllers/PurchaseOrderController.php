@@ -220,6 +220,22 @@ class PurchaseOrderController extends Controller
 
         $dateLock = $po->EndPeriod ?? null;
 
+        // Site Name: dari trxPROPurchaseRequestSTIP.SiteName (match by SO Number); jika SO Number kosong atau "-" tampilkan "Head Office"
+        $stipSiteName = null;
+        $soNumberTrim = trim((string) ($soNumber ?? ''));
+        if ($soNumberTrim !== '' && $soNumberTrim !== '-') {
+            if (Schema::hasTable('trxPROPurchaseRequestSTIP')) {
+                $soCol = Schema::hasColumn('trxPROPurchaseRequestSTIP', 'SONumber') ? 'SONumber' : (Schema::hasColumn('trxPROPurchaseRequestSTIP', 'Sonumb') ? 'Sonumb' : null);
+                if ($soCol && Schema::hasColumn('trxPROPurchaseRequestSTIP', 'SiteName')) {
+                    $stipRow = DB::table('trxPROPurchaseRequestSTIP')->where($soCol, $soNumber)->first();
+                    if ($stipRow && isset($stipRow->SiteName)) {
+                        $stipSiteName = trim((string) $stipRow->SiteName);
+                    }
+                }
+            }
+        }
+        $siteNameForHeader = ($soNumberTrim === '' || $soNumberTrim === '-') ? 'Head Office' : ($stipSiteName !== '' ? $stipSiteName : null);
+
         $header = [
             'ID' => $po->ID ?? null,
             'PurchOrderID' => $po->PurchaseOrderNumber ?? null,
@@ -243,6 +259,7 @@ class PurchaseOrderController extends Controller
             'StrDateLock' => $this->safeFormatDate($dateLock, 'd-M-Y'),
             'ContractPeriod' => $contractPeriodForDoc,
             'SONumber' => $soNumber,
+            'SiteName' => $siteNameForHeader,
         ];
 
         // Delivery Address: dari trxPROPurchaseRequestAdditional.SiteName hanya jika PR punya Sonumb di additional; else company address

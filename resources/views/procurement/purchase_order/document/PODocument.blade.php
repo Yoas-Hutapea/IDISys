@@ -440,12 +440,6 @@
             <td class="label label-w b-l pad-sm">Email</td>
             <td class="po-colon pad-sm txt-c">:</td>
             <td class="value-w b-r pad-sm value">{{ $vendor['EmailCorrespondence'] ?? '-' }}</td>
-            <td class="label label-w-r b-l no-b-r pad-sm">Validity Date</td>
-            <td class="po-colon no-border pad-sm txt-c">:</td>
-            <td class="value-w-r b-r pad-sm value">{{ $header['StrValidityDate'] ?? $header['StrDateLock'] ?? '-' }}</td>
-        </tr>
-        <tr>
-            <td class="b-l b-r pad-sm" colspan="3"></td>
             <td class="label label-w-r b-l no-b-r pad-sm">Periode</td>
             <td class="po-colon no-border pad-sm txt-c">:</td>
             <td class="value-w-r b-r pad-sm value">@if(!empty($header['ContractPeriod'])){{ $header['ContractPeriod'] }}@elseif(!empty($header['StrStartDate']) || !empty($header['StrEndDate'])){{ ($header['StrStartDate'] ?? '-') . ' s/d ' . ($header['StrEndDate'] ?? '-') }}@else-@endif</td>
@@ -455,6 +449,12 @@
             <td class="label label-w-r b-l no-b-r pad-sm">SO Number</td>
             <td class="po-colon no-border pad-sm txt-c">:</td>
             <td class="value-w-r b-r pad-sm value">{{ $header['SONumber'] ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="b-l b-r pad-sm" colspan="3"></td>
+            <td class="label label-w-r b-l no-b-r pad-sm">Site Name</td>
+            <td class="po-colon no-border pad-sm txt-c">:</td>
+            <td class="value-w-r b-r pad-sm value">{{ $header['SiteName'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="b-l b-r b-b pad-sm" colspan="3"></td>
