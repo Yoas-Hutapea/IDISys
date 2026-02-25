@@ -19,6 +19,8 @@ use App\Models\TrxProPurchaseRequestStip;
 use App\Services\BaseService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MasterDataService
 {
@@ -27,17 +29,112 @@ class MasterDataService
         return new BaseService($model);
     }
 
+    /**
+     * Get Applicant list: Superior (= OnBehalf) from idxPROCPurchReqOnBehalfEmployee.
+     * Name from mstEmployee JOIN idxPROCPurchReqOnBehalfEmployee ON OnBehalfID = Employ_Id,
+     * for the logged-in user (UserID / Employ ID).
+     */
     public function getApplicants(?string $userId = null): Collection
     {
+        $tableOnBehalf = 'idxPROCPurchReqOnBehalfEmployee';
+        $empTable = (new MstEmployee())->getTable();
+        if (! Schema::hasTable($tableOnBehalf) || ! Schema::hasColumn($tableOnBehalf, 'OnBehalfID')) {
+            return $this->getApplicantsFallback($userId);
+        }
+
+        $userIds = $this->getCurrentUserIdentifiersForApplicants($userId);
+        if (empty($userIds)) {
+            return $this->getApplicantsFallback($userId);
+        }
+
+        $nameExpr = "COALESCE(NULLIF(TRIM({$empTable}.name), ''), {$empTable}.nick_name, {$empTable}.Employ_Id)";
+        $rows = DB::table($empTable)
+            ->join($tableOnBehalf, "{$tableOnBehalf}.OnBehalfID", '=', "{$empTable}.Employ_Id")
+            ->where($tableOnBehalf . '.IsActive', true)
+            ->whereIn($tableOnBehalf . '.UserID', $userIds)
+            ->selectRaw("{$empTable}.Employ_Id as OnBehalfID, {$nameExpr} as Name")
+            ->distinct()
+            ->get();
+
+        $byEmployId = [];
+        foreach ($rows as $row) {
+            $id = $row->OnBehalfID ?? null;
+            if ($id && ! isset($byEmployId[$id])) {
+                $byEmployId[$id] = (object) [
+                    'OnBehalfID' => $id,
+                    'Name'       => $row->Name ?? $id,
+                ];
+            }
+        }
+
+        // Prepend logged-in user (UserID) as first option: name from mstEmployee for that Employ_Id
+        $empTable = (new MstEmployee())->getTable();
+        foreach ($userIds as $loginId) {
+            $loginId = trim((string) $loginId);
+            if ($loginId === '' || isset($byEmployId[$loginId])) {
+                continue;
+            }
+            $emp = DB::table($empTable)
+                ->where('Employ_Id', $loginId)
+                ->orWhere('Employ_Id_TBGSYS', $loginId)
+                ->selectRaw("Employ_Id as OnBehalfID, COALESCE(NULLIF(TRIM(name), ''), nick_name, Employ_Id) as Name")
+                ->first();
+            if ($emp) {
+                $id = $emp->OnBehalfID ?? $loginId;
+                $byEmployId = [$id => (object) ['OnBehalfID' => $id, 'Name' => $emp->Name ?? $id]] + $byEmployId;
+            }
+            break;
+        }
+
+        $result = collect(array_values($byEmployId));
+        if ($result->isEmpty()) {
+            return $this->getApplicantsFallback($userId);
+        }
+        return $result;
+    }
+
+    /**
+     * Identifiers to match UserID in idxPROCPurchReqOnBehalfEmployee (Employ ID or User ID of logged-in user).
+     */
+    private function getCurrentUserIdentifiersForApplicants(?string $userId): array
+    {
+        $ids = [];
+        if ($userId !== null && $userId !== '') {
+            $ids[] = trim($userId);
+        }
+        $employee = session('employee');
+        if ($employee && is_object($employee)) {
+            if (! empty($employee->Employ_Id)) {
+                $ids[] = trim((string) $employee->Employ_Id);
+            }
+            if (! empty($employee->Employ_Id_TBGSYS)) {
+                $ids[] = trim((string) $employee->Employ_Id_TBGSYS);
+            }
+        }
+        $user = auth()->user();
+        if ($user && is_object($user)) {
+            $loginId = $user->id ?? $user->ID ?? $user->username ?? $user->Username ?? $user->UserID ?? null;
+            if ($loginId !== null && $loginId !== '') {
+                $ids[] = trim((string) $loginId);
+            }
+        }
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /**
+     * Fallback when OnBehalf table missing or no rows: only single employee by userId, never all.
+     */
+    private function getApplicantsFallback(?string $userId): Collection
+    {
+        if ($userId === null || trim($userId) === '') {
+            return collect();
+        }
         $filters = [
             '__query' => function ($query) use ($userId) {
-                $query->selectRaw('Employ_Id as OnBehalfID, name as Name, nick_name as NickName');
-                if ($userId) {
-                    $query->where('Employ_Id', $userId);
-                }
+                $query->selectRaw('Employ_Id as OnBehalfID, name as Name, nick_name as NickName')
+                    ->where('Employ_Id', trim($userId));
             },
         ];
-
         return $this->baseFor(new MstEmployee())->getList($filters);
     }
 
