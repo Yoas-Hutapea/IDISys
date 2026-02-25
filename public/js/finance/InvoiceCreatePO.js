@@ -1211,9 +1211,10 @@ class InvoiceCreatePO {
                             const termNum = parseInt(amort.periodNumber, 10) || 0;
                             const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
                             const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
-                            if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
+                            if (hasInv) {
                                 sumSubmitted += getAmortInvoiceAmount(amort);
-                            } else {
+                            }
+                            if (!hasInv) {
                                 sumUnpaidTermValues += termVal;
                             }
                         });

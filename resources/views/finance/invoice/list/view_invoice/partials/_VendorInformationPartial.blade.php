@@ -41,10 +41,6 @@
                         <input type="text" class="form-control" id="detailAccountNumber" readonly disabled>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Currency</label>
-                        <input type="text" class="form-control" id="detailCurrency" readonly disabled>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Vendor Status</label>
                         <input type="text" class="form-control" id="detailVendorStatus" readonly disabled>
                     </div>

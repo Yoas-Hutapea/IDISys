@@ -150,7 +150,8 @@ class InvoiceCreateTerm {
 
             const formatCurrency = this.utils ? this.utils.formatCurrency.bind(this.utils) : this.formatCurrency.bind(this);
 
-            // When some terms are already paid: remaining to pay = totalAmount - sum(paid); unpaid terms get (remaining * termValue / sumUnpaidTermValues)
+            // remainingToPay = totalAmount - sum(submitted only). Cancelled terms: amount is "lost", not redistributed.
+            // sumUnpaidTermValues = sum(termValue) for all NOT submitted (unpaid + cancelled), so cancelled share stays in denominator.
             const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
             let sumSubmitted = 0;
             let sumUnpaidTermValues = 0;
@@ -159,9 +160,10 @@ class InvoiceCreateTerm {
                 const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const isCanceled = amort.isCanceled || false;
                 const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
-                if (hasInvoice || isCanceled) {
+                if (hasInvoice) {
                     sumSubmitted += getAmortInvoiceAmount(amort);
-                } else {
+                }
+                if (!hasInvoice) {
                     sumUnpaidTermValues += termValue;
                 }
             });
@@ -193,15 +195,16 @@ class InvoiceCreateTerm {
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
 
+                const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
+                    ? (remainingToPay * termValue) / sumUnpaidTermValues
+                    : 0;
                 const storedAmount = getAmortInvoiceAmount(amort);
                 let invoiceAmount = storedAmount;
-                if (hasInvoice || isCanceled) {
+                if (hasInvoice) {
                     invoiceAmount = storedAmount;
+                } else if (isCanceled) {
+                    invoiceAmount = formulaAmount > 0 ? formulaAmount : storedAmount;
                 } else {
-                    // Unpaid: prefer trxPROPurchaseOrderAmortization.InvoiceAmount when > 0
-                    const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
-                        ? (remainingToPay * termValue) / sumUnpaidTermValues
-                        : 0;
                     invoiceAmount = storedAmount > 0 ? storedAmount : formulaAmount;
                     if (invoiceAmount <= 0 && storedAmount > 0) invoiceAmount = storedAmount;
                 }
@@ -373,15 +376,16 @@ class InvoiceCreateTerm {
                 const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
                 const isCanceled = amort.isCanceled || false;
                 const hasInvoice = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNumber);
-                if (hasInvoice || isCanceled) {
+                if (hasInvoice) {
                     sumSubmitted += getAmortInvoiceAmount(amort);
-                } else {
+                }
+                if (!hasInvoice) {
                     sumUnpaidTermValues += termValue;
                 }
             });
             const remainingToPay = Math.max(0, totalAmount - sumSubmitted);
 
-            // Submitted/Canceled: DB value; unpaid: remainingToPay * (termValue / sumUnpaidTermValues), fallback to DB value if calc 0
+            // Submitted: DB value; Cancelled: formula (share not redistributed); unpaid: formula or DB
             termAmortizations.forEach((amort) => {
                 const termNumber = parseInt(amort.periodNumber, 10) || 0;
                 const termValue = parseFloat(amort.termValue || amort.TermValue || 0) || 0;
@@ -407,15 +411,16 @@ class InvoiceCreateTerm {
                     statusClass = isEligible ? 'text-success' : 'text-danger';
                 }
 
+                const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
+                    ? (remainingToPay * termValue) / sumUnpaidTermValues
+                    : 0;
                 const storedAmount = getAmortInvoiceAmount(amort);
                 let invoiceAmount = storedAmount;
-                if (hasInvoice || isCanceled) {
+                if (hasInvoice) {
                     invoiceAmount = storedAmount;
+                } else if (isCanceled) {
+                    invoiceAmount = formulaAmount > 0 ? formulaAmount : storedAmount;
                 } else {
-                    // Unpaid: prefer trxPROPurchaseOrderAmortization.InvoiceAmount when > 0
-                    const formulaAmount = (totalAmount > 0 && sumUnpaidTermValues > 0 && remainingToPay > 0)
-                        ? (remainingToPay * termValue) / sumUnpaidTermValues
-                        : 0;
                     invoiceAmount = storedAmount > 0 ? storedAmount : formulaAmount;
                     if (invoiceAmount <= 0 && storedAmount > 0) invoiceAmount = storedAmount;
                 }
@@ -1116,22 +1121,23 @@ class InvoiceCreateTerm {
                 if (storedAmount > 0) {
                     targetTotalForTerm = storedAmount;
                 } else {
-                    const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
-                    let sumSubmitted = 0;
-                    let sumUnpaidTermValues = 0;
-                    termList.forEach((amort) => {
-                        const termNum = parseInt(amort.periodNumber, 10) || 0;
-                        const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
-                        const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
-                        if (hasInv || (amort.isCanceled || amort.IsCanceled)) {
-                            sumSubmitted += getAmortInvoiceAmount(amort);
-                        } else {
-                            sumUnpaidTermValues += termVal;
-                        }
-                    });
-                    const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
-                    if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
-                        targetTotalForTerm = (remainingToPay * termValue) / sumUnpaidTermValues;
+                const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));
+                let sumSubmitted = 0;
+                let sumUnpaidTermValues = 0;
+                termList.forEach((amort) => {
+                    const termNum = parseInt(amort.periodNumber, 10) || 0;
+                    const termVal = parseFloat(amort.termValue ?? amort.TermValue ?? 0) || 0;
+                    const hasInv = (amort.invoiceNumber != null && amort.invoiceNumber !== '') || (amort.InvoiceNumber != null && amort.InvoiceNumber !== '') || submittedTerms.has(termNum);
+                    if (hasInv) {
+                        sumSubmitted += getAmortInvoiceAmount(amort);
+                    }
+                    if (!hasInv) {
+                        sumUnpaidTermValues += termVal;
+                    }
+                });
+                const remainingToPay = Math.max(0, fullTotal - sumSubmitted);
+                if (sumUnpaidTermValues > 0 && remainingToPay >= 0) {
+                    targetTotalForTerm = (remainingToPay * termValue) / sumUnpaidTermValues;
                     } else {
                         targetTotalForTerm = (fullTotal * termValue) / 100;
                     }

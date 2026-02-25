@@ -271,6 +271,25 @@ class InvoiceDetailManager {
     }
 
     /**
+     * Get numeric value from object by key; tries exact keys then case-insensitive match (for DB column names)
+     */
+    getPropNumber(obj, ...keyVariants) {
+        if (!obj || typeof obj !== 'object') return undefined;
+        for (const key of keyVariants) {
+            const v = obj[key];
+            if (v !== undefined && v !== null && v !== '') return Number(v);
+        }
+        const lowerKeys = keyVariants.map(k => String(k).toLowerCase());
+        for (const k of Object.keys(obj)) {
+            if (lowerKeys.includes(k.toLowerCase())) {
+                const v = obj[k];
+                if (v !== undefined && v !== null && v !== '') return Number(v);
+            }
+        }
+        return undefined;
+    }
+
+    /**
      * Populate all UI sections
      */
     async populateAllSections() {
@@ -400,7 +419,7 @@ class InvoiceDetailManager {
         if (po) {
             setVal('detailPurchOrderName', this.getProp(po, 'purchOrderName', 'PurchOrderName', 'PurchaseOrderName', 'trxPROPurchaseOrderName'));
             setVal('detailPODate', this.formatDate(this.getProp(po, 'poDate', 'PODate', 'PurchaseOrderDate')));
-            setVal('detailPOAmount', this.formatCurrency(this.getProp(po, 'poAmount', 'POAmount', 'Amount') || 0));
+            setVal('detailPOAmount', this.formatNumberNoCurrency(this.getProp(po, 'poAmount', 'POAmount', 'Amount') || 0));
             
             const siteName = this.getProp(po, 'mstSiteName', 'MstSiteName');
             const siteID = this.getProp(po, 'mstSiteID', 'MstSiteID');
@@ -410,14 +429,18 @@ class InvoiceDetailManager {
             if (siteValue) setVal('detailSite', siteValue);
             
             setVal('detailStatusPO', this.getProp(po, 'approvalStatus', 'ApprovalStatus', 'Status'));
-            setVal('detailPurchType', this.formatPurchaseType(this.getProp(po, 'purchType', 'PurchType', 'PurchaseType')));
+            const purchTypeFormatted = this.formatPurchaseType(this.getProp(po, 'purchType', 'PurchType', 'PurchaseType'));
+            setVal('detailPurchType', purchTypeFormatted);
             setVal('detailPurchSubType', this.formatPurchaseSubType(this.getProp(po, 'purchSubType', 'PurchSubType', 'PurchaseSubType')));
             setVal('detailTermOfPayment', this.getProp(po, 'topDescription', 'TOPDescription', 'TermOfPayment'));
             setVal('detailCompany', this.getProp(po, 'companyName', 'CompanyName', 'Company'));
         }
 
-        const workType = this.getProp(invoice, 'workType', 'WorkType') || (po ? this.getProp(po, 'workType', 'WorkType') : '');
-        setVal('detailWorkType', workType);
+        // Work Type = same value as Purchase Type
+        const workTypeDisplay = (po && this.getProp(po, 'purchType', 'PurchType', 'PurchaseType') != null)
+            ? this.formatPurchaseType(this.getProp(po, 'purchType', 'PurchType', 'PurchaseType'))
+            : (this.getProp(invoice, 'workType', 'WorkType') || (po ? this.getProp(po, 'workType', 'WorkType') : ''));
+        setVal('detailWorkType', workTypeDisplay);
         
         const productTypeValue = this.getProp(invoice, 'product', 'Product', 'productType', 'ProductType') || (po ? this.getProp(po, 'productType', 'ProductType') : '');
         setVisible('detailProductTypeFieldWrapper', !!productTypeValue);
@@ -451,11 +474,7 @@ class InvoiceDetailManager {
         setVal('detailAccountName', vendor.recipientName || vendor.RecipientName || '');
         setVal('detailAccountNumber', vendor.bankAccount || vendor.BankAccount || '');
         
-        if (this.poItems && this.poItems.length > 0) {
-            const firstItem = this.poItems[0];
-            setVal('detailCurrency', firstItem.currencyCode || firstItem.CurrencyCode || '');
-        }
-        
+        // Currency RP field removed per requirement
         const isActive = vendor.isActive !== undefined ? vendor.isActive : (vendor.IsActive !== undefined ? vendor.IsActive : false);
         setVal('detailVendorStatus', isActive ? 'Active' : 'Inactive');
     }
@@ -775,25 +794,34 @@ class InvoiceDetailManager {
                 const itemName = this.getProp(grnOrInvItem, 'itemName', 'ItemName');
                 const unitName = this.getProp(grnOrInvItem, 'itemUnit', 'ItemUnit', 'Unit', 'unit');
                 const desc = this.getProp(grnOrInvItem, 'itemDescription', 'ItemDescription', 'description', 'Description');
-                let qtyPO = this.getProp(grnOrInvItem, 'itemQty', 'ItemQty', 'ActualReceived', 'quantityPO', 'QuantityPO') || 0;
-                let pricePO = this.getProp(grnOrInvItem, 'unitPrice', 'UnitPrice', 'pricePO', 'PricePO') || 0;
-                let lineAmountPO = this.getProp(grnOrInvItem, 'amount', 'Amount', 'lineAmountPO', 'LineAmountPO') || 0;
-                let qtyInv = '';
-                let lineAmountInv = '';
+                let qtyPO = parseFloat(this.getProp(grnOrInvItem, 'itemQty', 'ItemQty', 'ActualReceived', 'quantityPO', 'QuantityPO') || 0) || 0;
+                let pricePO = parseFloat(this.getProp(grnOrInvItem, 'unitPrice', 'UnitPrice', 'pricePO', 'PricePO') || 0) || 0;
+                let lineAmountPO = parseFloat(this.getProp(grnOrInvItem, 'amount', 'Amount', 'lineAmountPO', 'LineAmountPO') || 0) || 0;
+                const getQtyInv = (obj) => this.getPropNumber(obj, 'QuantityInvoice', 'quantityInvoice', 'QtyInvoice', 'qtyInvoice', 'quantity_invoice');
+                const getLineAmountInv = (obj) => this.getPropNumber(obj, 'LineAmountInvoice', 'lineAmountInvoice', 'AmountInvoice', 'amountInvoice', 'line_amount_invoice');
+                let qtyInv;
+                let lineAmountInv;
                 if (useGRN && this.invoiceItems && this.invoiceItems.length > 0) {
                     const invItem = this.invoiceItems.find(inv => {
-                        const id = this.getProp(inv, 'mstPROPurchaseItemInventoryItemID', 'MstPROPurchaseItemInventoryItemID', 'ItemID', 'itemID');
-                        return String(id) === String(itemID);
+                        const id = this.getProp(inv, 'mstPROPurchaseItemInventoryItemID', 'MstPROPurchaseItemInventoryItemID', 'ItemID', 'itemID', 'mstPROInventoryItemID');
+                        return String(id || '') === String(itemID || '');
                     });
                     if (invItem) {
-                        qtyInv = this.getProp(invItem, 'quantityInvoice', 'QuantityInvoice') || 0;
-                        lineAmountInv = this.getProp(invItem, 'lineAmountInvoice', 'LineAmountInvoice') || 0;
+                        qtyInv = getQtyInv(invItem);
+                        lineAmountInv = getLineAmountInv(invItem);
+                    } else {
+                        qtyInv = undefined;
+                        lineAmountInv = undefined;
                     }
                 } else {
-                    qtyInv = this.getProp(grnOrInvItem, 'quantityInvoice', 'QuantityInvoice') || 0;
-                    lineAmountInv = this.getProp(grnOrInvItem, 'lineAmountInvoice', 'LineAmountInvoice') || 0;
+                    qtyInv = getQtyInv(grnOrInvItem);
+                    lineAmountInv = getLineAmountInv(grnOrInvItem);
                 }
-                
+                if ((lineAmountInv == null || lineAmountInv === 0 || isNaN(lineAmountInv)) && qtyInv != null && pricePO) lineAmountInv = qtyInv * pricePO;
+                if ((qtyInv == null || qtyInv === 0 || qtyInv === '' || isNaN(qtyInv)) && lineAmountInv != null && lineAmountInv > 0 && pricePO) qtyInv = lineAmountInv / pricePO;
+                const qtyInvDisplay = (qtyInv != null && !isNaN(qtyInv) && qtyInv !== '') ? (Number(qtyInv) % 1 === 0 ? Number(qtyInv) : Number(qtyInv).toFixed(2)) : '0';
+                const lineAmountInvNum = (lineAmountInv != null && !isNaN(lineAmountInv)) ? Number(lineAmountInv) : 0;
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="text-center">${itemID}</td>
@@ -801,10 +829,10 @@ class InvoiceDetailManager {
                     <td class="text-center">${unitName}</td>
                     <td class="text-center">${desc}</td>
                     <td class="text-center">${qtyPO}</td>
-                    <td class="text-center">${this.formatCurrency(pricePO)}</td>
-                    <td class="text-center">${this.formatCurrency(lineAmountPO)}</td>
-                    <td class="text-center">${qtyInv}</td>
-                    <td class="text-center">${this.formatCurrency(lineAmountInv)}</td>
+                    <td class="text-center">${this.formatNumberNoCurrency(pricePO)}</td>
+                    <td class="text-center">${this.formatNumberNoCurrency(lineAmountPO)}</td>
+                    <td class="text-center">${qtyInvDisplay}</td>
+                    <td class="text-center">${this.formatNumberNoCurrency(lineAmountInvNum)}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -893,6 +921,15 @@ class InvoiceDetailManager {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
+    }
+
+    /** Format number without "Rp" (e.g. 30.000.000) for display where currency prefix is hidden */
+    formatNumberNoCurrency(amount) {
+        if (amount == null || amount === '' || isNaN(Number(amount))) return '0';
+        return new Intl.NumberFormat('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(Number(amount));
     }
 
     formatDate(dateString) {

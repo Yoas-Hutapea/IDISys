@@ -51,7 +51,7 @@ class PurchaseOrderAmortizationService
         $invoiceNumberCol = 'InvoiceNumber';
         $idCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'ID') ? 'ID' : 'id';
 
-        // All term rows (not canceled)
+        // All term rows (including canceled: canceled share stays in denominator so its amount is not redistributed)
         $allTermQuery = DB::table('trxPROPurchaseOrderAmortization')
             ->where($poColumn, $poNumber)
             ->where(function ($q) {
@@ -59,14 +59,11 @@ class PurchaseOrderAmortizationService
                     ? 'AmortizationType' : 'amortizationType';
                 $q->where($col, 'Term');
             });
-        if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled')) {
-            $allTermQuery->where(function ($q) {
-                $q->whereNull('IsCanceled')->orWhere('IsCanceled', false);
-            });
-        }
         $allTermRows = $allTermQuery->orderBy(Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber') ? 'PeriodNumber' : 'ID')->get();
 
-        // Sum already paid: terms that have InvoiceNumber set (submitted)
+        $isCanceledCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'IsCanceled') ? 'IsCanceled' : null;
+
+        // Sum already paid: only terms that have InvoiceNumber set (submitted). Cancelled terms do not reduce remaining.
         $sumPaid = 0;
         foreach ($allTermRows as $r) {
             $invNum = $r->{$invoiceNumberCol} ?? $r->invoiceNumber ?? null;
@@ -75,17 +72,20 @@ class PurchaseOrderAmortizationService
             }
         }
 
-        // Remaining to pay = new total (GRN/PO) minus what was already paid (e.g. 80_000 - 20_000 = 60_000)
         $remainingToPay = max(0, $baseAmount - $sumPaid);
 
-        // Unpaid terms: those without InvoiceNumber; distribute remaining in ratio of TermValue (50|30 -> 50/80 and 30/80)
+        // sumUnpaidTermValues = sum(termValue) for all NOT submitted (unpaid + cancelled), so cancelled share is not redistributed
         $unpaidRows = [];
         $sumUnpaidTermValues = 0;
         foreach ($allTermRows as $r) {
             $invNum = $r->{$invoiceNumberCol} ?? $r->invoiceNumber ?? null;
-            if ($invNum === null || trim((string) $invNum) === '') {
-                $unpaidRows[] = $r;
+            $hasInvoice = $invNum !== null && trim((string) $invNum) !== '';
+            if (!$hasInvoice) {
                 $sumUnpaidTermValues += (float) ($r->{$termValueCol} ?? $r->termValue ?? 0);
+                $isCanceled = $isCanceledCol && ($r->{$isCanceledCol} ?? $r->isCanceled ?? false);
+                if (!$isCanceled) {
+                    $unpaidRows[] = $r;
+                }
             }
         }
 
