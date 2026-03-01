@@ -345,10 +345,34 @@ class MasterDataService
         return $this->baseFor(new TrxProPurchaseRequestStip())->getList($filters);
     }
 
-    public function getEmployees(?string $searchTerm = null): Collection
-    {
+    /**
+     * Get employees list.
+     * Optional filters for Assign Approval:
+     * - reportCodeForReview: show only employee(s) whose Employ_Id equals the given value (e.g. current user's Report_Code = direct superior).
+     * - reviewedByEmployId: show only employee(s) whose Employ_Id equals the Report_Code of the employee with this Employ_Id (superior of reviewer).
+     */
+    public function getEmployees(
+        ?string $searchTerm = null,
+        ?string $reportCodeForReview = null,
+        ?string $reviewedByEmployId = null
+    ): Collection {
+        $empTable = (new MstEmployee())->getTable();
+        $hasReportCode = Schema::hasColumn($empTable, 'Report_Code');
+
+        $employIdsFilter = null;
+        if ($reportCodeForReview !== null && $reportCodeForReview !== '') {
+            $employIdsFilter = [trim($reportCodeForReview)];
+        } elseif ($reviewedByEmployId !== null && $reviewedByEmployId !== '' && $hasReportCode) {
+            $reportCode = DB::table($empTable)
+                ->where('Employ_Id', trim($reviewedByEmployId))
+                ->value('Report_Code');
+            if ($reportCode !== null && $reportCode !== '') {
+                $employIdsFilter = [trim($reportCode)];
+            }
+        }
+
         $filters = [
-            '__query' => function ($query) use ($searchTerm) {
+            '__query' => function ($query) use ($searchTerm, $employIdsFilter) {
                 $query->select([
                     'Employ_Id',
                     'name',
@@ -357,6 +381,10 @@ class MasterDataService
                     'JobTitleName',
                     'DepartmentName',
                 ]);
+
+                if ($employIdsFilter !== null) {
+                    $query->whereIn('Employ_Id', $employIdsFilter);
+                }
 
                 if ($searchTerm) {
                     $query->where(function ($q) use ($searchTerm) {

@@ -164,10 +164,14 @@ class ProcurementWizardUserSearch {
         // Check if we need to fetch new data
         const cachedEmployees = modalElement.getAttribute('data-all-employees');
         const cachedSearchTerm = modalElement.getAttribute('data-cached-search-term');
-        
+        const cachedReviewedByEmployId = modalElement.getAttribute('data-cached-reviewed-by-employ-id') || '';
+        const reviewedByIdEl = document.getElementById('reviewedById');
+        const currentReviewedByEmployId = (targetFieldId === 'approvedBy' && reviewedByIdEl) ? (reviewedByIdEl.value || '').trim() : '';
+        const approvedByContextChanged = (targetFieldId === 'approvedBy' && currentReviewedByEmployId !== cachedReviewedByEmployId);
+
         const normalizedSearchTerm = (searchTerm || '').trim();
         const normalizedCachedSearchTerm = (cachedSearchTerm || '').trim();
-        
+
         // Show loading state
         tableBody.innerHTML = `
             <tr>
@@ -181,12 +185,37 @@ class ProcurementWizardUserSearch {
         `;
 
         try {
-            // Fetch from API only if search term changed or no cached data
-            if (normalizedCachedSearchTerm !== normalizedSearchTerm || !cachedEmployees || cachedEmployees === '[]') {
+            // Fetch from API only if search term changed or no cached data or (for approvedBy) reviewedBy selection changed
+            if (normalizedCachedSearchTerm !== normalizedSearchTerm || !cachedEmployees || cachedEmployees === '[]' || approvedByContextChanged) {
                 let endpoint = '/Procurement/Master/Employees';
                 const queryParams = [];
                 if (searchTerm && searchTerm.trim()) {
                     queryParams.push(`searchTerm=${encodeURIComponent(searchTerm.trim())}`);
+                }
+                // Reviewed By: only employees whose Employ_Id = current user's Report_Code (direct superior)
+                if (targetFieldId === 'reviewedBy') {
+                    queryParams.push('filterByReportCodeForReview=1');
+                }
+                // Approved By: only employees whose Employ_Id = selected Reviewed By's Report_Code (superior of reviewer)
+                if (targetFieldId === 'approvedBy') {
+                    const reviewedByEmployId = currentReviewedByEmployId;
+                    if (reviewedByEmployId) {
+                        queryParams.push(`reviewedByEmployId=${encodeURIComponent(reviewedByEmployId)}`);
+                    } else {
+                        allEmployees = [];
+                        modalElement.setAttribute('data-all-employees', '[]');
+                        modalElement.setAttribute('data-cached-search-term', normalizedSearchTerm);
+                        modalElement.setAttribute('data-total-employees', '0');
+                        modalElement.setAttribute('data-current-page', '1');
+                        tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Please select Reviewed By first.</td>
+                            </tr>
+                        `;
+                        if (paginationId) { const p = document.getElementById(paginationId); if (p) p.innerHTML = ''; }
+                        if (pageInfoId) { const pi = document.getElementById(pageInfoId); if (pi) pi.textContent = 'Showing 0 - 0 of 0 employees'; }
+                        return;
+                    }
                 }
                 if (queryParams.length > 0) {
                     endpoint += '?' + queryParams.join('&');
@@ -203,6 +232,9 @@ class ProcurementWizardUserSearch {
                 modalElement.setAttribute('data-all-employees', JSON.stringify(allEmployees));
                 modalElement.setAttribute('data-cached-search-term', normalizedSearchTerm);
                 modalElement.setAttribute('data-total-employees', allEmployees.length.toString());
+                if (targetFieldId === 'approvedBy') {
+                    modalElement.setAttribute('data-cached-reviewed-by-employ-id', currentReviewedByEmployId);
+                }
                 
                 currentPage = 1;
                 modalElement.setAttribute('data-current-page', '1');

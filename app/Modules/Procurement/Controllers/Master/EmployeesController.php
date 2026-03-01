@@ -14,8 +14,19 @@ class EmployeesController extends Controller
 
     public function index(Request $request)
     {
-        return response()->json(
-            $this->service->getEmployees($request->query('searchTerm'))
-        );
+        $searchTerm = $request->query('searchTerm');
+        $reportCodeForReview = null;
+        $reviewedByEmployId = $request->query('reviewedByEmployId');
+
+        if ($request->boolean('filterByReportCodeForReview')) {
+            $employee = session('employee');
+            if ($employee && is_object($employee) && !empty($employee->Report_Code ?? null)) {
+                $reportCodeForReview = trim((string) $employee->Report_Code);
+            }
+        }
+
+        $list = $this->service->getEmployees($searchTerm, $reportCodeForReview, $reviewedByEmployId);
+        $data = $list->values()->all();
+        return response()->json(['data' => $data]);
     }
 }
