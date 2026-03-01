@@ -43,11 +43,17 @@
 
         body {
             margin: 0;
-            padding: 12px 16px;
+            padding: 12px 0;
+            padding-bottom: 320px;
             font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
             color: black;
             line-height: 1.35;
+        }
+        /* Satu wrapper untuk margin kiri-kanan yang sama: konten utama + footer */
+        .po-doc-container {
+            padding: 0 16px;
+            max-width: 100%;
         }
 
         table {
@@ -68,14 +74,10 @@
             min-width: 0;
         }
 
+        /* thead repeats on every page when table breaks (header + TO/PT Company + SUBJECT + column headers) */
         thead { display: table-header-group; }
         tfoot { display: table-row-group; }
         tr { page-break-inside: avoid; }
-
-        /* Wrapper table: .po-doc-thead repeats on every page (header + TO/Vendor + PT Company + SUBJECT) */
-        .po-doc-wrapper { width: 100%; border: 0; border-collapse: collapse; }
-        .po-doc-wrapper thead td { vertical-align: top; padding: 0; border: none; }
-        .po-doc-wrapper tbody td { vertical-align: top; padding: 0; border: none; }
 
         /* Utility */
         .no-border { border: none !important; }
@@ -234,15 +236,25 @@
             border-bottom: 1px solid #ddd;
         }
         .po-items-table .col-no { width: 4%; min-width: 2em; text-align: center; white-space: nowrap; }
-        .po-items-table .col-desc { width: 38%; }
+        .po-items-table .col-desc {
+            width: 46%;
+            min-width: 0;
+            overflow: visible;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
         .po-items-table .col-qty { width: 8%; min-width: 3em; text-align: right; padding-right: 8px !important; }
         .po-items-table .col-uom { width: 8%; min-width: 3em; text-align: left; padding-left: 6px !important; }
-        .po-items-table .col-price { width: 15%; text-align: right; }
-        .po-items-table .col-total { width: 15%; text-align: right; }
+        .po-items-table .col-price { width: 14%; text-align: right; }
+        .po-items-table .col-total { width: 14%; text-align: right; }
 
         .po-notes-block {
-            margin: 12px 0;
+            margin: 0 0 12px 0;
             padding: 8px 0;
+        }
+        .po-footer-fixed .po-notes-block {
+            margin-bottom: 12px;
         }
         .po-notes-block .notes-label {
             white-space: nowrap;
@@ -253,7 +265,14 @@
             font-weight: bold;
         }
         .po-notes-block .grand-total-label { font-size: 9pt; font-weight: bold; }
-        .po-notes-block .grand-total-value { font-size: 11pt; font-weight: normal; }
+        .po-notes-block .grand-total-value {
+            font-size: 11pt;
+            font-weight: normal;
+            white-space: nowrap;
+            text-align: right;
+            overflow: visible;
+            min-width: 100px;
+        }
         .po-notes-block .term-label { font-size: 9pt; font-weight: bold; text-decoration: underline; }
         .po-notes-block .terbilang-value { text-transform: uppercase; font-size: 9pt; }
         .po-notes-block .note-num {
@@ -279,9 +298,20 @@
             text-decoration: underline;
         }
 
+        /* Footer fixed at bottom of page; margin kiri-kanan sama dengan .po-doc-container */
+        .po-footer-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            padding: 0;
+            background: #fff;
+            z-index: 1;
+        }
         .po-footer-table {
             width: 100%;
-            margin-top: 12px;
+            margin: 0;
         }
         .po-footer-table td {
             padding: 6px 8px;
@@ -320,9 +350,16 @@
         /* Print */
         @media print {
             body {
-                padding: 8px 12px;
+                padding: 8px 0;
+                padding-bottom: 320px;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+            }
+            .po-doc-container {
+                padding: 0 12px;
+            }
+            .po-footer-fixed {
+                padding: 0;
             }
             .po-items-table th {
                 background: #e8e8e8 !important;
@@ -335,11 +372,13 @@
     </style>
 </head>
 <body>
-    {{-- Wrapper table: thead repeats on every page (like Word repeat header). --}}
-    <table class="po-doc-wrapper" border="0" cellspacing="0" cellpadding="0">
+    <div class="po-doc-container">
+    {{-- Single table so thead (header + column headers) repeats on every page when DomPDF breaks. --}}
+    <table class="po-items-table" border="0" cellspacing="0" cellpadding="0">
         <thead>
+            {{-- Row 1: full document header (logo, TO, PT Company, SUBJECT) in one cell --}}
             <tr>
-                <td>
+                <td colspan="6" style="border: none; padding: 0; vertical-align: top;">
     {{-- Header: Logo (kiri), Title + PO Number (tengah), satu baris middle align. Place/Date di bawah. --}}
     <div class="po-header">
         <table class="po-header-row" border="0" cellspacing="0" cellpadding="0">
@@ -469,14 +508,7 @@
 
                 </td>
             </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>
-
-    {{-- Items table --}}
-    <table class="po-items-table" border="0" cellspacing="0" cellpadding="0">
-        <thead>
+            {{-- Row 2: column headers (repeat on every page) --}}
             <tr>
                 <th class="col-no">No.</th>
                 <th class="col-desc">Item Description</th>
@@ -501,68 +533,66 @@
             @endforeach
         </tbody>
     </table>
-
-    {{-- Notes, Grand Total, Term of Payment, Terbilang --}}
-    <div class="po-notes-block">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0">
-            <tr>
-                <td class="pad-sm txt-bold notes-label">Note*:</td>
-                <td class="pad-sm txt-c note-num">1.</td>
-                <td class="pad-sm" style="width: 36%;">Total Harga Di Atas Belum Termasuk Pajak Pertambahan Nilai</td>
-                <td style="width: 10%;"></td>
-                <td class="pad-sm b-t grand-total-label" style="width: 15%;">Grand Total*</td>
-                <td class="pad-sm b-t" style="width: 2%;">:</td>
-                <td class="pad-sm txt-r b-t grand-total-value" style="width: 20%;">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
-            </tr>
-            <tr>
-                <td class="pad-sm"></td>
-                <td class="pad-sm txt-c note-num">2.</td>
-                <td class="pad-sm">Invoice Harus Melampirkan Salinan NPWP</td>
-                <td colspan="4"></td>
-            </tr>
-            <tr>
-                <td class="pad-sm term-label" colspan="3">Term of Payment :</td>
-                <td></td>
-                <td class="pad-sm term-label" colspan="3">Says/Terbilang :</td>
-            </tr>
-            <tr>
-                <td class="pad-sm" colspan="3">{!! str_replace(['. ', ', '], ['<br>', '<br>'], e($header['TOPRemarks'] ?? '-')) !!}</td>
-                <td></td>
-                <td class="pad-sm terbilang-value" colspan="3">{{ $terbilang ?? '-' }}</td>
-            </tr>
-        </table>
     </div>
 
-    {{-- Footer: NPWP + QR + Disclaimer --}}
-    <table class="po-footer-table" border="0" cellspacing="0" cellpadding="0">
-        <tr>
-            <td style="width: 45%; vertical-align: middle;">
-                <div class="po-npwp-label pad-sm b-b">NPWP Address</div>
-                <div class="po-npwp-box">
-                    <span class="po-npwp-company">{{ $company['CompanyName'] ?? '' }}</span><br/><br/>
-                    <span class="po-npwp-address">{{ $company['NPWPAddress'] ?? '' }}<br/>
-                    {{ $company['NPWPAddress1'] ?? '' }}<br/>
-                    {{ $company['NPWPAddress2'] ?? '' }}</span><br/><br/>
-                    <span class="po-npwp-number">NPWP : {{ $company['NPWP'] ?? '-' }}</span>
-                </div>
-            </td>
-            <td style="width: 10%;"></td>
-            <td style="width: 20%; vertical-align: middle;" class="po-qr-box">
-                @if (!empty($qrCodeDataUri))
-                    <img src="{{ $qrCodeDataUri }}" alt="QR Code" />
-                @else
-                    <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" />
-                @endif
-            </td>
-            <td style="width: 25%; vertical-align: middle;" class="pad">
-                <span class="po-disclaimer">*Purchase Order ini dicetak secara elektronik sehingga tidak memerlukan tanda tangan</span>
-            </td>
-        </tr>
-    </table>
-
+    {{-- Footer: margin kiri-kanan sama dengan konten utama via .po-doc-container --}}
+    <div class="po-footer-fixed">
+        <div class="po-doc-container">
+        <div class="po-notes-block">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td class="pad-sm txt-bold notes-label">Note*:</td>
+                    <td class="pad-sm txt-c note-num">1.</td>
+                    <td class="pad-sm" style="width: 36%;">Total Harga Di Atas Belum Termasuk Pajak Pertambahan Nilai</td>
+                    <td style="width: 10%;"></td>
+                    <td class="pad-sm b-t grand-total-label" style="width: 15%;">Grand Total*</td>
+                    <td class="pad-sm b-t" style="width: 2%;">:</td>
+                    <td class="pad-sm txt-r b-t grand-total-value" style="width: 24%; min-width: 110px;">{{ $formatNumber($header['TotalAmountPO'] ?? 0) }}</td>
+                </tr>
+                <tr>
+                    <td class="pad-sm"></td>
+                    <td class="pad-sm txt-c note-num">2.</td>
+                    <td class="pad-sm">Invoice Harus Melampirkan Salinan NPWP</td>
+                    <td colspan="4"></td>
+                </tr>
+                <tr>
+                    <td class="pad-sm term-label" colspan="3">Term of Payment :</td>
+                    <td></td>
+                    <td class="pad-sm term-label" colspan="3">Says/Terbilang :</td>
+                </tr>
+                <tr>
+                    <td class="pad-sm" colspan="3">{!! str_replace(['. ', ', '], ['<br>', '<br>'], e($header['TOPRemarks'] ?? '-')) !!}</td>
+                    <td></td>
+                    <td class="pad-sm terbilang-value" colspan="3">{{ $terbilang ?? '-' }}</td>
+                </tr>
+            </table>
+        </div>
+        <table class="po-footer-table" border="0" cellspacing="0" cellpadding="0">
+            <tr>
+                <td style="width: 45%; vertical-align: middle;">
+                    <div class="po-npwp-label pad-sm b-b">NPWP Address</div>
+                    <div class="po-npwp-box">
+                        <span class="po-npwp-company">{{ $company['CompanyName'] ?? '' }}</span><br/><br/>
+                        <span class="po-npwp-address">{{ $company['NPWPAddress'] ?? '' }}<br/>
+                        {{ $company['NPWPAddress1'] ?? '' }}<br/>
+                        {{ $company['NPWPAddress2'] ?? '' }}</span><br/><br/>
+                        <span class="po-npwp-number">NPWP : {{ $company['NPWP'] ?? '-' }}</span>
+                    </div>
+                </td>
+                <td style="width: 10%;"></td>
+                <td style="width: 20%; vertical-align: middle;" class="po-qr-box">
+                    @if (!empty($qrCodeDataUri))
+                        <img src="{{ $qrCodeDataUri }}" alt="QR Code" />
+                    @else
+                        <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" />
+                    @endif
+                </td>
+                <td style="width: 25%; vertical-align: middle;" class="pad">
+                    <span class="po-disclaimer">*Purchase Order ini dicetak secara elektronik sehingga tidak memerlukan tanda tangan</span>
                 </td>
             </tr>
-        </tbody>
-    </table>
+        </table>
+        </div>
+    </div>
 </body>
 </html>
