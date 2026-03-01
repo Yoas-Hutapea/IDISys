@@ -31,7 +31,7 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Purchase Order Name</label>
-                    <input type="text" class="form-control" id="confirm-po-name" disabled>
+                    <input type="text" class="form-control" id="confirm-po-name" placeholder="Editable for standardization">
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Remarks</label>

@@ -269,18 +269,21 @@ class ConfirmPOListConfirm {
             } else if (this.manager && this.manager.deletedItemIds) {
                 deletedItemIds.push(...Array.from(this.manager.deletedItemIds).map(id => parseInt(id)));
             }
-            
+
+            const purchaseOrderName = document.getElementById('confirm-po-name')?.value?.trim() || null;
+
             // Use API module if available
             if (!this.manager || !this.manager.apiModule) {
                 throw new Error('API module not available');
             }
-            
+
             const response = await this.manager.apiModule.submitConfirm(
                 poNumber,
                 decision,
                 remarks.trim(),
                 updatedItems,
-                deletedItemIds
+                deletedItemIds,
+                purchaseOrderName
             );
             
             this.showAlertModal('Purchase Order confirmed successfully', 'success', () => {

@@ -260,8 +260,9 @@ class ConfirmPOListAPI {
 
     /**
      * Submit confirm (single PO with item updates)
+     * @param {string} [purchaseOrderName] - Optional; if provided, updates PO Name (e.g. for company standardization)
      */
-    async submitConfirm(poNumber, decision, remarks, updatedItems, deletedItemIds) {
+    async submitConfirm(poNumber, decision, remarks, updatedItems, deletedItemIds, purchaseOrderName = null) {
         const endpoint = `/Procurement/PurchaseOrder/Confirm/Submit`;
         const payload = {
             poNumber: poNumber,
@@ -270,6 +271,9 @@ class ConfirmPOListAPI {
             updatedItems: updatedItems,
             deletedItemIds: deletedItemIds
         };
+        if (purchaseOrderName != null && String(purchaseOrderName).trim() !== '') {
+            payload.purchaseOrderName = String(purchaseOrderName).trim();
+        }
         const response = await apiCall('Procurement', endpoint, 'POST', payload);
         return response;
     }

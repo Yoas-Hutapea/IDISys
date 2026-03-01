@@ -803,6 +803,8 @@ class PurchaseOrderController extends Controller
         $decision = trim((string) $request->input('decision', 'Confirm')) ?: 'Confirm';
         $updatedItems = $request->input('updatedItems', []);
         $deletedItemIds = $request->input('deletedItemIds', []);
+        $purchaseOrderName = $request->input('purchaseOrderName');
+        $purchaseOrderName = is_string($purchaseOrderName) ? trim($purchaseOrderName) : null;
 
         $employeeId = $this->getCurrentEmployeeId();
         $positionName = $this->getPositionName();
@@ -814,6 +816,7 @@ class PurchaseOrderController extends Controller
             $decision,
             $updatedItems,
             $deletedItemIds,
+            $purchaseOrderName,
             $employeeId,
             $positionName,
             $now
@@ -909,14 +912,18 @@ class PurchaseOrderController extends Controller
                     ->sum();
             }
 
+            $poUpdate = [
+                'mstApprovalStatusID' => 9,
+                'PurchaseOrderAmount' => $totalAmount,
+                'UpdatedBy' => $employeeId,
+                'UpdatedDate' => $now,
+            ];
+            if ($purchaseOrderName !== null && $purchaseOrderName !== '' && Schema::hasColumn('trxPROPurchaseOrder', 'PurchaseOrderName')) {
+                $poUpdate['PurchaseOrderName'] = $purchaseOrderName;
+            }
             DB::table('trxPROPurchaseOrder')
                 ->where('PurchaseOrderNumber', $poNumber)
-                ->update([
-                    'mstApprovalStatusID' => 9,
-                    'PurchaseOrderAmount' => $totalAmount,
-                    'UpdatedBy' => $employeeId,
-                    'UpdatedDate' => $now,
-                ]);
+                ->update($poUpdate);
 
             if (Schema::hasTable('logPROPurchaseOrder')) {
                 $logData = [
