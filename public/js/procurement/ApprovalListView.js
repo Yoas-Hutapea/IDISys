@@ -842,29 +842,22 @@ class ApprovalListView {
                 let approvalStatusID = currentStatus; // Use current status for mstApprovalStatusID
 
                 if (statusId === 1) {
-                    // Approve action - determine based on current status
+                    // Approve action - determine based on current status (status 3 Confirmed by removed: 2 -> 4)
                     if (currentStatus === 1) {
                         // Status 1 -> 2: Review
                         decision = "Reviewed";
                         activity = "Reviewer Purchase Request";
-                        approvalStatusID = 1; // Current status
-                    } else if (currentStatus === 2) {
-                        // Status 2 -> 3: Approve
+                        approvalStatusID = 1;
+                    } else if (currentStatus === 2 || currentStatus === 3) {
+                        // Status 2 -> 4: Approve (skip status 3); legacy status 3 -> 4
                         decision = "Approved";
                         activity = "Approver Purchase Request";
-                        approvalStatusID = 2; // Current status
-                    } else if (currentStatus === 3) {
-                        // Status 3 -> 4: Confirm
-                        decision = "Confirmed";
-                        activity = "Confirmer Purchase Request";
-                        approvalStatusID = 3; // Current status
+                        approvalStatusID = currentStatus === 3 ? 3 : 2;
                     } else if (currentStatus === 4) {
-                        // Status 4: Finish
                         decision = "Finished";
                         activity = "Finish Purchase Request";
-                        approvalStatusID = 4; // Current status
+                        approvalStatusID = 4;
                     } else {
-                        // Default: Approved (for backward compatibility)
                         decision = "Approved";
                         activity = "Approver Purchase Request";
                         approvalStatusID = currentStatus || 1;

@@ -304,10 +304,8 @@ class PurchaseRequestReceivesController extends Controller
         $pic = null;
         if ($statusId === 1) {
             $pic = $row->reviewedBy ?? null;
-        } elseif ($statusId === 2) {
+        } elseif ($statusId === 2 || $statusId === 3) {
             $pic = $row->approvedBy ?? null;
-        } elseif ($statusId === 3) {
-            $pic = $row->confirmedBy ?? null;
         } elseif ($statusId === 7) {
             $pic = $row->updatedBy ?? null;
         }

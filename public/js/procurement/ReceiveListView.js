@@ -9,6 +9,8 @@ class ReceiveListView {
         this.viewPRDocuments = [];
         this.viewPRAdditional = null;
         this.currentPRNumber = null;
+        /** @type {Map<string, File>} New documents to upload when submitting receive */
+        this.receiveNewDocumentFiles = new Map();
         // Ensure global viewed documents set exists
         if (typeof window !== 'undefined') {
             if (typeof window.__viewedDocuments === 'undefined') {
@@ -386,11 +388,12 @@ class ReceiveListView {
             }
         }
 
-        // Populate documents table
+        // Populate documents table (Action | File Name | File Size - same as _DocumentPartial)
         const documentsTbody = document.getElementById('view-documents-tbody');
         if (documentsTbody) {
-            if (this.viewPRDocuments && this.viewPRDocuments.length > 0) {
-                documentsTbody.innerHTML = this.viewPRDocuments.map(doc => {
+            this.receiveNewDocumentFiles.clear();
+            const existingRows = this.viewPRDocuments && this.viewPRDocuments.length > 0
+                ? this.viewPRDocuments.map(doc => {
                     const docId = doc.id || doc.ID || 0;
                     const fileName = doc.fileName || doc.FileName || '-';
                     const filePath = doc.filePath || doc.FilePath || '';
@@ -398,27 +401,46 @@ class ReceiveListView {
                     const escapedFileName = this.escapeHtml(fileName);
                     const escapedFilePath = this.escapeHtml(filePath);
 
-                    // Determine viewed status
                     const viewedFlag = (typeof window !== 'undefined' && window.__viewedDocuments && typeof window.__viewedDocuments.has === 'function')
                         ? window.__viewedDocuments.has(String(docId))
                         : (Array.isArray(window.__viewedDocuments) ? window.__viewedDocuments.includes(String(docId)) : false);
 
                     return `
                         <tr>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
+                                    <i class="icon-base bx bx-show"></i>
+                                </button>
+                            </td>
                             <td>
                                 ${escapedFileName}
                                 <span class="badge bg-success ms-2 doc-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'inline-block' : 'none'}">Viewed</span>
                                 <span class="badge bg-secondary ms-2 doc-not-viewed-badge" data-doc-id="${docId}" style="display:${viewedFlag ? 'none' : 'inline-block'}">Not Viewed</span>
                             </td>
                             <td>${this.escapeHtml(fileSize)}</td>
-                            <td class="text-center">
-                                <button type="button" class="btn btn-sm btn-primary" title="View" onclick="downloadDocument.call(this, ${docId})" data-file-name="${escapedFileName}" data-file-path="${escapedFilePath}">
-                                    <i class="icon-base bx bx-show"></i>
-                                </button>
-                            </td>
                         </tr>
                     `;
-                }).join('');
+                }).join('')
+                : '';
+            const newRows = Array.from(this.receiveNewDocumentFiles.entries()).map(([name, file]) => {
+                const sizeKb = (file.size / 1024).toFixed(2);
+                return `
+                    <tr data-new-document="1" data-file-name="${this.escapeHtml(name)}">
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-danger receive-delete-doc-btn" title="Delete" data-file-name="${this.escapeHtml(name)}">
+                                <i class="icon-base bx bx-trash"></i>
+                            </button>
+                        </td>
+                        <td>${this.escapeHtml(name)}</td>
+                        <td>${sizeKb} KB</td>
+                    </tr>
+                `;
+            }).join('');
+            if (existingRows || newRows) {
+                documentsTbody.innerHTML = existingRows + newRows;
+                documentsTbody.querySelectorAll('.receive-delete-doc-btn').forEach(btn => {
+                    btn.addEventListener('click', () => this.removeReceiveNewDocument(btn.getAttribute('data-file-name')));
+                });
             } else {
                 documentsTbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No documents</td></tr>';
             }
@@ -810,6 +832,12 @@ class ReceiveListView {
             }
 
             try {
+                if (!this.manager || !this.manager.apiModule) {
+                    throw new Error('API module not available');
+                }
+
+                await this.uploadReceiveNewDocuments();
+
                 const dto = {
                     trxPROPurchaseRequestNumber: this.currentPRNumber,
                     mstApprovalStatusID: statusID,
@@ -817,10 +845,6 @@ class ReceiveListView {
                     Decision: decision,
                     Activity: activity
                 };
-
-                if (!this.manager || !this.manager.apiModule) {
-                    throw new Error('API module not available');
-                }
 
                 await this.manager.apiModule.submitReceive(this.currentPRNumber, dto);
 
@@ -1140,7 +1164,125 @@ class ReceiveListView {
         if (this.manager) {
             this.manager.currentPRNumber = null;
         }
+        this.receiveNewDocumentFiles.clear();
         this.showListSection();
+    }
+
+    /**
+     * Open file upload dialog for Receive (add missing documents)
+     */
+    openReceiveFileUploadDialog() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.png';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+                this.validateAndAddReceiveDocuments(files);
+            }
+            document.body.removeChild(fileInput);
+        });
+    }
+
+    /**
+     * Validate and add documents (same rules as wizard: max 2MB, allowed formats)
+     */
+    validateAndAddReceiveDocuments(files) {
+        const maxSize = 2 * 1024 * 1024;
+        const allowedFormats = [
+            'application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'image/jpeg', 'image/jpg', 'image/png'
+        ];
+        const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'];
+        const validFiles = [];
+        files.forEach(file => {
+            let isValid = true;
+            if (file.size > maxSize) isValid = false;
+            if (isValid) {
+                const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+                if (!allowedFormats.includes(file.type) && !allowedExtensions.includes(ext)) isValid = false;
+            }
+            if (isValid) validFiles.push(file);
+        });
+        if (validFiles.length > 0) {
+            this.addReceiveDocumentsToTable(validFiles);
+        }
+    }
+
+    /**
+     * Add new document rows to Receive documents table
+     */
+    addReceiveDocumentsToTable(files) {
+        const tbody = document.getElementById('view-documents-tbody');
+        if (!tbody) return;
+        files.forEach(file => {
+            this.receiveNewDocumentFiles.set(file.name, file);
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-new-document', '1');
+            tr.setAttribute('data-file-name', file.name);
+            const sizeKb = (file.size / 1024).toFixed(2);
+            tr.innerHTML = `
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger receive-delete-doc-btn" title="Delete" data-file-name="${this.escapeHtml(file.name)}">
+                        <i class="icon-base bx bx-trash"></i>
+                    </button>
+                </td>
+                <td>${this.escapeHtml(file.name)}</td>
+                <td>${sizeKb} KB</td>
+            `;
+            const deleteBtn = tr.querySelector('.receive-delete-doc-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => this.removeReceiveNewDocument(file.name));
+            }
+            const noDocRow = tbody.querySelector('tr td[colspan="3"]');
+            if (noDocRow && noDocRow.closest('tr')) {
+                noDocRow.closest('tr').remove();
+            }
+            tbody.appendChild(tr);
+        });
+    }
+
+    /**
+     * Remove a newly added document from the table and from receiveNewDocumentFiles
+     */
+    removeReceiveNewDocument(fileName) {
+        this.receiveNewDocumentFiles.delete(fileName);
+        const tbody = document.getElementById('view-documents-tbody');
+        if (tbody) {
+            tbody.querySelectorAll('tr[data-new-document="1"]').forEach(row => {
+                if (row.getAttribute('data-file-name') === fileName) row.remove();
+            });
+            if (tbody.querySelectorAll('tr').length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No documents</td></tr>';
+            }
+        }
+    }
+
+    /**
+     * Upload all new documents for current PR before submit
+     */
+    async uploadReceiveNewDocuments() {
+        if (!this.currentPRNumber || this.receiveNewDocumentFiles.size === 0) return;
+        if (typeof apiCall === 'undefined') {
+            throw new Error('apiCall not available');
+        }
+        for (const [fileName, file] of this.receiveNewDocumentFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+            await apiCall(
+                'Procurement',
+                `/Procurement/PurchaseRequest/PurchaseRequestDocuments/${encodeURIComponent(this.currentPRNumber)}/documents/upload`,
+                'POST',
+                formData
+            );
+        }
+        this.receiveNewDocumentFiles.clear();
     }
 
     /**

@@ -72,7 +72,7 @@ class TaskToDoView {
         // Build HTML for task items
         let taskItemsHTML = '';
 
-        // Show "Approval Purchase Request" if there are approval tasks (status 1-3)
+        // Show "Approval Purchase Request" if there are approval tasks (status 1, 2)
         if (approvalTasks.length > 0) {
             taskItemsHTML += `
                 <div class="task-item" style="cursor: pointer;" onclick="goToApprovalList()">

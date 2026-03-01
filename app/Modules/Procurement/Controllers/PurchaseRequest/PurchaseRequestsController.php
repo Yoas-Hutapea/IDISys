@@ -644,13 +644,8 @@ class PurchaseRequestsController extends Controller
                 })
                 ->orWhere(function ($approveQuery) use ($userIdentifiers) {
                     $approveQuery
-                        ->where('pr.mstApprovalStatusID', 2)
+                        ->whereIn('pr.mstApprovalStatusID', [2, 3])
                         ->whereIn('pr.ApprovedBy', $userIdentifiers);
-                })
-                ->orWhere(function ($confirmQuery) use ($userIdentifiers) {
-                    $confirmQuery
-                        ->where('pr.mstApprovalStatusID', 3)
-                        ->whereIn('pr.ConfirmedBy', $userIdentifiers);
                 });
         });
 
@@ -713,12 +708,14 @@ class PurchaseRequestsController extends Controller
 
         $statusId = (int) ($row->mstApprovalStatusID ?? 0);
         $pic = $row->reviewedBy ?? null;
-        if ($statusId === 2) {
-            $pic = $row->approvedBy ?? null;
-        } elseif ($statusId === 3) {
-            $pic = $row->confirmedBy ?? null;
-        } elseif ($statusId === 1) {
+        if ($statusId === 1) {
             $pic = $row->reviewedBy ?? null;
+        } elseif ($statusId === 2) {
+            $pic = $row->approvedBy ?? null;
+        }
+        // Status 3 (Waiting Dikonfirmasi) removed; legacy data with status 3 can use approvedBy as fallback
+        if ($statusId === 3) {
+            $pic = $row->approvedBy ?? $row->confirmedBy ?? null;
         }
 
         return [

@@ -1,6 +1,6 @@
 {{--
     Supporting Documents Partial for Receive View
-    Shows supporting documents table with download actions
+    Shows supporting documents table with download actions and Add Document for missing docs
 --}}
 
 <div class="col-12">
@@ -9,13 +9,22 @@
             <h6 class="card-title mb-0">Supporting Documents</h6>
         </div>
         <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-primary" id="receiveAddDocumentBtn">
+                            <i class="icon-base bx bx-plus me-2"></i>Add Document
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" id="receive-document-table">
                     <thead class="table-light">
                         <tr>
+                            <th width="80" class="text-center">Action</th>
                             <th>File Name</th>
                             <th>File Size (kb)</th>
-                            <th width="120" class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="view-documents-tbody">

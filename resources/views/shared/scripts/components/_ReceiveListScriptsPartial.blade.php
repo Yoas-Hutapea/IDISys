@@ -208,6 +208,15 @@
                 });
             }
 
+            const receiveAddDocBtn = document.getElementById('receiveAddDocumentBtn');
+            if (receiveAddDocBtn) {
+                receiveAddDocBtn.addEventListener('click', () => {
+                    if (this.viewModule && this.viewModule.openReceiveFileUploadDialog) {
+                        this.viewModule.openReceiveFileUploadDialog();
+                    }
+                });
+            }
+
             if (typeof downloadDocument === 'undefined') {
                 const self = this;
                 window.downloadDocument = function(documentId) {

@@ -131,8 +131,8 @@ class PurchaseRequestApprovalsController extends Controller
         if ($decision === 'Approved') {
             return match ($currentStatus) {
                 1 => 2,
-                2 => 3,
-                3 => 4,
+                2 => 4,  // Skip status 3 (Confirmed by removed): Approved by -> directly to 4 (Waiting Receive)
+                3 => 4,  // Legacy: if still status 3, go to 4
                 default => max(1, $statusFromRequest),
             };
         }

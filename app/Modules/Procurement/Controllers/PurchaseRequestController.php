@@ -34,13 +34,8 @@ class PurchaseRequestController extends Controller
                 })
                 ->orWhere(function ($approveQuery) use ($userIdentifiers) {
                     $approveQuery
-                        ->where('mstApprovalStatusID', 2)
+                        ->whereIn('mstApprovalStatusID', [2, 3])
                         ->whereIn('ApprovedBy', $userIdentifiers);
-                })
-                ->orWhere(function ($confirmQuery) use ($userIdentifiers) {
-                    $confirmQuery
-                        ->where('mstApprovalStatusID', 3)
-                        ->whereIn('ConfirmedBy', $userIdentifiers);
                 });
         });
 

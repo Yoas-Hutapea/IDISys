@@ -56,7 +56,7 @@ class TaskToDoAPI {
     }
 
     /**
-     * Get approval tasks (status 1-3)
+     * Get approval tasks (status 1, 2; legacy 3 still returned by API)
      */
     async getApprovalTasks() {
         const cacheKey = 'taskToDo_approval';
