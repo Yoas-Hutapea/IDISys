@@ -440,9 +440,12 @@ class GRNListView {
             const res = await this.manager.apiModule.saveGRN(this.currentPONumber, lines);
             if (res && res.success !== false) {
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'success', title: 'Saved', text: 'Good Receive Note saved.', timer: 2000, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: 'Saved', text: 'Good Receive Note saved.', timer: 2000, showConfirmButton: false }).then(() => {
+                        this.backToList();
+                    });
                 } else {
                     alert('Good Receive Note saved.');
+                    this.backToList();
                 }
             } else {
                 this.showError(res?.message || 'Save failed');

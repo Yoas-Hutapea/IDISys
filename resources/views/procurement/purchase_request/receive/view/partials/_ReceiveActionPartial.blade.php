@@ -1,4 +1,4 @@
-﻿{{--
+{{--
     Receive Action Partial for Receive View
     Shows receive/rejection form with remarks
 --}}
