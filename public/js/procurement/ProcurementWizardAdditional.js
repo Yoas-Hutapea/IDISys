@@ -80,10 +80,28 @@ class ProcurementWizardAdditional {
         }
 
         // Validate Sonumb section (for Type ID 4 or 8)
-        // Note: Sonumb and Site Name are optional fields, no validation required
+        // Sonumb is required except when Purchase Request Type ID = 8 && Purchase Request Sub Type ID = 4
         if (isSonumbVisible) {
-            // Sonumb and Site Name are optional - no validation needed
-            // User can proceed without filling these fields
+            const typeId = this.wizard.currentPurchaseRequestTypeID;
+            const subTypeId = this.wizard.currentPurchaseRequestSubTypeID;
+            const isSonumbOptional = typeId === 8 && subTypeId === 4;
+            if (!isSonumbOptional) {
+                const sonumbField = document.getElementById('Sonumb');
+                const sonumbIdField = document.getElementById('SonumbId');
+                const sonumbValue = sonumbField ? (sonumbField.value || '').trim() : '';
+                const sonumbIdValue = sonumbIdField ? (sonumbIdField.value || '').trim() : '';
+                const hasSonumb = (sonumbIdValue && sonumbIdValue !== '0') || sonumbValue !== '';
+                if (!hasSonumb) {
+                    if (sonumbField) {
+                        sonumbField.classList.add('is-invalid');
+                        if (this.wizard.validationModule && this.wizard.validationModule.showFieldError) {
+                            this.wizard.validationModule.showFieldError(sonumbField, 'Sonumb is required');
+                        }
+                        sonumbField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return false;
+                }
+            }
         }
 
         // Validate Subscribe section (for Type ID 5 or 7)
@@ -363,6 +381,10 @@ class ProcurementWizardAdditional {
             if (sonumbSection) sonumbSection.style.display = 'none';
             if (subscribeSection) subscribeSection.style.display = 'none';
             if (additionalDescription) additionalDescription.textContent = 'Enter additional billing information.';
+            const _sonumbAsterisk1 = document.getElementById('sonumbRequiredAsterisk');
+            const _sonumbInput1 = document.getElementById('Sonumb');
+            if (_sonumbAsterisk1) _sonumbAsterisk1.style.display = 'none';
+            if (_sonumbInput1) _sonumbInput1.removeAttribute('required');
         } else if (typeId === 5 || typeId === 7) {
             // Show Subscribe section
             if (billingTypeSection) billingTypeSection.style.display = 'none';
@@ -395,6 +417,10 @@ class ProcurementWizardAdditional {
                     }, 100);
                 }
             }
+            const _sonumbAsterisk2 = document.getElementById('sonumbRequiredAsterisk');
+            const _sonumbInput2 = document.getElementById('Sonumb');
+            if (_sonumbAsterisk2) _sonumbAsterisk2.style.display = 'none';
+            if (_sonumbInput2) _sonumbInput2.removeAttribute('required');
         } else if (shouldShowSonumbSection()) {
             // Show Sonumb section
             if (billingTypeSection) billingTypeSection.style.display = 'none';
@@ -402,12 +428,26 @@ class ProcurementWizardAdditional {
             if (sonumbSection) sonumbSection.style.display = 'block';
             if (subscribeSection) subscribeSection.style.display = 'none';
             if (additionalDescription) additionalDescription.textContent = 'Enter additional site information.';
+            // Sonumb required except Type ID 8 && Sub Type ID 4: show asterisk and set required on input
+            const sonumbRequiredAsterisk = document.getElementById('sonumbRequiredAsterisk');
+            const sonumbInput = document.getElementById('Sonumb');
+            if (typeId === 8 && subTypeId === 4) {
+                if (sonumbRequiredAsterisk) sonumbRequiredAsterisk.style.display = 'none';
+                if (sonumbInput) sonumbInput.removeAttribute('required');
+            } else {
+                if (sonumbRequiredAsterisk) sonumbRequiredAsterisk.style.display = 'inline';
+                if (sonumbInput) sonumbInput.setAttribute('required', 'required');
+            }
         } else {
             // Hide all sections
             if (billingTypeSection) billingTypeSection.style.display = 'none';
             if (billingPeriodContainer) billingPeriodContainer.style.display = 'none';
             if (sonumbSection) sonumbSection.style.display = 'none';
             if (subscribeSection) subscribeSection.style.display = 'none';
+            const sonumbRequiredAsterisk = document.getElementById('sonumbRequiredAsterisk');
+            const sonumbInput = document.getElementById('Sonumb');
+            if (sonumbRequiredAsterisk) sonumbRequiredAsterisk.style.display = 'none';
+            if (sonumbInput) sonumbInput.removeAttribute('required');
         }
 
         // Update quantity field based on period field visibility

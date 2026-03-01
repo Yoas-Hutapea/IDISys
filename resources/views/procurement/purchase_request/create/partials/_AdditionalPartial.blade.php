@@ -53,11 +53,11 @@
             </div>
         </div>
 
-        <!-- Section for Type ID 4 or 8: Sonumb and Site Name -->
+        <!-- Section for Type ID 4 or 8: Sonumb and Site Name (Sonumb required except Type ID 8 && Sub Type ID 4) -->
         <div class="col-12" id="sonumbSection" style="display: none;">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="Sonumb">Sonumb</label>
+                    <label class="form-label" for="Sonumb">Sonumb <span class="text-danger" id="sonumbRequiredAsterisk" style="display: none;">*</span></label>
                     <div class="input-group">
                         <input type="text" id="Sonumb" name="Sonumb" class="form-control" placeholder="Choose Sonumb">
                         <button type="button" class="btn btn-outline-primary" id="searchSTIPSonumbBtn">

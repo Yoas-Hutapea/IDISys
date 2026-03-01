@@ -85,7 +85,7 @@
         .b-b { border-bottom: 1px solid #333 !important; }
         .b-l { border-left: 1px solid #333 !important; }
         .b-r { border-right: 1px solid #333 !important; }
-        .b-all { border: 1px solid #333 !important; }
+        .b-all { border: 1px solid #333 !important; } 
 
         .txt-l { text-align: left; }
         .txt-c { text-align: center; }
@@ -235,8 +235,8 @@
         }
         .po-items-table .col-no { width: 4%; min-width: 2em; text-align: center; white-space: nowrap; }
         .po-items-table .col-desc { width: 38%; }
-        .po-items-table .col-qty { width: 8%; text-align: right; }
-        .po-items-table .col-uom { width: 8%; text-align: left; }
+        .po-items-table .col-qty { width: 8%; min-width: 3em; text-align: right; padding-right: 8px !important; }
+        .po-items-table .col-uom { width: 8%; min-width: 3em; text-align: left; padding-left: 6px !important; }
         .po-items-table .col-price { width: 15%; text-align: right; }
         .po-items-table .col-total { width: 15%; text-align: right; }
 
@@ -526,7 +526,7 @@
                 <td class="pad-sm term-label" colspan="3">Says/Terbilang :</td>
             </tr>
             <tr>
-                <td class="pad-sm" colspan="3">{{ $header['TOPRemarks'] ?? '-' }}</td>
+                <td class="pad-sm" colspan="3">{!! str_replace(['. ', ', '], ['<br>', '<br>'], e($header['TOPRemarks'] ?? '-')) !!}</td>
                 <td></td>
                 <td class="pad-sm terbilang-value" colspan="3">{{ $terbilang ?? '-' }}</td>
             </tr>
