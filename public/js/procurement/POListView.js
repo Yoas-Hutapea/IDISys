@@ -504,7 +504,6 @@ class POListView {
         const pr = this.viewPRData;
         let reviewedByName = '';
         let approvedByName = '';
-        let confirmedByName = '';
         let applicantName = '';
         let poAuthorName = '';
         let prRequestorName = '';
@@ -534,7 +533,6 @@ class POListView {
         if (pr && employeeCache) {
             reviewedByName = pr.reviewedBy ? await employeeCache.getEmployeeNameByEmployId(pr.reviewedBy) : '';
             approvedByName = pr.approvedBy ? await employeeCache.getEmployeeNameByEmployId(pr.approvedBy) : '';
-            confirmedByName = pr.confirmedBy ? await employeeCache.getEmployeeNameByEmployId(pr.confirmedBy) : '';
             applicantName = pr.applicant ? await employeeCache.getEmployeeNameByEmployId(pr.applicant) : '';
         }
 
@@ -812,10 +810,6 @@ class POListView {
                                 <div class="col-sm-6">
                                     <label class="form-label fw-semibold">Approved by</label>
                                     <input type="text" class="form-control" value="${this.escapeHtml(approvedByName || (pr ? (pr.approvedBy || pr.ApprovedBy || '-') : '-'))}" disabled>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Confirmed by</label>
-                                    <input type="text" class="form-control" value="${this.escapeHtml(confirmedByName || (pr ? (pr.confirmedBy || pr.ConfirmedBy || '-') : '-'))}" disabled>
                                 </div>
                             </div>
                         </div>

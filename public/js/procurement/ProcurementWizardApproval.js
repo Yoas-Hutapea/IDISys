@@ -182,7 +182,6 @@ class ProcurementWizardApproval {
             const applicantId = pr.applicant || pr.Applicant || '';
             const reviewedById = pr.reviewedBy || pr.ReviewedBy || '';
             const approvedById = pr.approvedBy || pr.ApprovedBy || '';
-            const confirmedById = pr.confirmedBy || pr.ConfirmedBy || '';
 
             // Get employee cache for batch lookup (optimized - single API call)
             let employeeCache = null;
@@ -200,7 +199,6 @@ class ProcurementWizardApproval {
             if (applicantId) employeeIds.push(applicantId);
             if (reviewedById) employeeIds.push(reviewedById);
             if (approvedById) employeeIds.push(approvedById);
-            if (confirmedById) employeeIds.push(confirmedById);
 
             // Batch lookup all employee names at once (optimized - single API call)
             let nameMap = new Map();
@@ -239,7 +237,6 @@ class ProcurementWizardApproval {
             const applicantName = applicantId ? (nameMap.get(applicantId.trim().toLowerCase()) || '') : '';
             const reviewedByName = reviewedById ? (nameMap.get(reviewedById.trim().toLowerCase()) || '') : '';
             const approvedByName = approvedById ? (nameMap.get(approvedById.trim().toLowerCase()) || '') : '';
-            const confirmedByName = confirmedById ? (nameMap.get(confirmedById.trim().toLowerCase()) || '') : '';
 
             // Fill requestor field (disabled, display only)
             const requestorField = document.getElementById('requestor');
@@ -273,16 +270,6 @@ class ProcurementWizardApproval {
                 approvedByIdField.value = approvedById || '';
             }
 
-            // Fill confirmedBy field and hidden ID
-            const confirmedByField = document.getElementById('confirmedBy');
-            const confirmedByIdField = document.getElementById('confirmedById');
-            if (confirmedByField) {
-                confirmedByField.value = confirmedByName || confirmedById || '';
-            }
-            if (confirmedByIdField) {
-                confirmedByIdField.value = confirmedById || '';
-            }
-
         } catch (error) {
             console.error('Error filling approval form:', error);
             throw error;
@@ -291,7 +278,7 @@ class ProcurementWizardApproval {
 
     /**
      * Set Assign Approval fields to readonly (for status 5 - Rejected)
-     * Note: ReviewedBy, ApprovedBy, and ConfirmedBy remain editable for status 5
+     * Note: ReviewedBy and ApprovedBy remain editable for status 5
      */
     setAssignApprovalReadonlyForRejected() {
         // Only make requestor and applicantApproval disabled
@@ -308,12 +295,11 @@ class ProcurementWizardApproval {
             }
         });
         
-        // Keep ReviewedBy, ApprovedBy, and ConfirmedBy fields as readonly (not disabled)
+        // Keep ReviewedBy and ApprovedBy fields as readonly (not disabled)
         // This allows them to be changed via employee popup while preventing direct text input
         const readonlyFields = [
             'reviewedBy',
-            'approvedBy',
-            'confirmedBy'
+            'approvedBy'
         ];
         
         readonlyFields.forEach(fieldId => {
@@ -326,15 +312,12 @@ class ProcurementWizardApproval {
             }
         });
         
-        // Enable search and refresh buttons for ReviewedBy, ApprovedBy, and ConfirmedBy
-        // This allows users to change the values via employee popup
+        // Enable search and refresh buttons for ReviewedBy and ApprovedBy
         const enabledButtons = [
             'searchReviewedByBtn',
             'searchApprovedByBtn',
-            'searchConfirmedByBtn',
             'viewReviewedByHistoryBtn',
-            'viewApprovedByHistoryBtn',
-            'viewConfirmedByHistoryBtn'
+            'viewApprovedByHistoryBtn'
         ];
         
         enabledButtons.forEach(buttonId => {

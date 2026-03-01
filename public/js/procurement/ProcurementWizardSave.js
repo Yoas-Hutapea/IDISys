@@ -558,11 +558,9 @@ class ProcurementWizardSave {
 
         const reviewedByIdInput = document.getElementById('reviewedById');
         const approvedByIdInput = document.getElementById('approvedById');
-        const confirmedByIdInput = document.getElementById('confirmedById');
 
         const reviewedByField = document.getElementById('reviewedBy');
         const approvedByField = document.getElementById('approvedBy');
-        const confirmedByField = document.getElementById('confirmedBy');
 
         let reviewedBy = reviewedByIdInput?.value?.trim() ||
                    reviewedByField?.getAttribute('data-employee-id')?.trim() || null;
@@ -570,22 +568,17 @@ class ProcurementWizardSave {
         let approvedBy = approvedByIdInput?.value?.trim() ||
                    approvedByField?.getAttribute('data-employee-id')?.trim() || null;
 
-        let confirmedBy = confirmedByIdInput?.value?.trim() ||
-                    confirmedByField?.getAttribute('data-employee-id')?.trim() || null;
-
         const form = document.getElementById('assignApprovalForm');
         if (form) {
             const formData = new FormData(form);
             if (!reviewedBy) reviewedBy = formData.get('reviewedById')?.toString().trim() || null;
             if (!approvedBy) approvedBy = formData.get('approvedById')?.toString().trim() || null;
-            if (!confirmedBy) confirmedBy = formData.get('confirmedById')?.toString().trim() || null;
         }
 
         const payload = {
             trxPROPurchaseRequestNumber: prNumber,
             ReviewedBy: reviewedBy,
-            ApprovedBy: approvedBy,
-            ConfirmedBy: confirmedBy
+            ApprovedBy: approvedBy
         };
 
         try {
@@ -709,13 +702,10 @@ class ProcurementWizardSave {
             try {
                 const reviewedByIdInput = document.getElementById('reviewedById');
                 const approvedByIdInput = document.getElementById('approvedById');
-                const confirmedByIdInput = document.getElementById('confirmedById');
-
                 const reviewedBy = reviewedByIdInput?.value?.trim() || null;
                 const approvedBy = approvedByIdInput?.value?.trim() || null;
-                const confirmedBy = confirmedByIdInput?.value?.trim() || null;
 
-                hasApprovalData = !!(reviewedBy || approvedBy || confirmedBy);
+                hasApprovalData = !!(reviewedBy || approvedBy);
 
                 if (hasApprovalData) {
                     await this.saveDraftApprovalOnly(prNumber);

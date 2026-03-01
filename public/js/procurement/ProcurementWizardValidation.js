@@ -276,20 +276,15 @@ class ProcurementWizardValidation {
         // Step 3: Validate Assign Approval
         const reviewedByIdField = document.getElementById('reviewedById');
         const approvedByIdField = document.getElementById('approvedById');
-        const confirmedByIdField = document.getElementById('confirmedById');
         
         let reviewedByIdValue = '';
         let approvedByIdValue = '';
-        let confirmedByIdValue = '';
         
         if (reviewedByIdField) {
             reviewedByIdValue = reviewedByIdField.value?.trim() || '';
         }
         if (approvedByIdField) {
             approvedByIdValue = approvedByIdField.value?.trim() || '';
-        }
-        if (confirmedByIdField) {
-            confirmedByIdValue = confirmedByIdField.value?.trim() || '';
         }
         
         if (!reviewedByIdValue || reviewedByIdValue === '') {
@@ -316,19 +311,6 @@ class ProcurementWizardValidation {
                 firstInvalidField.step = 'assign-approval';
                 firstInvalidField.field = approvedByField;
                 firstInvalidField.fieldId = 'approvedBy';
-            }
-        }
-        if (!confirmedByIdValue || confirmedByIdValue === '') {
-            errors.push('Assign Approval: Confirmed by is required');
-            const confirmedByField = document.getElementById('confirmedBy');
-            if (confirmedByField) {
-                confirmedByField.classList.add('is-invalid');
-                this.showFieldError(confirmedByField, 'Confirmed by is required');
-            }
-            if (!firstInvalidField.step) {
-                firstInvalidField.step = 'assign-approval';
-                firstInvalidField.field = confirmedByField;
-                firstInvalidField.fieldId = 'confirmedBy';
             }
         }
         

@@ -18,10 +18,6 @@
                     <input type="text" class="form-control" id="confirm-reviewed-by" disabled>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Confirmed by</label>
-                    <input type="text" class="form-control" id="confirm-confirmed-by" disabled>
-                </div>
-                <div class="col-md-6">
                     <label class="form-label fw-semibold">Approved by</label>
                     <input type="text" class="form-control" id="confirm-approved-by" disabled>
                 </div>

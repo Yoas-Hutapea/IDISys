@@ -14,7 +14,7 @@
             <label class="form-label" for="Requestor">Requestor</label>
             <input type="text" class="form-control" id="Requestor" name="Requestor" value="{{ $currentUserFullName }}" disabled>
         </div>
-        <div class="col-12">
+        <div class="col-12 d-none" id="applicantFieldWrapper">
             <label class="form-label" for="Applicant">Applicant <span class="text-danger">*</span></label>
             <div class="dropdown" id="applicantDropdownContainer">
                 <button class="form-select text-start" type="button" id="applicantDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">

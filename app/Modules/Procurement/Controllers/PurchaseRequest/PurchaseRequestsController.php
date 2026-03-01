@@ -95,7 +95,6 @@ class PurchaseRequestsController extends Controller
             ->update([
                 'ReviewedBy' => $request->input('ReviewedBy'),
                 'ApprovedBy' => $request->input('ApprovedBy'),
-                'ConfirmedBy' => $request->input('ConfirmedBy'),
                 'UpdatedBy' => $updatedBy,
                 'UpdatedDate' => $now,
             ]);

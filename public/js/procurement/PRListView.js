@@ -478,7 +478,6 @@ class PRListView {
         // Get employee names for approval fields using EmployeeCache module
         let reviewedByName = '';
         let approvedByName = '';
-        let confirmedByName = '';
         let applicantName = '';
         let requestorName = '';
 
@@ -486,7 +485,6 @@ class PRListView {
             const employeeIds = [];
             if (pr.reviewedBy) employeeIds.push(pr.reviewedBy);
             if (pr.approvedBy) employeeIds.push(pr.approvedBy);
-            if (pr.confirmedBy) employeeIds.push(pr.confirmedBy);
             if (pr.applicant) employeeIds.push(pr.applicant);
             if (pr.requestor || pr.Requestor) employeeIds.push(pr.requestor || pr.Requestor);
 
@@ -494,7 +492,6 @@ class PRListView {
             
             reviewedByName = pr.reviewedBy ? (nameMap.get(pr.reviewedBy.trim().toLowerCase()) || '') : '';
             approvedByName = pr.approvedBy ? (nameMap.get(pr.approvedBy.trim().toLowerCase()) || '') : '';
-            confirmedByName = pr.confirmedBy ? (nameMap.get(pr.confirmedBy.trim().toLowerCase()) || '') : '';
             applicantName = pr.applicant ? (nameMap.get(pr.applicant.trim().toLowerCase()) || '') : '';
             requestorName = (pr.requestor || pr.Requestor) ? (nameMap.get((pr.requestor || pr.Requestor).trim().toLowerCase()) || '') : '';
         }
@@ -574,13 +571,11 @@ class PRListView {
         const reviewedByEl = document.getElementById('view-pr-reviewed-by');
         const approvalApplicantEl = document.getElementById('view-pr-approval-applicant');
         const approvedByEl = document.getElementById('view-pr-approved-by');
-        const confirmedByEl = document.getElementById('view-pr-confirmed-by');
 
         if (approvalRequestorEl) approvalRequestorEl.value = requestorName || pr.requestor || pr.Requestor || '-';
         if (reviewedByEl) reviewedByEl.value = reviewedByName || pr.reviewedBy || pr.ReviewedBy || '-';
         if (approvalApplicantEl) approvalApplicantEl.value = applicantName || pr.applicant || pr.Applicant || '-';
         if (approvedByEl) approvedByEl.value = approvedByName || pr.approvedBy || pr.ApprovedBy || '-';
-        if (confirmedByEl) confirmedByEl.value = confirmedByName || pr.confirmedBy || pr.ConfirmedBy || '-';
 
         // Populate Documents
         const documentsTbody = document.getElementById('view-pr-documents-tbody');

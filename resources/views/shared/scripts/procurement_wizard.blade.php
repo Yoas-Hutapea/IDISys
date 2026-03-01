@@ -241,7 +241,7 @@
                 await Promise.all(loadPromises);
 
                 // Step 7: If status is 5 (Rejected), make Basic Information readonly
-                // Note: For status 5, ReviewedBy, ApprovedBy, and ConfirmedBy should remain editable
+                // Note: For status 5, ReviewedBy and ApprovedBy should remain editable
                 if (statusID === 5) {
                     this.setBasicInformationReadonly();
                     this.setAssignApprovalReadonlyForRejected();
@@ -388,7 +388,7 @@
         }
 
         // Set Assign Approval fields to readonly (for status 5 - Rejected)
-        // Note: ReviewedBy, ApprovedBy, and ConfirmedBy remain editable for status 5
+        // Note: ReviewedBy and ApprovedBy remain editable for status 5
         setAssignApprovalReadonlyForRejected() {
             if (this.approvalModule && typeof this.approvalModule.setAssignApprovalReadonlyForRejected === 'function') {
                 return this.approvalModule.setAssignApprovalReadonlyForRejected();
@@ -717,8 +717,6 @@
                     targetFieldId = 'reviewedBy';
                 } else if (buttonId.includes('ApprovedBy')) {
                     targetFieldId = 'approvedBy';
-                } else if (buttonId.includes('ConfirmedBy')) {
-                    targetFieldId = 'confirmedBy';
                 }
                 this.openUserSearchModal(null, targetFieldId);
             } else if (buttonId.includes('view') && buttonId.includes('HistoryBtn')) {
@@ -835,8 +833,6 @@
                             dropdownBtn = stepContent.querySelector('#searchReviewedByBtn');
                         } else if (targetFieldId === 'approvedBy') {
                             dropdownBtn = stepContent.querySelector('#searchApprovedByBtn');
-                        } else if (targetFieldId === 'confirmedBy') {
-                            dropdownBtn = stepContent.querySelector('#searchConfirmedByBtn');
                         } else if (targetFieldId === 'addDetailBtn') {
                             dropdownBtn = stepContent.querySelector('#addDetailBtn');
                         } else if (targetFieldId === 'addDocumentBtn') {
@@ -901,15 +897,14 @@
 
         async handleViewHistory(buttonId) {
             // Extract field ID from button ID
-            // Button ID format: viewReviewedByHistoryBtn, viewApprovedByHistoryBtn, viewConfirmedByHistoryBtn
-            // Field ID format: ReviewedBy, ApprovedBy, ConfirmedBy
+            // Button ID format: viewReviewedByHistoryBtn, viewApprovedByHistoryBtn
+            // Field ID format: ReviewedBy, ApprovedBy
             let assignApproval = buttonId.replace('view', '').replace('HistoryBtn', '');
 
-            // Map to AssignApproval values: Reviewed, Approved, Confirmed
+            // Map to AssignApproval values: Reviewed, Approved
             const assignApprovalMap = {
                 'ReviewedBy': 'Reviewed',
-                'ApprovedBy': 'Approved',
-                'ConfirmedBy': 'Confirmed'
+                'ApprovedBy': 'Approved'
             };
 
             const assignApprovalValue = assignApprovalMap[assignApproval] || assignApproval;
@@ -1118,8 +1113,8 @@
                 }
             });
 
-            // Handle approval fields (reviewedById, approvedById, confirmedById) - remove error when employee is selected
-            const approvalFields = ['reviewedById', 'approvedById', 'confirmedById'];
+            // Handle approval fields (reviewedById, approvedById) - remove error when employee is selected
+            const approvalFields = ['reviewedById', 'approvedById'];
             approvalFields.forEach(hiddenFieldId => {
                 const hiddenInput = document.getElementById(hiddenFieldId);
                 if (hiddenInput) {
@@ -1778,8 +1773,6 @@
             const reviewedByValue = reviewedByField ? reviewedByField.value : '';
             const approvedByField = document.getElementById('approvedBy');
             const approvedByValue = approvedByField ? approvedByField.value : '';
-            const confirmedByField = document.getElementById('confirmedBy');
-            const confirmedByValue = confirmedByField ? confirmedByField.value : '';
             const requestorApprovalField = document.getElementById('requestor');
             const requestorApprovalValue = requestorApprovalField ? requestorApprovalField.value : currentUserFullName;
 
@@ -1797,8 +1790,7 @@
                 'review-approval-requestor': requestorApprovalValue || currentUserFullName,
                 'review-approval-applicant': applicantApprovalValue || '',
                 'review-reviewed-by': reviewedByValue || '',
-                'review-approved-by': approvedByValue || '',
-                'review-confirmed-by': confirmedByValue || ''
+                'review-approved-by': approvedByValue || ''
             };
 
             // Batch update summary elements

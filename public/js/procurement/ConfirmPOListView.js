@@ -324,7 +324,6 @@ class ConfirmPOListView {
         const requestorId = prData?.requestor || prData?.Requestor || poData.prRequestor || poData.PRRequestor || '';
         const applicantId = prData?.applicant || prData?.Applicant || '';
         const reviewedById = prData?.reviewedBy || prData?.ReviewedBy || '';
-        const confirmedById = prData?.confirmedBy || prData?.ConfirmedBy || '';
         const approvedById = prData?.approvedBy || prData?.ApprovedBy || '';
 
         // Get employee names asynchronously using shared cache
@@ -339,13 +338,11 @@ class ConfirmPOListView {
         if (requestorId) employeeIds.push(requestorId);
         if (applicantId) employeeIds.push(applicantId);
         if (reviewedById) employeeIds.push(reviewedById);
-        if (confirmedById) employeeIds.push(confirmedById);
         if (approvedById) employeeIds.push(approvedById);
 
         let requestorName = '';
         let applicantName = '';
         let reviewedByName = '';
-        let confirmedByName = '';
         let approvedByName = '';
 
         if (employeeCache && employeeIds.length > 0) {
@@ -354,20 +351,17 @@ class ConfirmPOListView {
                 requestorName = requestorId ? (nameMap.get(requestorId.trim().toLowerCase()) || '') : '';
                 applicantName = applicantId ? (nameMap.get(applicantId.trim().toLowerCase()) || '') : '';
                 reviewedByName = reviewedById ? (nameMap.get(reviewedById.trim().toLowerCase()) || '') : '';
-                confirmedByName = confirmedById ? (nameMap.get(confirmedById.trim().toLowerCase()) || '') : '';
                 approvedByName = approvedById ? (nameMap.get(approvedById.trim().toLowerCase()) || '') : '';
             } else {
-                const [reqName, appName, revName, confName, apprName] = await Promise.all([
+                const [reqName, appName, revName, apprName] = await Promise.all([
                     requestorId ? employeeCache.getEmployeeNameByEmployId(requestorId) : Promise.resolve(''),
                     applicantId ? employeeCache.getEmployeeNameByEmployId(applicantId) : Promise.resolve(''),
                     reviewedById ? employeeCache.getEmployeeNameByEmployId(reviewedById) : Promise.resolve(''),
-                    confirmedById ? employeeCache.getEmployeeNameByEmployId(confirmedById) : Promise.resolve(''),
                     approvedById ? employeeCache.getEmployeeNameByEmployId(approvedById) : Promise.resolve('')
                 ]);
                 requestorName = reqName;
                 applicantName = appName;
                 reviewedByName = revName;
-                confirmedByName = confName;
                 approvedByName = apprName;
             }
         }
@@ -478,9 +472,8 @@ class ConfirmPOListView {
         // Assign Approval (from trxPROPurchaseRequest) - show names or IDs
         this.setValue('confirm-approval-requestor', requestorName || requestorId || '');
         this.setValue('confirm-approval-applicant', applicantName || applicantId || '');
-        // ReviewedBy, ConfirmedBy, ApprovedBy from PR (trxPROPurchaseRequest) - show names or IDs
+        // ReviewedBy, ApprovedBy from PR (trxPROPurchaseRequest) - show names or IDs
         this.setValue('confirm-reviewed-by', reviewedByName || reviewedById || '');
-        this.setValue('confirm-confirmed-by', confirmedByName || confirmedById || '');
         this.setValue('confirm-approved-by', approvedByName || approvedById || '');
 
         // Vendor Information (from trxPROPurchaseOrderAssignVendor via PurchaseOrderService.GetByPONumberAsync)

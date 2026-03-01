@@ -303,7 +303,6 @@ class ReceiveListView {
         const applicantId = pr.applicant || pr.Applicant || '';
         const reviewedById = pr.reviewedBy || pr.ReviewedBy || '';
         const approvedById = pr.approvedBy || pr.ApprovedBy || '';
-        const confirmedById = pr.confirmedBy || pr.ConfirmedBy || '';
 
         // Use shared cache or employee cache module if available
         let employeeCache = null;
@@ -319,7 +318,6 @@ class ReceiveListView {
         const applicantName = applicantId && employeeCache ? await employeeCache.getEmployeeNameByEmployId(applicantId) : '';
         const reviewedByName = reviewedById && employeeCache ? await employeeCache.getEmployeeNameByEmployId(reviewedById) : '';
         const approvedByName = approvedById && employeeCache ? await employeeCache.getEmployeeNameByEmployId(approvedById) : '';
-        const confirmedByName = confirmedById && employeeCache ? await employeeCache.getEmployeeNameByEmployId(confirmedById) : '';
 
         // Calculate total amount
         const totalAmount = this.viewPRItems && this.viewPRItems.length > 0
@@ -350,13 +348,11 @@ class ReceiveListView {
         const approvalApplicantEl = document.getElementById('view-approval-applicant');
         const reviewedByEl = document.getElementById('view-reviewed-by');
         const approvedByEl = document.getElementById('view-approved-by');
-        const confirmedByEl = document.getElementById('view-confirmed-by');
 
         if (approvalRequestorEl) approvalRequestorEl.value = requestorName || requestorId || '-';
         if (approvalApplicantEl) approvalApplicantEl.value = applicantName || applicantId || '-';
         if (reviewedByEl) reviewedByEl.value = reviewedByName || reviewedById || '-';
         if (approvedByEl) approvedByEl.value = approvedByName || approvedById || '-';
-        if (confirmedByEl) confirmedByEl.value = confirmedByName || confirmedById || '-';
 
         // Populate items table
         const itemsTbody = document.getElementById('view-items-tbody');

@@ -324,7 +324,6 @@ class ApprovalPOListView {
         const applicantId = pr ? (pr.applicant || pr.Applicant || '') : '';
         const reviewedById = pr ? (pr.reviewedBy || pr.ReviewedBy || '') : '';
         const approvedById = pr ? (pr.approvedBy || pr.ApprovedBy || '') : '';
-        const confirmedById = pr ? (pr.confirmedBy || pr.ConfirmedBy || '') : '';
 
         // Get employee names asynchronously using shared cache
         let employeeCache = null;
@@ -340,14 +339,12 @@ class ApprovalPOListView {
         if (applicantId) employeeIds.push(applicantId);
         if (reviewedById) employeeIds.push(reviewedById);
         if (approvedById) employeeIds.push(approvedById);
-        if (confirmedById) employeeIds.push(confirmedById);
         
         let poAuthorName = '';
         let requestorName = '';
         let applicantName = '';
         let reviewedByName = '';
         let approvedByName = '';
-        let confirmedByName = '';
         
         if (employeeCache && employeeIds.length > 0) {
             if (employeeCache.batchGetEmployeeNames) {
@@ -357,22 +354,19 @@ class ApprovalPOListView {
                 applicantName = applicantId ? (nameMap.get(applicantId.trim().toLowerCase()) || '') : '';
                 reviewedByName = reviewedById ? (nameMap.get(reviewedById.trim().toLowerCase()) || '') : '';
                 approvedByName = approvedById ? (nameMap.get(approvedById.trim().toLowerCase()) || '') : '';
-                confirmedByName = confirmedById ? (nameMap.get(confirmedById.trim().toLowerCase()) || '') : '';
             } else {
-                const [poAuthName, reqName, appName, revName, apprName, confName] = await Promise.all([
+                const [poAuthName, reqName, appName, revName, apprName] = await Promise.all([
                     poAuthorId ? employeeCache.getEmployeeNameByEmployId(poAuthorId) : Promise.resolve(''),
                     requestorId ? employeeCache.getEmployeeNameByEmployId(requestorId) : Promise.resolve(''),
                     applicantId ? employeeCache.getEmployeeNameByEmployId(applicantId) : Promise.resolve(''),
                     reviewedById ? employeeCache.getEmployeeNameByEmployId(reviewedById) : Promise.resolve(''),
-                    approvedById ? employeeCache.getEmployeeNameByEmployId(approvedById) : Promise.resolve(''),
-                    confirmedById ? employeeCache.getEmployeeNameByEmployId(confirmedById) : Promise.resolve('')
+                    approvedById ? employeeCache.getEmployeeNameByEmployId(approvedById) : Promise.resolve('')
                 ]);
                 poAuthorName = poAuthName;
                 requestorName = reqName;
                 applicantName = appName;
                 reviewedByName = revName;
                 approvedByName = apprName;
-                confirmedByName = confName;
             }
         }
 
@@ -592,13 +586,11 @@ class ApprovalPOListView {
         const reviewedByDisplay = (reviewedByName && reviewedByName.trim() !== '') ? reviewedByName : (reviewedById || '-');
         const applicantDisplay = (applicantName && applicantName.trim() !== '') ? applicantName : (applicantId || '-');
         const approvedByDisplay = (approvedByName && approvedByName.trim() !== '') ? approvedByName : (approvedById || '-');
-        const confirmedByDisplay = (confirmedByName && confirmedByName.trim() !== '') ? confirmedByName : (confirmedById || '-');
         
         this.setValue('approval-approval-requestor', approvalRequestorDisplay);
         this.setValue('approval-reviewed-by', reviewedByDisplay);
         this.setValue('approval-applicant', applicantDisplay);
         this.setValue('approval-approved-by', approvedByDisplay);
-        this.setValue('approval-confirmed-by', confirmedByDisplay);
 
         // Amount Total
         this.setValue('approval-amount-total', formatCurrency(totalAmount));

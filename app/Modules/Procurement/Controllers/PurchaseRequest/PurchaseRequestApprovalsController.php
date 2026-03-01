@@ -44,8 +44,6 @@ class PurchaseRequestApprovalsController extends Controller
                 $updateData['ReviewedBy'] = $employeeId;
             } elseif ($currentStatus === 2) {
                 $updateData['ApprovedBy'] = $employeeId;
-            } elseif ($currentStatus === 3) {
-                $updateData['ConfirmedBy'] = $employeeId;
             }
         }
 

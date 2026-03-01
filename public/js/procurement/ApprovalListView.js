@@ -300,7 +300,6 @@ class ApprovalListView {
         const applicantId = pr.applicant || pr.Applicant || '';
         const reviewedById = pr.reviewedBy || pr.ReviewedBy || '';
         const approvedById = pr.approvedBy || pr.ApprovedBy || '';
-        const confirmedById = pr.confirmedBy || pr.ConfirmedBy || '';
 
         // Use shared cache or employee cache module if available
         let employeeCache = null;
@@ -318,7 +317,6 @@ class ApprovalListView {
         if (applicantId) employeeIds.push(applicantId);
         if (reviewedById) employeeIds.push(reviewedById);
         if (approvedById) employeeIds.push(approvedById);
-        if (confirmedById) employeeIds.push(confirmedById);
 
         // Batch lookup all employee names at once
         let nameMap = new Map();
@@ -331,7 +329,6 @@ class ApprovalListView {
         const applicantName = applicantId ? (nameMap.get(applicantId.trim().toLowerCase()) || '') : '';
         const reviewedByName = reviewedById ? (nameMap.get(reviewedById.trim().toLowerCase()) || '') : '';
         const approvedByName = approvedById ? (nameMap.get(approvedById.trim().toLowerCase()) || '') : '';
-        const confirmedByName = confirmedById ? (nameMap.get(confirmedById.trim().toLowerCase()) || '') : '';
 
         // Calculate total amount
         const totalAmount = this.viewPRItems && this.viewPRItems.length > 0
@@ -362,13 +359,11 @@ class ApprovalListView {
         const approvalApplicantEl = document.getElementById('view-approval-applicant');
         const reviewedByEl = document.getElementById('view-reviewed-by');
         const approvedByEl = document.getElementById('view-approved-by');
-        const confirmedByEl = document.getElementById('view-confirmed-by');
 
         if (approvalRequestorEl) approvalRequestorEl.value = requestorName || requestorId || '-';
         if (approvalApplicantEl) approvalApplicantEl.value = applicantName || applicantId || '-';
         if (reviewedByEl) reviewedByEl.value = reviewedByName || reviewedById || '-';
         if (approvedByEl) approvedByEl.value = approvedByName || approvedById || '-';
-        if (confirmedByEl) confirmedByEl.value = confirmedByName || confirmedById || '-';
 
         // Populate items table
         const itemsTbody = document.getElementById('view-items-tbody');

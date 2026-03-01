@@ -1,4 +1,4 @@
-﻿{{--
+{{--
     Approval Assignment Partial for Purchase Request Approval
     Shows approval assignment information
 --}}
@@ -25,10 +25,6 @@
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Approved by</label>
                     <input type="text" class="form-control" id="view-approved-by" value="-" disabled>
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Confirmed by</label>
-                    <input type="text" class="form-control" id="view-confirmed-by" value="-" disabled>
                 </div>
             </div>
         </div>

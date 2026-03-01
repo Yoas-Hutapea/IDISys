@@ -116,10 +116,6 @@
                             <label class="form-label fw-semibold">Approved by</label>
                             <input type="text" class="form-control" id="review-approved-by" value="Yulia Verawati Setiawan" disabled>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Confirmed by</label>
-                            <input type="text" class="form-control" id="review-confirmed-by" value="Saleh" disabled>
-                        </div>
                     </div>
                 </div>
             </div>

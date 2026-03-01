@@ -17,7 +17,7 @@
                 <input type="text" class="form-control" id="requestor" name="requestor" value="{{ $currentUserFullName }}" disabled>
             </div>
 
-            <div class="col-12">
+            <div class="col-12 d-none">
                 <label class="form-label" for="applicantApproval">Applicant</label>
                 <input type="text" class="form-control" id="applicantApproval" name="applicantApproval" disabled>
             </div>
@@ -45,20 +45,6 @@
                         <i class="icon-base bx bx-search"></i>
                     </button>
                     <button class="btn btn-outline-info" type="button" id="viewApprovedByHistoryBtn" title="View History">
-                        <i class="icon-base bx bx-history"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-12">
-                <label class="form-label" for="confirmedBy">Confirmed by</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="confirmedBy" name="confirmedBy" placeholder="Select employee" readonly>
-                    <input type="hidden" id="confirmedById" name="confirmedById">
-                    <button class="btn btn-outline-primary" type="button" id="searchConfirmedByBtn">
-                        <i class="icon-base bx bx-search"></i>
-                    </button>
-                    <button class="btn btn-outline-info" type="button" id="viewConfirmedByHistoryBtn" title="View History">
                         <i class="icon-base bx bx-history"></i>
                     </button>
                 </div>
