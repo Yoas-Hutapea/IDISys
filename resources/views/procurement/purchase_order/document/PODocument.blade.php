@@ -227,8 +227,9 @@
             font-weight: bold;
             font-size: 9pt;
             border: none;
-            border-bottom: none;
-            background: #f5f5f5;
+            border-bottom: 1px solid #333;
+            background: none;
+            background-color: transparent;
         }
         .po-items-table td {
             padding: 4px 6px;
@@ -364,9 +365,8 @@
                 padding: 0;
             }
             .po-items-table th {
-                background: #e8e8e8 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                background: none !important;
+                background-color: transparent !important;
             }
             tr { page-break-inside: avoid; }
             .po-footer-table { page-break-inside: avoid; }
@@ -441,9 +441,9 @@
             <td class="label label-w b-l pad-sm">Address</td>
             <td class="po-colon pad-sm txt-c">:</td>
             <td class="value-w b-r pad-sm value">{{ $vendor['VendorAddress'] ?? '-' }}</td>
-            <td class="label label-w-r b-l no-b-r pad-sm">Phone/Fax</td>
-            <td class="po-colon no-border pad-sm txt-c">:</td>
-            <td class="value-w-r b-r pad-sm value">{{ $company['PhoneNumber'] ?? '-' }} / {{ $company['Fax'] ?? '-' }}</td>
+            <td class="label label-w-r b-l no-b-r b-b pad-sm">Phone/Fax</td>
+            <td class="po-colon no-border pad-sm txt-c b-b">:</td>
+            <td class="value-w-r b-r b-b pad-sm value">{{ $company['PhoneNumber'] ?? '-' }} / {{ $company['Fax'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="label label-w b-l pad-sm">Contract No.</td>
@@ -457,9 +457,9 @@
             <td class="label label-w b-l pad-sm">Attn</td>
             <td class="po-colon pad-sm txt-c">:</td>
             <td class="value-w b-r pad-sm value">{{ $vendor['ContactPerson'] ?? '-' }}</td>
-            <td class="label label-w-r b-l no-b-r pad-sm">Email</td>
-            <td class="po-colon no-border pad-sm txt-c">:</td>
-            <td class="value-w-r b-r pad-sm value">{{ $header['POCreatorEmail'] ?? '-' }}</td>
+            <td class="label label-w-r b-l no-b-r b-b pad-sm">Email</td>
+            <td class="po-colon no-border pad-sm txt-c b-b">:</td>
+            <td class="value-w-r b-r b-b pad-sm value">{{ $header['POCreatorEmail'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="label label-w b-l pad-sm">Phone/Mobile</td>
@@ -473,9 +473,9 @@
             <td class="label label-w b-l pad-sm">Fax</td>
             <td class="po-colon pad-sm txt-c">:</td>
             <td class="value-w b-r pad-sm value">{{ $vendor['FaxNumber'] ?? '-' }}</td>
-            <td class="label label-w-r b-l no-b-r pad-sm">PR Number</td>
-            <td class="po-colon no-border pad-sm txt-c">:</td>
-            <td class="value-w-r b-r pad-sm value">{{ $header['PRNumber'] ?? '-' }}</td>
+            <td class="label label-w-r b-l no-b-r b-b pad-sm">PR Number</td>
+            <td class="po-colon no-border pad-sm txt-c b-b">:</td>
+            <td class="value-w-r b-r b-b pad-sm value">{{ $header['PRNumber'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="label label-w b-l pad-sm">Email</td>
