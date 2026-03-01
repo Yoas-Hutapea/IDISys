@@ -226,14 +226,16 @@
             font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
             font-size: 9pt;
-            border-bottom: 1px solid #333;
+            border: none;
+            border-bottom: none;
             background: #f5f5f5;
         }
         .po-items-table td {
             padding: 4px 6px;
             font-family: 'Courier New', Courier, monospace;
             font-size: 8pt;
-            border-bottom: 1px solid #ddd;
+            border: none;
+            border-bottom: none;
         }
         .po-items-table .col-no { width: 4%; min-width: 2em; text-align: center; white-space: nowrap; }
         .po-items-table .col-desc {
