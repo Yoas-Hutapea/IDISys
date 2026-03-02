@@ -44,7 +44,7 @@
         </li>
 
         <!-- Marketing -->
-        <li class="menu-item">
+        <!-- <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon icon-base bx bx-credit-card"></i>
                 <div data-i18n="Marketing">Marketing</div>
@@ -66,7 +66,7 @@
                     </a>
                 </li>
             </ul>
-        </li>
+        </li> -->
 
         <!-- Procurement -->
         <li class="menu-item">
@@ -253,7 +253,7 @@
             </ul>
         </li>
         <!-- Finance AR -->
-        <li class="menu-item">
+        <!-- <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon icon-base bx bx-group"></i>
                 <div data-i18n="Finance AR">Finance AR</div>
@@ -270,7 +270,7 @@
                     </a>
                 </li>
             </ul>
-        </li>
+        </li> -->
     </ul>
 </aside>
 <!-- / Menu -->

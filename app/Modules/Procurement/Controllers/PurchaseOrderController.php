@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
+use App\Services\PurchaseOrderAmortizationService;
 
 class PurchaseOrderController extends Controller
 {
@@ -925,6 +926,9 @@ class PurchaseOrderController extends Controller
                 ->where('PurchaseOrderNumber', $poNumber)
                 ->update($poUpdate);
 
+            // Sync amortization (trxPROPurchaseOrderAmortization) to new PO amount so each term InvoiceAmount = (TermValue/100)*totalAmount
+            PurchaseOrderAmortizationService::syncAmortizationToPOAmount($poNumber, (float) ($totalAmount ?? 0));
+
             if (Schema::hasTable('logPROPurchaseOrder')) {
                 $logData = [
                     'mstEmployeeID' => $employeeId,
@@ -1025,6 +1029,9 @@ class PurchaseOrderController extends Controller
                             'UpdatedBy' => $employeeId,
                             'UpdatedDate' => $now,
                         ]);
+
+                    // Sync amortization to current PO amount
+                    PurchaseOrderAmortizationService::syncAmortizationToPOAmount($poNumber, (float) ($totalAmount ?? 0));
 
                     if (Schema::hasTable('logPROPurchaseOrder')) {
                         $logData = [

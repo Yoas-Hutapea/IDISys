@@ -15,6 +15,87 @@ use Illuminate\Support\Facades\Schema;
 class PurchaseOrderAmortizationService
 {
     /**
+     * Sync Term-type amortization InvoiceAmount to the given PO amount.
+     * Call after Confirm PO when PO amount has changed so each term reflects the new total:
+     * InvoiceAmount = (TermValue / 100) * poAmount.
+     * Example: PO Amount 10,000,000 with 40|50|10 → 4,000,000 | 5,000,000 | 1,000,000.
+     */
+    public static function syncAmortizationToPOAmount(string $poNumber, float $poAmount): void
+    {
+        $poNumber = trim($poNumber);
+        if ($poNumber === '') {
+            return;
+        }
+
+        if (!Schema::hasTable('trxPROPurchaseOrderAmortization')) {
+            return;
+        }
+
+        $poColumn = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'trxPROPurchaseOrderNumber')
+            ? 'trxPROPurchaseOrderNumber'
+            : (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PurchaseOrderNumber') ? 'PurchaseOrderNumber' : null);
+
+        if (!$poColumn || !Schema::hasColumn('trxPROPurchaseOrderAmortization', 'InvoiceAmount')) {
+            return;
+        }
+
+        $termValueCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'TermValue')
+            ? 'TermValue' : 'termValue';
+        $invoiceAmountCol = 'InvoiceAmount';
+        $idCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'ID') ? 'ID' : 'id';
+        $typeCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'AmortizationType')
+            ? 'AmortizationType' : 'amortizationType';
+
+        $termRows = DB::table('trxPROPurchaseOrderAmortization')
+            ->where($poColumn, $poNumber)
+            ->where($typeCol, 'Term')
+            ->orderBy(Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber') ? 'PeriodNumber' : $idCol)
+            ->get();
+
+        $now = now();
+        $emp = session('employee');
+        $updatedBy = $emp && is_object($emp) ? ($emp->Employ_Id ?? $emp->EmployId ?? $emp->ID ?? $emp->EmployeeID ?? null) : ($emp['Employ_Id'] ?? $emp['EmployId'] ?? $emp['ID'] ?? $emp['EmployeeID'] ?? null);
+
+        foreach ($termRows as $row) {
+            $termValue = (float) ($row->{$termValueCol} ?? $row->termValue ?? 0);
+            $newInvoiceAmount = ($poAmount * $termValue) / 100;
+
+            $update = [$invoiceAmountCol => $newInvoiceAmount];
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
+                $update['UpdatedDate'] = $now;
+            }
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedBy')) {
+                $update['UpdatedBy'] = $updatedBy;
+            }
+
+            $id = $row->{$idCol} ?? null;
+            if ($id !== null) {
+                DB::table('trxPROPurchaseOrderAmortization')->where($idCol, $id)->update($update);
+            }
+        }
+
+        // Period-type: set each row's InvoiceAmount to poAmount (same as release logic)
+        $periodRows = DB::table('trxPROPurchaseOrderAmortization')
+            ->where($poColumn, $poNumber)
+            ->where($typeCol, 'Period')
+            ->get();
+
+        foreach ($periodRows as $row) {
+            $update = [$invoiceAmountCol => $poAmount];
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
+                $update['UpdatedDate'] = $now;
+            }
+            if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedBy')) {
+                $update['UpdatedBy'] = $updatedBy;
+            }
+            $id = $row->{$idCol} ?? null;
+            if ($id !== null) {
+                DB::table('trxPROPurchaseOrderAmortization')->where($idCol, $id)->update($update);
+            }
+        }
+    }
+
+    /**
      * Recalculate InvoiceAmount for Term-type amortization rows for the given PO.
      * Base amount = sum of GRN line amounts for this PO; if no GRN or sum is 0, use PO amount.
      */
