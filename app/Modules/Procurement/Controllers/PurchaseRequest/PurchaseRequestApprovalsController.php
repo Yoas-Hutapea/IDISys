@@ -3,6 +3,7 @@
 namespace App\Modules\Procurement\Controllers\PurchaseRequest;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendPRWaitingApprovalReminderJob;
 use App\Models\MstEmployee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +51,10 @@ class PurchaseRequestApprovalsController extends Controller
         DB::table('trxPROPurchaseRequest')
             ->where('PurchaseRequestNumber', $decodedNumber)
             ->update($updateData);
+
+        if ($nextStatus === 2) {
+            SendPRWaitingApprovalReminderJob::dispatch($decodedNumber, 2);
+        }
 
         $this->insertApprovalLogIfAvailable([
             'mstEmployeeID' => $employeeId !== '' ? $employeeId : 'System',

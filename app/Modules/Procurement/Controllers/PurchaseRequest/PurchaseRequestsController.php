@@ -3,6 +3,7 @@
 namespace App\Modules\Procurement\Controllers\PurchaseRequest;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendPRWaitingApprovalReminderJob;
 use App\Models\MstEmployee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,10 @@ class PurchaseRequestsController extends Controller
             'IsActive' => true,
         ]);
 
+        if ((int) $payload['mstApprovalStatusID'] === 1) {
+            SendPRWaitingApprovalReminderJob::dispatch($prNumber, 1);
+        }
+
         return response()->json([
             'purchReqNumber' => $prNumber,
             'PurchReqNumber' => $prNumber,
@@ -74,8 +79,12 @@ class PurchaseRequestsController extends Controller
                 'UpdatedDate' => $now,
             ]);
 
-        if (!$updated) {
+        if (! $updated) {
             return response()->json(['message' => 'Purchase Request not found'], 404);
+        }
+
+        if ((int) $payload['mstApprovalStatusID'] === 1) {
+            SendPRWaitingApprovalReminderJob::dispatch($decodedNumber, 1);
         }
 
         return response()->json([
@@ -99,8 +108,18 @@ class PurchaseRequestsController extends Controller
                 'UpdatedDate' => $now,
             ]);
 
-        if (!$updated) {
+        if (! $updated) {
             return response()->json(['message' => 'Purchase Request not found'], 404);
+        }
+
+        $pr = DB::table('trxPROPurchaseRequest')->where('PurchaseRequestNumber', $decodedNumber)->first();
+        if ($pr) {
+            $statusId = (int) ($pr->mstApprovalStatusID ?? 0);
+            if ($statusId === 1) {
+                SendPRWaitingApprovalReminderJob::dispatch($decodedNumber, 1);
+            } elseif ($statusId === 2) {
+                SendPRWaitingApprovalReminderJob::dispatch($decodedNumber, 2);
+            }
         }
 
         return response()->json(['message' => 'Approval updated']);

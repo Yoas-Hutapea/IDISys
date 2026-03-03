@@ -32,6 +32,26 @@
 </table>
 
 <p style="margin-top: 24px;">
+    For administration and invoice, please contact our admin Project Manager.
+</p>
+<p style="margin-top: 12px;">
+    01. Prosedur Pengajuan Invoice Mitra PT. IDI<br>
+    <a href="https://drive.google.com/file/d/17avZeZiGZ6uelFWR-xJQ6lq4jMaAaZgh/view?usp=sharing" target="_blank" rel="noopener">https://drive.google.com/file/d/17avZeZiGZ6uelFWR-xJQ6lq4jMaAaZgh/view?usp=sharing</a>
+</p>
+<p style="margin-top: 8px;">
+    02. DOK &amp; CI -IDI- Non Kontrak (One time Vendor)<br>
+    <a href="https://drive.google.com/file/d/18QyuSpdq7UUFCzdKojGHQhWmzFtERO26/view?usp=sharing" target="_blank" rel="noopener">https://drive.google.com/file/d/18QyuSpdq7UUFCzdKojGHQhWmzFtERO26/view?usp=sharing</a>
+</p>
+<p style="margin-top: 8px;">
+    03. DOK &amp; CI -IDI- Dengan Kontrak (PKS)<br>
+    <a href="https://drive.google.com/file/d/13gEBziToI6za2Bib-JRDi6GY_QHmibUy/view?usp=sharing" target="_blank" rel="noopener">https://drive.google.com/file/d/13gEBziToI6za2Bib-JRDi6GY_QHmibUy/view?usp=sharing</a>
+</p>
+<p style="margin-top: 8px;">
+    04. DOK &amp; CI -IDI- Mitra Others (Pekerjaan non standar dengan kontrak)<br>
+    <a href="https://drive.google.com/file/d/1fITjy-fshu-pWdRtTrhCFOHzYhYtG5pT/view?usp=sharing" target="_blank" rel="noopener">https://drive.google.com/file/d/1fITjy-fshu-pWdRtTrhCFOHzYhYtG5pT/view?usp=sharing</a>
+</p>
+
+<p style="margin-top: 24px;">
     <strong>IDEAsys Notification</strong>
 </p>
 <p style="color: #666; font-size: 12px;">

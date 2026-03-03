@@ -49,7 +49,7 @@ class POReleasedNotificationMail extends Mailable
         if ($this->pdfContent !== null && $this->pdfContent !== '') {
             $pdfContent = $this->pdfContent;
             $safePoNumber = str_replace(['/', '\\', ':'], '-', $this->poNumber);
-            $filename = 'Document PO - ' . $safePoNumber . '.pdf';
+            $filename = $safePoNumber . '.pdf';
             $attachments[] = Attachment::fromData(fn () => $pdfContent, $filename)
                 ->withMime('application/pdf');
         }
