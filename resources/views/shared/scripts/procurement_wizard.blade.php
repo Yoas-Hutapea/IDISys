@@ -1467,6 +1467,7 @@
         updateQuantityFieldBasedOnPeriod() {
             const quantityField = document.getElementById('quantity');
             if (!quantityField) return;
+            const forceQtyOne = quantityField.getAttribute('data-force-qty-one') === '1';
 
             const hasPeriod = this.hasPeriodField();
 
@@ -1474,6 +1475,24 @@
                 // Disable quantity field
                 quantityField.disabled = true;
                 quantityField.setAttribute('readonly', 'readonly');
+
+                // Item-level override for unit Ls (or unit master id 32)
+                if (forceQtyOne) {
+                    quantityField.value = this.formatNumberWithComma(1, 3);
+                    quantityField.classList.remove('is-invalid');
+                    if (this.validationModule && this.validationModule.hideFieldError) {
+                        this.validationModule.hideFieldError(quantityField);
+                    }
+                    const unitPriceField = document.getElementById('unitPrice');
+                    if (unitPriceField && unitPriceField.value) {
+                        setTimeout(() => {
+                            if (typeof this.initializeAmountCalculation === 'function') {
+                                this.initializeAmountCalculation();
+                            }
+                        }, 100);
+                    }
+                    return;
+                }
 
                 // Get period value from appropriate field
                 let periodValue = null;
@@ -1572,12 +1591,15 @@
 
                 try {
                     const itemData = JSON.parse(itemDataAttr);
+                    const unitMasterId = parseInt(itemData.mstPROPurchaseItemUnitId || itemData.mstPROPurchaseItemUnitID || itemData.mstPROPurchaseItemUnitIdValue || 0, 10);
+                    const unitIdText = (itemData.itemUnit || itemData.ItemUnit || '').toString().trim().toLowerCase();
+                    const isLsUnit = unitMasterId === 32 || unitIdText === 'ls';
 
                     // Get current unit price (support both camelCase and PascalCase for compatibility)
                     const unitPrice = parseFloat(itemData.unitPrice || itemData.UnitPrice) || 0;
 
                     // Update quantity with new period value
-                    const newQuantity = periodValue;
+                    const newQuantity = isLsUnit ? 1 : periodValue;
                     itemData.itemQty = newQuantity;
                     // Also update ItemQty for compatibility
                     if (itemData.ItemQty !== undefined) {

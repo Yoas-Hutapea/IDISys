@@ -721,6 +721,7 @@ window.selectItem = async function(itemId, itemName, mstPROInventoryItemID, mstP
             
             // Auto-select unit based on mstPROPurchaseItemUnitId from item
             const unitIdFromItem = item.mstPROPurchaseItemUnitId || item.mstPROPurchaseItemUnitID || item.MstPROPurchaseItemUnitId || mstPROPurchaseItemUnitId;
+            let forceQtyOneForLsUnit = false;
             if (unitIdFromItem && window.procurementWizard) {
                 // Ensure units are loaded
                 if (!window.procurementWizard.allUnits || window.procurementWizard.allUnits.length === 0) {
@@ -744,6 +745,7 @@ window.selectItem = async function(itemId, itemName, mstPROInventoryItemID, mstP
                     const unitDropdownBtn = document.getElementById('unitDropdownBtn');
                     const unitId = unit.UnitId || unit.unitId;
                     const unitText = unit.Unit || unit.unit || unit.UnitId || unit.unitId;
+                    const unitMasterId = unit.ID || unit.id || unit.Id || null;
                     
                     if (unitField) {
                         unitField.value = unitId || '';
@@ -764,11 +766,36 @@ window.selectItem = async function(itemId, itemName, mstPROInventoryItemID, mstP
                     if (unitField) {
                         unitField.dispatchEvent(new Event('change', { bubbles: true }));
                     }
+
+                    // Special rule: if unit master ID = 32 or UnitID = "Ls", quantity must always be 1 (not following Period)
+                    const normalizedUnitId = (unitId || '').toString().trim().toLowerCase();
+                    forceQtyOneForLsUnit = parseInt(unitMasterId, 10) === 32 || normalizedUnitId === 'ls';
+                }
+            }
+
+            // Save selected unit master ID for itemData persistence when adding to grid
+            const addItemForm = document.getElementById('addItemForm');
+            if (addItemForm) {
+                if (unitIdFromItem != null && unitIdFromItem !== '') {
+                    addItemForm.setAttribute('data-selected-unit-master-id', String(unitIdFromItem));
+                } else {
+                    addItemForm.removeAttribute('data-selected-unit-master-id');
+                }
+            }
+
+            // Mark quantity field override so wizard auto-period logic respects this item-level rule
+            const quantityField = document.getElementById('quantity');
+            if (quantityField) {
+                if (forceQtyOneForLsUnit) {
+                    quantityField.setAttribute('data-force-qty-one', '1');
+                    quantityField.value = '1.000';
+                    quantityField.classList.remove('is-invalid');
+                } else {
+                    quantityField.removeAttribute('data-force-qty-one');
                 }
             }
             
             // Trigger amount calculation if quantity and unit price are already set
-            const quantityField = document.getElementById('quantity');
             const unitPriceField = document.getElementById('unitPrice');
             if (quantityField && quantityField.value && unitPriceField && unitPriceField.value) {
                 const amountField = document.getElementById('amount');

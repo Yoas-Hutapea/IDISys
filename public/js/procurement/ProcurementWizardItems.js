@@ -56,6 +56,12 @@ class ProcurementWizardItems {
                 if (unitSelectedText) {
                     unitSelectedText.textContent = 'Select Unit';
                 }
+                // Clear per-item unit/quantity override context
+                formContainer.removeAttribute('data-selected-unit-master-id');
+                const quantityField = document.getElementById('quantity');
+                if (quantityField) {
+                    quantityField.removeAttribute('data-force-qty-one');
+                }
             }
         } else {
             // Only clear validation classes, don't reset values
@@ -134,6 +140,8 @@ class ProcurementWizardItems {
         const currency = formData.get('currency') || 'IDR';
         const amount = quantity * unitPrice;
         const mstPROPurchaseItemInventoryItemID = formData.get('mstPROPurchaseItemInventoryItemID') || formData.get('mstPROInventoryItemID') || itemId || null;
+        const addItemForm = document.getElementById('addItemForm');
+        const selectedUnitMasterId = addItemForm ? (addItemForm.getAttribute('data-selected-unit-master-id') || null) : null;
 
         // Store full item data in data attributes
         const itemData = {
@@ -143,6 +151,7 @@ class ProcurementWizardItems {
             itemName: itemName,
             itemDescription: description,
             itemUnit: unit,
+            mstPROPurchaseItemUnitId: selectedUnitMasterId,
             itemQty: quantity,
             currencyCode: currency,
             unitPrice: unitPrice,
@@ -223,6 +232,7 @@ class ProcurementWizardItems {
         const unitPrice = parseFloat(item.unitPrice || item.UnitPrice || '0');
         const currency = item.currencyCode || item.CurrencyCode || 'IDR';
         const amount = parseFloat(item.amount || item.Amount || quantity * unitPrice);
+        const unitMasterId = item.mstPROPurchaseItemUnitId || item.mstPROPurchaseItemUnitID || item.MstPROPurchaseItemUnitId || null;
 
         const itemData = {
             id: itemId,
@@ -232,6 +242,7 @@ class ProcurementWizardItems {
             itemName: itemName,
             itemDescription: description,
             itemUnit: unit,
+            mstPROPurchaseItemUnitId: unitMasterId,
             itemQty: quantity,
             currencyCode: currency,
             unitPrice: unitPrice,
