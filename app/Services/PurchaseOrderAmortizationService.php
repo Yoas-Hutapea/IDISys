@@ -56,9 +56,57 @@ class PurchaseOrderAmortizationService
         $emp = session('employee');
         $updatedBy = $emp && is_object($emp) ? ($emp->Employ_Id ?? $emp->EmployId ?? $emp->ID ?? $emp->EmployeeID ?? null) : ($emp['Employ_Id'] ?? $emp['EmployId'] ?? $emp['ID'] ?? $emp['EmployeeID'] ?? null);
 
+        // Split PO amount by unit type to keep Ls/prorate separated from non-Ls.
+        // If any Ls item exists:
+        // - Term 1 gets total Ls amount
+        // - Remaining terms get non-Ls amount proportionally by remaining TermValue
+        $splitAmount = self::getPOItemAmountSplitByUnit($poNumber);
+        $hasLsItem = ((float) ($splitAmount['ls'] ?? 0)) > 0;
+        $lsAmount = (float) ($splitAmount['ls'] ?? 0);
+        $nonLsAmount = (float) ($splitAmount['nonLs'] ?? 0);
+        if ($nonLsAmount < 0) {
+            $nonLsAmount = 0;
+        }
+
+        // Build per-term target amount
+        $termTargetAmounts = [];
+        if ($hasLsItem && $termRows->count() > 0) {
+            $rows = $termRows->values();
+            $firstRow = $rows->first();
+            $firstId = $firstRow ? ($firstRow->{$idCol} ?? null) : null;
+            if ($firstId !== null) {
+                // If there is only one term row, keep full PO amount to avoid dropping non-Ls value
+                $termTargetAmounts[$firstId] = $rows->count() === 1 ? $poAmount : $lsAmount;
+            }
+
+            if ($rows->count() > 1) {
+                $remainingRows = $rows->slice(1)->values();
+                $remainingTermValueTotal = $remainingRows->sum(function ($r) use ($termValueCol) {
+                    return (float) ($r->{$termValueCol} ?? $r->termValue ?? 0);
+                });
+
+                foreach ($remainingRows as $r) {
+                    $rid = $r->{$idCol} ?? null;
+                    if ($rid === null) {
+                        continue;
+                    }
+                    $tv = (float) ($r->{$termValueCol} ?? $r->termValue ?? 0);
+                    if ($remainingTermValueTotal > 0) {
+                        $termTargetAmounts[$rid] = ($nonLsAmount * $tv) / $remainingTermValueTotal;
+                    } else {
+                        $termTargetAmounts[$rid] = $remainingRows->count() > 0 ? ($nonLsAmount / $remainingRows->count()) : 0;
+                    }
+                }
+            }
+        }
+
         foreach ($termRows as $row) {
             $termValue = (float) ($row->{$termValueCol} ?? $row->termValue ?? 0);
+            $rowId = $row->{$idCol} ?? null;
             $newInvoiceAmount = ($poAmount * $termValue) / 100;
+            if ($hasLsItem && $rowId !== null && array_key_exists($rowId, $termTargetAmounts)) {
+                $newInvoiceAmount = (float) $termTargetAmounts[$rowId];
+            }
 
             $update = [$invoiceAmountCol => $newInvoiceAmount];
             if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
@@ -74,14 +122,29 @@ class PurchaseOrderAmortizationService
             }
         }
 
-        // Period-type: set each row's InvoiceAmount to poAmount (same as release logic)
+        // Period-type: follow release logic:
+        // Period 1 = total Ls amount
+        // Period 2..N = sum(non-Ls Amount / ItemQty)
+        // If no Ls item, fallback to poAmount for all periods
         $periodRows = DB::table('trxPROPurchaseOrderAmortization')
             ->where($poColumn, $poNumber)
             ->where($typeCol, 'Period')
+            ->orderBy(Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber') ? 'PeriodNumber' : $idCol)
             ->get();
 
+        $periodAmounts = self::buildPeriodAmountsFromPOItems($poNumber, $periodRows->count(), $poAmount);
+        $periodNumberCol = Schema::hasColumn('trxPROPurchaseOrderAmortization', 'PeriodNumber') ? 'PeriodNumber' : null;
+
+        $periodSeq = 0;
         foreach ($periodRows as $row) {
-            $update = [$invoiceAmountCol => $poAmount];
+            $rowPeriodNumber = $periodNumberCol ? (int) ($row->{$periodNumberCol} ?? 0) : 0;
+            if ($rowPeriodNumber <= 0) {
+                // Fallback by row position when PeriodNumber is unavailable
+                $periodSeq++;
+                $rowPeriodNumber = $periodSeq;
+            }
+            $periodAmount = $periodAmounts[$rowPeriodNumber] ?? $poAmount;
+            $update = [$invoiceAmountCol => $periodAmount];
             if (Schema::hasColumn('trxPROPurchaseOrderAmortization', 'UpdatedDate')) {
                 $update['UpdatedDate'] = $now;
             }
@@ -277,5 +340,91 @@ class PurchaseOrderAmortizationService
         }
 
         return 0;
+    }
+
+    /**
+     * Split PO item amount into:
+     * - ls: sum(Amount) where ItemUnit = 'Ls'
+     * - nonLs: sum(Amount) where ItemUnit != 'Ls'
+     */
+    private static function getPOItemAmountSplitByUnit(string $poNumber): array
+    {
+        $result = ['ls' => 0.0, 'nonLs' => 0.0];
+        if (!Schema::hasTable('trxPROPurchaseOrderItem')) {
+            return $result;
+        }
+
+        $query = DB::table('trxPROPurchaseOrderItem')
+            ->where('trxPROPurchaseOrderNumber', $poNumber);
+        if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+            $query->where('IsActive', true);
+        }
+
+        $items = $query->get(['ItemUnit', 'Amount']);
+        foreach ($items as $item) {
+            $unit = strtolower(trim((string) ($item->ItemUnit ?? '')));
+            $amount = (float) ($item->Amount ?? 0);
+            if ($unit === 'ls') {
+                $result['ls'] += $amount;
+            } else {
+                $result['nonLs'] += $amount;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build amount map for Period amortization rows based on PO items.
+     * Rule:
+     * - Period 1 = total Amount where ItemUnit = 'Ls'
+     * - Period 2..N = recurring non-Ls = sum(Amount) for non-Ls items
+     * - If no Ls item, fallback all periods to defaultAmount
+     */
+    private static function buildPeriodAmountsFromPOItems(string $poNumber, int $periodCount, float $defaultAmount): array
+    {
+        $result = [];
+        if ($periodCount <= 0) {
+            return $result;
+        }
+
+        if (!Schema::hasTable('trxPROPurchaseOrderItem')) {
+            for ($i = 1; $i <= $periodCount; $i++) {
+                $result[$i] = $defaultAmount;
+            }
+            return $result;
+        }
+
+        $query = DB::table('trxPROPurchaseOrderItem')
+            ->where('trxPROPurchaseOrderNumber', $poNumber);
+        if (Schema::hasColumn('trxPROPurchaseOrderItem', 'IsActive')) {
+            $query->where('IsActive', true);
+        }
+        $items = $query->get(['ItemUnit', 'ItemQty', 'Amount']);
+
+        $lsTotal = 0.0;
+        $nonLsRecurring = 0.0;
+        foreach ($items as $item) {
+            $unit = strtolower(trim((string) ($item->ItemUnit ?? '')));
+            $amount = (float) ($item->Amount ?? 0);
+            if ($unit === 'ls') {
+                $lsTotal += $amount;
+            } else {
+                $nonLsRecurring += $amount;
+            }
+        }
+
+        if ($lsTotal <= 0) {
+            for ($i = 1; $i <= $periodCount; $i++) {
+                $result[$i] = $defaultAmount;
+            }
+            return $result;
+        }
+
+        $result[1] = $lsTotal;
+        for ($i = 2; $i <= $periodCount; $i++) {
+            $result[$i] = $nonLsRecurring;
+        }
+        return $result;
     }
 }

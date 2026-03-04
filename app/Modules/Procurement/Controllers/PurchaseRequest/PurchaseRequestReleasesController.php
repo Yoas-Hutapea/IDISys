@@ -541,7 +541,7 @@ class PurchaseRequestReleasesController extends Controller
 
         $seqTOP = $this->resolveTopId($payload['TopType'] ?? '');
         $this->createPurchaseOrderAssignVendor($poNumber, $payload, $employeeId, $seqTOP);
-        $this->generateAmortizationSchedule($purchaseRequest, $poNumber, $totalAmount, $seqTOP, $employeeId);
+        $this->generateAmortizationSchedule($purchaseRequest, $poNumber, $totalAmount, $seqTOP, $employeeId, $prItems);
 
         return $poNumber;
     }
@@ -589,7 +589,14 @@ class PurchaseRequestReleasesController extends Controller
         DB::table('trxPROPurchaseOrderAssignVendor')->insert($this->filterDataByColumns('trxPROPurchaseOrderAssignVendor', $assignData));
     }
 
-    private function generateAmortizationSchedule(object $purchaseRequest, string $poNumber, float $poAmount, ?int $seqTOP, string $employeeId): void
+    private function generateAmortizationSchedule(
+        object $purchaseRequest,
+        string $poNumber,
+        float $poAmount,
+        ?int $seqTOP,
+        string $employeeId,
+        $prItems = null
+    ): void
     {
         if (!Schema::hasTable('trxPROPurchaseOrderAmortization')) {
             return;
@@ -649,15 +656,18 @@ class PurchaseRequestReleasesController extends Controller
                     $periodCount = (int) $prAdditional->Period;
 
                     $periods = $this->generatePeriodAmortizations($startPeriod, $endPeriod, $periodCount, (int) $totalMonthPeriod);
+                    $periodInvoiceAmounts = $this->buildPeriodInvoiceAmounts($prItems, count($periods), $poAmount);
                     foreach ($periods as $period) {
+                        $periodNumber = (int) ($period['PeriodNumber'] ?? 0);
+                        $periodInvoiceAmount = $periodInvoiceAmounts[$periodNumber] ?? $poAmount;
                         $amortData = [
                             'PurchaseOrderNumber' => $poNumber,
-                            'PeriodNumber' => $period['PeriodNumber'],
+                            'PeriodNumber' => $periodNumber,
                             'AmortizationType' => 'Period',
                             'TermValue' => 100,
                             'StartDate' => $period['StartDate'],
                             'EndDate' => $period['EndDate'],
-                            'InvoiceAmount' => $poAmount,
+                            'InvoiceAmount' => $periodInvoiceAmount,
                             'Status' => 'Available',
                             'IsCanceled' => false,
                             'CreatedBy' => $employeeId,
@@ -706,6 +716,58 @@ class PurchaseRequestReleasesController extends Controller
         }
 
         return $amortizations;
+    }
+
+    /**
+     * Build invoice amount per Period amortization row.
+     * Rule:
+     * - Period 1 = total Amount of PR items with ItemUnit = "Ls"
+     * - Period 2..N = recurring amount from non-Ls items (Amount summed)
+     * - Fallback to default amount when data is unavailable.
+     */
+    private function buildPeriodInvoiceAmounts($prItems, int $periodCount, float $defaultAmount): array
+    {
+        $amounts = [];
+        if ($periodCount <= 0) {
+            return $amounts;
+        }
+
+        if (!is_iterable($prItems)) {
+            for ($i = 1; $i <= $periodCount; $i++) {
+                $amounts[$i] = $defaultAmount;
+            }
+            return $amounts;
+        }
+
+        $lsTotal = 0.0;
+        $nonLsRecurring = 0.0;
+
+        foreach ($prItems as $item) {
+            $unit = strtolower(trim((string) ($item->ItemUnit ?? '')));
+            $amount = (float) ($item->Amount ?? 0);
+            if ($unit === 'ls') {
+                $lsTotal += $amount;
+                continue;
+            }
+            $nonLsRecurring += $amount;
+        }
+
+        // No special Ls item: keep existing behavior (all periods default to PO amount)
+        if ($lsTotal <= 0) {
+            for ($i = 1; $i <= $periodCount; $i++) {
+                $amounts[$i] = $defaultAmount;
+            }
+            return $amounts;
+        }
+
+        // Period 1 = Ls total, subsequent periods = recurring non-Ls
+        $amounts[1] = $lsTotal;
+        $recurringAmount = $nonLsRecurring > 0 ? $nonLsRecurring : $defaultAmount;
+        for ($i = 2; $i <= $periodCount; $i++) {
+            $amounts[$i] = $recurringAmount;
+        }
+
+        return $amounts;
     }
 
     /**

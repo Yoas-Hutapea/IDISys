@@ -1512,10 +1512,13 @@
                     }
                 }
 
-                // Auto-fill quantity with period value
+                // Auto-fill quantity:
+                // - Ls item is forced to 1 (handled above via forceQtyOne)
+                // - Non-Ls item follows (Period - 1), representing period 2..N
                 if (periodValue && !isNaN(periodValue) && periodValue > 0) {
-                    quantityField.value = this.formatNumberWithComma(periodValue, 3);
-                    console.log('Quantity auto-filled from period:', periodValue);
+                    const populatedQty = Math.max(periodValue - 1, 1);
+                    quantityField.value = this.formatNumberWithComma(populatedQty, 3);
+                    console.log('Quantity auto-filled from period (non-Ls uses period-1):', populatedQty);
 
                     // Remove validation error when quantity is auto-filled (even if disabled)
                     quantityField.classList.remove('is-invalid');
@@ -1598,8 +1601,10 @@
                     // Get current unit price (support both camelCase and PascalCase for compatibility)
                     const unitPrice = parseFloat(itemData.unitPrice || itemData.UnitPrice) || 0;
 
-                    // Update quantity with new period value
-                    const newQuantity = isLsUnit ? 1 : periodValue;
+                    // Update quantity rule:
+                    // - Ls item stays 1
+                    // - non-Ls item becomes (Period - 1) to represent period 2..N
+                    const newQuantity = isLsUnit ? 1 : Math.max(periodValue - 1, 1);
                     itemData.itemQty = newQuantity;
                     // Also update ItemQty for compatibility
                     if (itemData.ItemQty !== undefined) {
