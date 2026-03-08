@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
 
 class PurchaseRequestReceivesController extends Controller
 {
+    private array $employeeNameCache = [];
+
     public function grid(Request $request)
     {
         if (!$this->isProcurementUser()) {
@@ -310,6 +312,10 @@ class PurchaseRequestReceivesController extends Controller
             $pic = $row->updatedBy ?? null;
         }
 
+        $picDisplay = $this->resolveEmployeeDisplayName($pic);
+        $requestorDisplay = $this->resolveEmployeeDisplayName($row->requestor ?? null);
+        $applicantDisplay = $this->resolveEmployeeDisplayName($row->applicant ?? null);
+
         return [
             'purchReqNumber' => $row->purchReqNumber ?? null,
             'purchReqName' => $row->purchReqName ?? null,
@@ -317,13 +323,40 @@ class PurchaseRequestReceivesController extends Controller
             'purchReqSubType' => $row->purchaseRequestSubType ?? null,
             'approvalStatus' => $row->approvalStatus ?? null,
             'mstApprovalStatusID' => $row->mstApprovalStatusID ?? null,
-            'pic' => $pic,
+            'pic' => $picDisplay,
             'totalAmount' => $row->totalAmount ?? 0,
             'company' => $row->company ?? null,
-            'requestor' => $row->requestor ?? null,
-            'applicant' => $row->applicant ?? null,
+            'requestor' => $requestorDisplay,
+            'applicant' => $applicantDisplay,
             'createdDate' => $row->createdDate ?? null,
         ];
+    }
+
+    private function resolveEmployeeDisplayName(?string $employeeId): ?string
+    {
+        $employeeId = trim((string) $employeeId);
+        if ($employeeId === '' || $employeeId === '-') {
+            return $employeeId !== '' ? $employeeId : null;
+        }
+
+        if (str_contains($employeeId, ' ')) {
+            return $employeeId;
+        }
+
+        $cacheKey = strtolower($employeeId);
+        if (array_key_exists($cacheKey, $this->employeeNameCache)) {
+            return $this->employeeNameCache[$cacheKey] ?: $employeeId;
+        }
+
+        $employee = MstEmployee::query()
+            ->where('Employ_Id', $employeeId)
+            ->orWhere('Employ_Id_TBGSYS', $employeeId)
+            ->first();
+
+        $name = trim((string) ($employee->Employ_Name ?? $employee->EmployeeName ?? $employee->name ?? ''));
+        $this->employeeNameCache[$cacheKey] = $name;
+
+        return $name !== '' ? $name : $employeeId;
     }
 
     private function mapOrderColumn(?string $columnKey): ?string

@@ -1,7 +1,7 @@
 /**
- * GRN List API - list PO status 11 (Fully Approved), PO detail & items via Procurement, save via Inventory.
+ * GR Header List API - source data from trxInventoryGoodReceiveNoteHeader.
  */
-class GRNListAPI {
+class GRNHeaderListAPI {
     constructor() {
         this.sharedCache = window.procurementSharedCache || null;
         this.cache = new Map();
@@ -39,21 +39,6 @@ class GRNListAPI {
         } catch (e) {
             return [];
         }
-    }
-
-    async getPRDetails(prNumber) {
-        if (this.sharedCache && typeof this.sharedCache.getCachedData === 'function') {
-            const cacheKey = `prDetails_${prNumber}`;
-            return await this.sharedCache.getCachedData(cacheKey, async () => {
-                const res = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'GET');
-                return res.data || res;
-            });
-        }
-        const key = `prDetails_${prNumber}`;
-        return this.getCachedData(key, async () => {
-            const res = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'GET');
-            return res.data || res;
-        });
     }
 
     async getPRAdditional(prNumber) {
@@ -105,4 +90,4 @@ class GRNListAPI {
     }
 }
 
-if (typeof window !== 'undefined') window.GRNListAPI = GRNListAPI;
+if (typeof window !== 'undefined') window.GRNHeaderListAPI = GRNHeaderListAPI;

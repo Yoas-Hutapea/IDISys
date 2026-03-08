@@ -85,6 +85,10 @@ Route::get('/Procurement/PurchaseOrder/CancelPeriod', function () {
     return view('procurement.purchase_order.cancel_period.index');
 })->middleware('auth')->name('procurement.purchase_order.cancel_period.legacy');
 
+Route::get('/Inventory/GoodReceiveNotes/Create', function () {
+    return view('inventory.good_receive_notes.create.index');
+})->middleware('auth')->name('inventory.good_receive_notes.create');
+
 Route::get('/Inventory/GoodReceiveNotes/List', function () {
     return view('inventory.good_receive_notes.list.index');
 })->middleware('auth')->name('inventory.good_receive_notes.list');

@@ -18,8 +18,11 @@
                         <button type="button" class="btn btn-secondary" onclick="grnManager.backToList()">
                             <i class="icon-base bx bx-arrow-back me-1"></i>Cancel
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="grnManager.submitGRN()">
+                        <button type="button" class="btn btn-outline-primary" onclick="grnManager.saveGRN()">
                             <i class="icon-base bx bx-check me-1"></i>Save Good Receive Note
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="grnManager.submitFinalGRN()">
+                            <i class="icon-base bx bx-send me-1"></i>Submit Good Receive Note
                         </button>
                     </div>
                 </div>

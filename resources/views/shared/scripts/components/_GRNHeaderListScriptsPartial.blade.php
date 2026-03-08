@@ -1,8 +1,8 @@
 <script src="{{ asset('js/procurement/ProcurementSharedCache.js') }}"></script>
 <script src="{{ asset('js/procurement/ProcurementWizardUtils.js') }}"></script>
-<script src="{{ asset('js/inventory/GRNListAPI.js') }}"></script>
-<script src="{{ asset('js/inventory/GRNListFilter.js') }}"></script>
-<script src="{{ asset('js/inventory/GRNListTable.js') }}"></script>
+<script src="{{ asset('js/inventory/GRNHeaderListAPI.js') }}"></script>
+<script src="{{ asset('js/inventory/GRNHeaderListFilter.js') }}"></script>
+<script src="{{ asset('js/inventory/GRNHeaderListTable.js') }}"></script>
 <script src="{{ asset('js/inventory/GRNListView.js') }}"></script>
 <script>
 'use strict';
@@ -17,14 +17,14 @@ window.toggleGRNFilter = function() {
     chevron.classList.toggle('bx-chevron-up', show);
 };
 
-class GRNManager {
+class GRNHeaderManager {
     constructor() {
         this.dataTable = null;
         this.currentPONumber = null;
         this.allPurchaseTypes = null;
-        this.apiModule = typeof GRNListAPI !== 'undefined' ? new GRNListAPI() : null;
-        this.filterModule = typeof GRNListFilter !== 'undefined' ? new GRNListFilter(this) : null;
-        this.tableModule = typeof GRNListTable !== 'undefined' ? new GRNListTable(this) : null;
+        this.apiModule = typeof GRNHeaderListAPI !== 'undefined' ? new GRNHeaderListAPI() : null;
+        this.filterModule = typeof GRNHeaderListFilter !== 'undefined' ? new GRNHeaderListFilter(this) : null;
+        this.tableModule = typeof GRNHeaderListTable !== 'undefined' ? new GRNHeaderListTable(this) : null;
         this.viewModule = typeof GRNListView !== 'undefined' ? new GRNListView(this) : null;
         this.init();
     }
@@ -49,10 +49,6 @@ class GRNManager {
         if (this.viewModule && this.viewModule.backToList) this.viewModule.backToList();
     }
 
-    submitGRN() {
-        if (this.viewModule && this.viewModule.submitGRN) this.viewModule.submitGRN();
-    }
-
     saveGRN() {
         if (this.viewModule && this.viewModule.submitGRN) this.viewModule.submitGRN('save');
     }
@@ -63,6 +59,6 @@ class GRNManager {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    window.grnManager = new GRNManager();
+    window.grnManager = new GRNHeaderManager();
 });
 </script>

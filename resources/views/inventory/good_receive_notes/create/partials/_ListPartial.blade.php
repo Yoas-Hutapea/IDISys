@@ -1,4 +1,4 @@
-{{-- List Partial for Purchase Order List - thead & tbody rata tengah (sama seperti Approval PO) --}}
+{{-- List PO dengan mstApprovalStatusID = 11 (Fully Approved). Grid sama seperti Approval PO, tanpa checkbox. Thead & tbody rata tengah. --}}
 <div class="list-partial-content">
     <div class="table-responsive">
         <style>
@@ -33,7 +33,7 @@
                 min-width: 120px;
                 text-align: center !important;
             }
-            /* Purchase Order Name, Purchase Type, Purchase Sub Type, Status, PO Amount, PO Date, PR Number, Vendor Name, Company, PO Author, PR Requestor - center */
+            /* Purchase Order Name, Purchase Type, Purchase Sub Type, PO Amount, PO Date, PR Number, Vendor Name, Company - center */
             .list-partial-content .table th:nth-child(3),
             .list-partial-content .table td:nth-child(3),
             .list-partial-content .table th:nth-child(4),
@@ -50,12 +50,6 @@
             .list-partial-content .table td:nth-child(9),
             .list-partial-content .table th:nth-child(10),
             .list-partial-content .table td:nth-child(10),
-            .list-partial-content .table th:nth-child(11),
-            .list-partial-content .table td:nth-child(11),
-            .list-partial-content .table th:nth-child(12),
-            .list-partial-content .table td:nth-child(12),
-            .list-partial-content .table th:nth-child(13),
-            .list-partial-content .table td:nth-child(13),
             .list-partial-content .dataTables_scrollHead .table th:nth-child(3),
             .list-partial-content .dataTables_scrollHead .table th:nth-child(4),
             .list-partial-content .dataTables_scrollHead .table th:nth-child(5),
@@ -64,9 +58,6 @@
             .list-partial-content .dataTables_scrollHead .table th:nth-child(8),
             .list-partial-content .dataTables_scrollHead .table th:nth-child(9),
             .list-partial-content .dataTables_scrollHead .table th:nth-child(10),
-            .list-partial-content .dataTables_scrollHead .table th:nth-child(11),
-            .list-partial-content .dataTables_scrollHead .table th:nth-child(12),
-            .list-partial-content .dataTables_scrollHead .table th:nth-child(13),
             .list-partial-content .dataTables_scrollBody .table td:nth-child(3),
             .list-partial-content .dataTables_scrollBody .table td:nth-child(4),
             .list-partial-content .dataTables_scrollBody .table td:nth-child(5),
@@ -74,19 +65,10 @@
             .list-partial-content .dataTables_scrollBody .table td:nth-child(7),
             .list-partial-content .dataTables_scrollBody .table td:nth-child(8),
             .list-partial-content .dataTables_scrollBody .table td:nth-child(9),
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(10),
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(11),
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(12),
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(13) {
+            .list-partial-content .dataTables_scrollBody .table td:nth-child(10) {
                 text-align: center !important;
             }
-            /* PO Author (kolom 12) & PR Requestor (kolom 13) - employee-name center */
-            .list-partial-content .table td:nth-child(12) .employee-name,
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(12) .employee-name,
-            .list-partial-content .table td:nth-child(13) .employee-name,
-            .list-partial-content .dataTables_scrollBody .table td:nth-child(13) .employee-name {
-                text-align: center !important;
-            }
+            /* employee-name jika ada (konsisten dengan PR List) */
             .list-partial-content .table td .employee-name,
             .list-partial-content .dataTables_scrollBody .table td .employee-name {
                 display: inline-block;
@@ -96,9 +78,10 @@
                 overflow: visible;
                 text-overflow: clip;
                 margin: 0 auto;
+                text-align: center !important;
             }
         </style>
-        <table class="table table-striped table-hover list-partial-table" id="poTable">
+        <table class="table table-striped table-hover list-partial-table" id="grnPOTable">
             <thead class="table-light dark:table-dark">
                 <tr>
                     <th width="120">Action</th>
@@ -106,19 +89,16 @@
                     <th>Purchase Order Name</th>
                     <th>Purchase Type</th>
                     <th>Purchase Sub Type</th>
-                    <th>Status</th>
                     <th>PO Amount</th>
                     <th>PO Date</th>
                     <th>PR Number</th>
                     <th>Vendor Name</th>
                     <th>Company</th>
-                    <th>PO Author</th>
-                    <th>PR Requestor</th>
                 </tr>
             </thead>
-            <tbody id="poTableBody">
+            <tbody id="grnPOTableBody">
                 <tr>
-                    <td colspan="13" class="text-center py-4 align-middle">
+                    <td colspan="10" class="text-center py-4 align-middle">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
@@ -127,31 +107,5 @@
                 </tr>
             </tbody>
         </table>
-    </div>
-</div>
-
-{{-- Modal preview dokumen PO (sama seperti Confirm PO Supporting Documents) --}}
-<div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-labelledby="documentPreviewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-fullscreen-md-down">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="documentPreviewModalLabel">
-                    <span id="documentPreviewFilename">Preview Document</span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body py-3 px-3">
-                <div style="height:70vh;">
-                    <iframe id="documentPreviewFrame" src="" style="width:100%;height:100%;border:0;" frameborder="0"></iframe>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary d-flex align-items-center" id="documentPreviewDownloadBtn" onclick="documentPreviewDownloadBtnClick()">
-                    <i class="bx bx-download me-2"></i>
-                    <span>Download</span>
-                </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
     </div>
 </div>

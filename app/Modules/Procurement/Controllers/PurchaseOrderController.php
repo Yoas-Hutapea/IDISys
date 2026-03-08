@@ -5,6 +5,7 @@ namespace App\Modules\Procurement\Controllers;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendPOReleasedEmailJob;
 use App\Mail\POReleasedNotificationMail;
+use App\Models\MstEmployee;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,8 @@ use App\Services\PurchaseOrderAmortizationService;
 
 class PurchaseOrderController extends Controller
 {
+    private array $employeeNameCache = [];
+
     public function downloadDocument(Request $request)
     {
         $paramEncrypted = (string) $request->query('paramEncrypted', '');
@@ -1511,11 +1514,14 @@ class PurchaseOrderController extends Controller
             $query->whereIn('po.mstApprovalStatusID', $allowedStatuses);
 
             if (in_array(8, $allowedStatuses, true) || in_array(12, $allowedStatuses, true)) {
-                $userIds = $this->getCurrentUserIdentifiers();
+                $userIds = $this->getCurrentUserScopeIds();
                 if (empty($userIds)) {
                     return $query->whereRaw('1 = 0');
                 }
-                $query->whereIn('po.CreatedBy', $userIds);
+                $query->where(function ($scopeQuery) use ($userIds) {
+                    $scopeQuery->whereIn('po.CreatedBy', $userIds)
+                        ->orWhereIn('po.PurchaseRequestRequestor', $userIds);
+                });
             }
         }
 
@@ -1524,6 +1530,15 @@ class PurchaseOrderController extends Controller
 
     private function applyFilters($query, Request $request)
     {
+        $allowedUserIds = $this->getCurrentUserScopeIds();
+        if (empty($allowedUserIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+        $query->where(function ($scopeQuery) use ($allowedUserIds) {
+            $scopeQuery->whereIn('po.CreatedBy', $allowedUserIds)
+                ->orWhereIn('po.PurchaseRequestRequestor', $allowedUserIds);
+        });
+
         $poNumber = $request->input('poNumber');
         $prNumber = $request->input('prNumber');
         $purchType = $request->input('purchType');
@@ -1568,6 +1583,8 @@ class PurchaseOrderController extends Controller
     private function mapRow($row): array
     {
         $subType = $row->purchaseSubTypeName ?? $row->purchSubType ?? null;
+        $poAuthorDisplay = $this->resolveEmployeeDisplayName($row->poAuthor ?? null);
+        $prRequestorDisplay = $this->resolveEmployeeDisplayName($row->prRequestor ?? null);
 
         return [
             'id' => $row->id ?? null,
@@ -1582,8 +1599,8 @@ class PurchaseOrderController extends Controller
             'prNumber' => $row->prNumber ?? null,
             'mstVendorVendorName' => $row->mstVendorVendorName ?? null,
             'companyName' => $row->companyName ?? null,
-            'poAuthor' => $row->poAuthor ?? null,
-            'prRequestor' => $row->prRequestor ?? null,
+            'poAuthor' => $poAuthorDisplay,
+            'prRequestor' => $prRequestorDisplay,
         ];
     }
 
@@ -1762,6 +1779,92 @@ class PurchaseOrderController extends Controller
         }
 
         return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
+    }
+
+    private function getCurrentUserScopeIds(): array
+    {
+        $seedIds = $this->getCurrentUserIdentifiers();
+        if (empty($seedIds)) {
+            return [];
+        }
+
+        return $this->getRecursiveSubordinateIds($seedIds);
+    }
+
+    private function getRecursiveSubordinateIds(array $seedIds): array
+    {
+        $result = [];
+        $queue = [];
+        $visited = [];
+
+        foreach ($seedIds as $id) {
+            $normalized = trim((string) $id);
+            if ($normalized === '') {
+                continue;
+            }
+
+            $key = strtolower($normalized);
+            if (!isset($visited[$key])) {
+                $visited[$key] = true;
+                $queue[] = $normalized;
+                $result[] = $normalized;
+            }
+        }
+
+        while (!empty($queue)) {
+            $batch = array_splice($queue, 0, 50);
+
+            $subs = MstEmployee::query()
+                ->whereIn('Report_Code', $batch)
+                ->get(['Employ_Id', 'Employ_Id_TBGSYS']);
+
+            foreach ($subs as $sub) {
+                foreach ([$sub->Employ_Id ?? null, $sub->Employ_Id_TBGSYS ?? null] as $candidate) {
+                    $candidate = trim((string) $candidate);
+                    if ($candidate === '') {
+                        continue;
+                    }
+
+                    $key = strtolower($candidate);
+                    if (isset($visited[$key])) {
+                        continue;
+                    }
+
+                    $visited[$key] = true;
+                    $result[] = $candidate;
+                    $queue[] = $candidate;
+                }
+            }
+        }
+
+        return array_values(array_unique($result));
+    }
+
+    private function resolveEmployeeDisplayName(?string $employeeId): ?string
+    {
+        $employeeId = trim((string) $employeeId);
+        if ($employeeId === '' || $employeeId === '-') {
+            return $employeeId !== '' ? $employeeId : null;
+        }
+
+        if (str_contains($employeeId, ' ')) {
+            return $employeeId;
+        }
+
+        $cacheKey = strtolower($employeeId);
+        if (array_key_exists($cacheKey, $this->employeeNameCache)) {
+            return $this->employeeNameCache[$cacheKey] ?: $employeeId;
+        }
+
+        $employee = MstEmployee::query()
+            ->where('Employ_Id', $employeeId)
+            ->orWhere('Employ_Id_TBGSYS', $employeeId)
+            ->first();
+
+        $name = trim((string) ($employee->Employ_Name ?? $employee->EmployeeName ?? $employee->name ?? ''));
+        $this->employeeNameCache[$cacheKey] = $name;
+
+        return $name !== '' ? $name : $employeeId;
     }
 
     private function safeFormatDate($value, string $format): ?string

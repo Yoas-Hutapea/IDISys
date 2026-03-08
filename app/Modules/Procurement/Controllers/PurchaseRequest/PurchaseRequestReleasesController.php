@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Schema;
 
 class PurchaseRequestReleasesController extends Controller
 {
+    private array $employeeNameCache = [];
+
     public function grid(Request $request)
     {
         $draw = (int) $request->input('draw', 0);
@@ -388,13 +390,40 @@ class PurchaseRequestReleasesController extends Controller
             'purchReqSubType' => $row->purchaseRequestSubType ?? null,
             'approvalStatus' => $row->approvalStatus ?? null,
             'mstApprovalStatusID' => $row->mstApprovalStatusID ?? null,
-            'pic' => $row->updatedBy ?? null,
+            'pic' => $this->resolveEmployeeDisplayName($row->updatedBy ?? null),
             'totalAmount' => $row->totalAmount ?? 0,
             'company' => $row->company ?? null,
-            'requestor' => $row->requestor ?? null,
-            'applicant' => $row->applicant ?? null,
+            'requestor' => $this->resolveEmployeeDisplayName($row->requestor ?? null),
+            'applicant' => $this->resolveEmployeeDisplayName($row->applicant ?? null),
             'createdDate' => $row->createdDate ?? null,
         ];
+    }
+
+    private function resolveEmployeeDisplayName(?string $employeeId): ?string
+    {
+        $employeeId = trim((string) $employeeId);
+        if ($employeeId === '' || $employeeId === '-') {
+            return $employeeId !== '' ? $employeeId : null;
+        }
+
+        if (str_contains($employeeId, ' ')) {
+            return $employeeId;
+        }
+
+        $cacheKey = strtolower($employeeId);
+        if (array_key_exists($cacheKey, $this->employeeNameCache)) {
+            return $this->employeeNameCache[$cacheKey] ?: $employeeId;
+        }
+
+        $employee = MstEmployee::query()
+            ->where('Employ_Id', $employeeId)
+            ->orWhere('Employ_Id_TBGSYS', $employeeId)
+            ->first();
+
+        $name = trim((string) ($employee->Employ_Name ?? $employee->EmployeeName ?? $employee->name ?? ''));
+        $this->employeeNameCache[$cacheKey] = $name;
+
+        return $name !== '' ? $name : $employeeId;
     }
 
     private function mapOrderColumn(?string $columnKey): ?string

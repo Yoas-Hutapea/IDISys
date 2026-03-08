@@ -7,6 +7,7 @@ Route::middleware(['web', 'auth'])
     ->prefix('Inventory')
     ->group(function () {
         Route::post('/GoodReceiveNotes/Save', [GoodReceiveNotesController::class, 'save']);
+        Route::post('/GoodReceiveNotes/Headers/Grid', [GoodReceiveNotesController::class, 'headersGrid']);
         Route::get('/GoodReceiveNotes/Lines/{poNumber}', [GoodReceiveNotesController::class, 'lines'])
             ->where('poNumber', '.*');
         Route::get('/GoodReceiveNotes/ItemsForInvoice/{poNumber}', [GoodReceiveNotesController::class, 'itemsForInvoice'])

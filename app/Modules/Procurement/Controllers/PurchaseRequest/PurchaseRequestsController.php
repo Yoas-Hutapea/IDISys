@@ -14,6 +14,8 @@ use Illuminate\Support\Str;
 
 class PurchaseRequestsController extends Controller
 {
+    private array $employeeNameCache = [];
+
     public function __construct(private readonly DocumentCounterService $documentCounter)
     {
     }
@@ -737,6 +739,10 @@ class PurchaseRequestsController extends Controller
             $pic = $row->approvedBy ?? $row->confirmedBy ?? null;
         }
 
+        $picDisplay = $this->resolveEmployeeDisplayName($pic);
+        $requestorDisplay = $this->resolveEmployeeDisplayName($row->requestor ?? null);
+        $applicantDisplay = $this->resolveEmployeeDisplayName($row->applicant ?? null);
+
         return [
             'purchReqNumber' => $row->purchReqNumber ?? null,
             'purchReqName' => $row->purchReqName ?? null,
@@ -744,13 +750,40 @@ class PurchaseRequestsController extends Controller
             'purchReqSubType' => $row->purchaseRequestSubType ?? null,
             'approvalStatus' => $row->approvalStatus ?? null,
             'mstApprovalStatusID' => $row->mstApprovalStatusID ?? null,
-            'pic' => $pic,
+            'pic' => $picDisplay,
             'totalAmount' => $row->totalAmount ?? 0,
             'company' => $row->company ?? null,
-            'requestor' => $row->requestor ?? null,
-            'applicant' => $row->applicant ?? null,
+            'requestor' => $requestorDisplay,
+            'applicant' => $applicantDisplay,
             'createdDate' => $row->createdDate ?? null,
         ];
+    }
+
+    private function resolveEmployeeDisplayName(?string $employeeId): ?string
+    {
+        $employeeId = trim((string) $employeeId);
+        if ($employeeId === '' || $employeeId === '-') {
+            return $employeeId !== '' ? $employeeId : null;
+        }
+
+        if (str_contains($employeeId, ' ')) {
+            return $employeeId;
+        }
+
+        $cacheKey = strtolower($employeeId);
+        if (array_key_exists($cacheKey, $this->employeeNameCache)) {
+            return $this->employeeNameCache[$cacheKey] ?: $employeeId;
+        }
+
+        $employee = MstEmployee::query()
+            ->where('Employ_Id', $employeeId)
+            ->orWhere('Employ_Id_TBGSYS', $employeeId)
+            ->first();
+
+        $name = trim((string) ($employee->Employ_Name ?? $employee->EmployeeName ?? $employee->name ?? ''));
+        $this->employeeNameCache[$cacheKey] = $name;
+
+        return $name !== '' ? $name : $employeeId;
     }
 
     private function mapOrderColumn(?string $columnKey): ?string
@@ -880,25 +913,55 @@ class PurchaseRequestsController extends Controller
             return [];
         }
 
-        $departmentHeadId = $this->getDepartmentHeadEmployeeId();
-        if ($departmentHeadId === null) {
-            return $currentIds;
+        return $this->getRecursiveSubordinateIds($currentIds);
+    }
+
+    private function getRecursiveSubordinateIds(array $seedIds): array
+    {
+        $result = [];
+        $queue = [];
+        $visited = [];
+
+        foreach ($seedIds as $id) {
+            $normalized = trim((string) $id);
+            if ($normalized === '') {
+                continue;
+            }
+
+            $key = strtolower($normalized);
+            if (!isset($visited[$key])) {
+                $visited[$key] = true;
+                $queue[] = $normalized;
+                $result[] = $normalized;
+            }
         }
 
-        $subordinates = MstEmployee::query()
-            ->where('Report_Code', $departmentHeadId)
-            ->get();
+        while (!empty($queue)) {
+            $batch = array_splice($queue, 0, 50);
 
-        $ids = $currentIds;
-        foreach ($subordinates as $sub) {
-            if (!empty($sub->Employ_Id)) {
-                $ids[] = $sub->Employ_Id;
-            }
-            if (!empty($sub->Employ_Id_TBGSYS)) {
-                $ids[] = $sub->Employ_Id_TBGSYS;
+            $subs = MstEmployee::query()
+                ->whereIn('Report_Code', $batch)
+                ->get(['Employ_Id', 'Employ_Id_TBGSYS']);
+
+            foreach ($subs as $sub) {
+                foreach ([$sub->Employ_Id ?? null, $sub->Employ_Id_TBGSYS ?? null] as $candidate) {
+                    $candidate = trim((string) $candidate);
+                    if ($candidate === '') {
+                        continue;
+                    }
+
+                    $key = strtolower($candidate);
+                    if (isset($visited[$key])) {
+                        continue;
+                    }
+
+                    $visited[$key] = true;
+                    $result[] = $candidate;
+                    $queue[] = $candidate;
+                }
             }
         }
 
-        return array_values(array_unique($ids));
+        return array_values(array_unique($result));
     }
 }

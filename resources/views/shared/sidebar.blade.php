@@ -145,8 +145,13 @@
             </a>
             <ul class="menu-sub">
                 <li class="menu-item">
+                    <a href="/Inventory/GoodReceiveNotes/Create" class="menu-link">
+                        <div data-i18n="Create GR Notes">Create GR Notes</div>
+                    </a>
+                </li>
+                <li class="menu-item">
                     <a href="/Inventory/GoodReceiveNotes/List" class="menu-link">
-                        <div data-i18n="Good Receive Notes">Good Receive Notes</div>
+                        <div data-i18n="List GR">List GR</div>
                     </a>
                 </li>
             </ul>

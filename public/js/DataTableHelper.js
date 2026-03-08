@@ -216,7 +216,25 @@ function CreateTable({
         },
         // DataTables Buttons extension - Excel only
         buttons: [
-            'excel'
+            {
+                extend: 'excel',
+                exportOptions: {
+                    columns: function (idx, data, node) {
+                        if (!node) return true;
+                        const className = (node.className || '').toString();
+                        const titleText = (node.textContent || '').trim().toLowerCase();
+                        if (className.includes('no-export')) return false;
+                        if (titleText === 'action') return false;
+                        return true;
+                    },
+                    format: {
+                        body: function (data) {
+                            if (data == null) return '';
+                            return String(data).replace(/<[^>]*>/g, '').trim();
+                        }
+                    }
+                }
+            }
         ],
         ajax: serverSide ? {
             url: fullUrl,
@@ -478,9 +496,10 @@ function ColumnBuilder(cols) {
 
             case 'actions':
                 return {
-                    data: 'actions',
+                    data: null,
                     orderable: false,
                     searchable: false,
+                    className: 'no-export',
                     render: (data, type, row) => {
                         const buttons = col.buttons.map(btn => {
                             const visible = btn.showIf ? btn.showIf(row) : true;

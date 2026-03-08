@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'List GR')
+@section('title', 'Good Receive Notes')
 
 @section('styles')
     <style>
@@ -62,7 +62,7 @@
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center py-3 mb-4">
                     <h5 class="fw-bold mb-0">
-                        <span class="text-muted fw-light">Inventory /</span> List GR
+                        <span class="text-muted fw-light">Inventory /</span> Good Receive Notes
                     </h5>
                 </div>
             </div>
@@ -74,20 +74,22 @@
                 <i class="icon-base bx bx-chevron-down" id="grn-filter-chevron"></i>
             </header>
             <div class="filter-content" id="grn-filter-content">
-                @include('inventory.good_receive_notes.list.partials._FilterPartial')
+                @include('inventory.good_receive_notes.create.partials._FilterPartial')
             </div>
         </section>
 
         <section class="list-section" id="grnListSection">
             <header class="list-header">
-                <h5 id="grn-list-heading" class="fw-semibold mb-0">List Good Receive Note Header</h5>
+                <h5 id="grn-list-heading" class="fw-semibold mb-0">
+                    List Purchase Order (Fully Approved)<span id="grnDateRangeInfo" class="text-muted ms-2" style="font-size: 0.9em;"></span>
+                </h5>
                 <div class="d-flex align-items-center gap-3">
-                    <button class="btn btn-success" id="grnHeaderExportExcelBtn" onclick="exportExcel('#grnHeaderTable')" title="Export to Excel">
+                    <button class="btn btn-success" id="grnExportExcelBtn" onclick="exportExcel('#grnPOTable')" title="Export to Excel">
                         <i class="icon-base bx bx-file me-1"></i>Excel
                     </button>
                 </div>
             </header>
-            @include('inventory.good_receive_notes.list.partials._ListPartial')
+            @include('inventory.good_receive_notes.create.partials._ListPartial')
         </section>
 
         <section class="list-section" id="viewGRNSection" style="display: none;">
@@ -107,5 +109,5 @@
 @endsection
 
 @section('scripts')
-    @include('shared.scripts.components._GRNHeaderListScriptsPartial')
+    @include('shared.scripts.components._GRNListScriptsPartial')
 @endsection

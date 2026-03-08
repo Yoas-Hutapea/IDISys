@@ -407,7 +407,7 @@ class GRNListView {
         document.getElementById('grn-amount-total').value = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0 }).format(total);
     }
 
-    async submitGRN() {
+    async submitGRN(action = 'save') {
         if (!this.currentPONumber) return;
         const tbody = document.getElementById('grn-items-tbody');
         const fmtNum = n => new Intl.NumberFormat('id-ID').format(Number(n) || 0);
@@ -437,14 +437,17 @@ class GRNListView {
         });
 
         try {
-            const res = await this.manager.apiModule.saveGRN(this.currentPONumber, lines);
+            const res = await this.manager.apiModule.saveGRN(this.currentPONumber, lines, action);
             if (res && res.success !== false) {
+                const isSubmit = String(action).toLowerCase() === 'submit';
+                const title = isSubmit ? 'Submitted' : 'Saved';
+                const text = isSubmit ? 'Good Receive Note submitted.' : 'Good Receive Note saved.';
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'success', title: 'Saved', text: 'Good Receive Note saved.', timer: 2000, showConfirmButton: false }).then(() => {
+                    Swal.fire({ icon: 'success', title, text, timer: 2000, showConfirmButton: false }).then(() => {
                         this.backToList();
                     });
                 } else {
-                    alert('Good Receive Note saved.');
+                    alert(text);
                     this.backToList();
                 }
             } else {

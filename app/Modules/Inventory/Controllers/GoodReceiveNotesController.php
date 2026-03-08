@@ -4,7 +4,9 @@ namespace App\Modules\Inventory\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\TrxInventoryGoodReceiveNote;
+use App\Models\TrxInventoryGoodReceiveNoteHeader;
 use App\Services\BaseService;
+use App\Services\DocumentCounterService;
 use App\Services\PurchaseOrderAmortizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +20,15 @@ use Illuminate\Support\Facades\Auth;
 class GoodReceiveNotesController extends Controller
 {
     private const TABLE_NAME = 'trxInventoryGoodReceiveNote';
+    private const HEADER_TABLE_NAME = 'trxInventoryGoodReceiveNoteHeader';
 
     private BaseService $grnService;
+    private BaseService $grnHeaderService;
 
-    public function __construct()
+    public function __construct(private readonly DocumentCounterService $documentCounter)
     {
         $this->grnService = new BaseService(new TrxInventoryGoodReceiveNote);
+        $this->grnHeaderService = new BaseService(new TrxInventoryGoodReceiveNoteHeader);
     }
 
     /**
@@ -35,9 +40,17 @@ class GoodReceiveNotesController extends Controller
         if (!Schema::hasTable(self::TABLE_NAME)) {
             return response()->json(['success' => false, 'message' => 'Table ' . self::TABLE_NAME . ' not found.'], 500);
         }
+        if (!Schema::hasTable(self::HEADER_TABLE_NAME)) {
+            return response()->json(['success' => false, 'message' => 'Table ' . self::HEADER_TABLE_NAME . ' not found.'], 500);
+        }
 
         $poNumber = trim((string) $request->input('poNumber', ''));
         $lines = $request->input('lines', []);
+        $action = strtolower(trim((string) $request->input('action', 'save')));
+        if (!in_array($action, ['save', 'submit'], true)) {
+            $action = 'save';
+        }
+        $headerRemark = trim((string) $request->input('remark', ''));
 
         if ($poNumber === '') {
             return response()->json(['success' => false, 'message' => 'PO Number is required.'], 422);
@@ -62,53 +75,65 @@ class GoodReceiveNotesController extends Controller
             }
         }
 
-        foreach ($lines as $line) {
-            $itemId = trim((string) ($line['mstPROPurchaseItemInventoryItemID'] ?? $line['itemId'] ?? ''));
-            if ($itemId === '' || !isset($itemMap[$itemId])) {
-                continue;
-            }
+        try {
+            [$header, $savedLineCount] = DB::transaction(function () use ($poNumber, $lines, $itemMap, $userId, $headerRemark) {
+                $header = $this->createOrUpdateHeader($poNumber, $headerRemark, $lines, $userId);
+                $savedLineCount = 0;
 
-            $item = $itemMap[$itemId];
-            $actualReceived = isset($line['actualReceived']) ? (float) $line['actualReceived'] : (float) ($item->ItemQty ?? 0);
-            $unitPrice = (float) ($item->UnitPrice ?? $item->unitPrice ?? 0);
-            $amount = $actualReceived * $unitPrice;
-            $remark = trim((string) ($line['remark'] ?? $line['Remark'] ?? ''));
-            $tanggalTerima = $line['tanggalTerima'] ?? $line['TanggalTerima'] ?? null;
-            if ($tanggalTerima !== null && $tanggalTerima !== '') {
-                try {
-                    $tanggalTerima = \Illuminate\Support\Carbon::parse($tanggalTerima)->format('Y-m-d H:i:s');
-                } catch (\Throwable $e) {
-                    $tanggalTerima = null;
+                foreach ($lines as $line) {
+                    $itemId = trim((string) ($line['mstPROPurchaseItemInventoryItemID'] ?? $line['itemId'] ?? ''));
+                    if ($itemId === '' || !isset($itemMap[$itemId])) {
+                        continue;
+                    }
+
+                    $item = $itemMap[$itemId];
+                    $actualReceived = isset($line['actualReceived']) ? (float) $line['actualReceived'] : (float) ($item->ItemQty ?? 0);
+                    $unitPrice = (float) ($item->UnitPrice ?? $item->unitPrice ?? 0);
+                    $amount = $actualReceived * $unitPrice;
+                    $remark = trim((string) ($line['remark'] ?? $line['Remark'] ?? ''));
+                    $tanggalTerima = $line['tanggalTerima'] ?? $line['TanggalTerima'] ?? null;
+                    if ($tanggalTerima !== null && $tanggalTerima !== '') {
+                        try {
+                            $tanggalTerima = \Illuminate\Support\Carbon::parse($tanggalTerima)->format('Y-m-d H:i:s');
+                        } catch (\Throwable $e) {
+                            $tanggalTerima = null;
+                        }
+                    } else {
+                        $tanggalTerima = null;
+                    }
+
+                    $data = [
+                        'trxPROPurchaseOrderNumber' => $poNumber,
+                        'mstPROPurchaseItemInventoryItemID' => $itemId,
+                        'ItemName' => $item->ItemName ?? $item->itemName ?? null,
+                        'ItemDescription' => $item->ItemDescription ?? $item->itemDescription ?? null,
+                        'ItemUnit' => $item->ItemUnit ?? $item->itemUnit ?? null,
+                        'ItemQty' => $item->ItemQty ?? $item->itemQty ?? 0,
+                        'ActualReceived' => $actualReceived,
+                        'CurrencyCode' => $item->CurrencyCode ?? $item->currencyCode ?? null,
+                        'UnitPrice' => $unitPrice,
+                        'Amount' => $amount,
+                        'Remark' => $remark,
+                        'TanggalTerima' => $tanggalTerima,
+                    ];
+
+                    $existing = TrxInventoryGoodReceiveNote::query()
+                        ->where('trxPROPurchaseOrderNumber', $poNumber)
+                        ->where('mstPROPurchaseItemInventoryItemID', $itemId)
+                        ->first();
+
+                    if ($existing) {
+                        $this->grnService->update($existing, $data, $userId);
+                    } else {
+                        $this->grnService->create($data, $userId);
+                    }
+                    $savedLineCount++;
                 }
-            } else {
-                $tanggalTerima = null;
-            }
-
-            $data = [
-                'trxPROPurchaseOrderNumber' => $poNumber,
-                'mstPROPurchaseItemInventoryItemID' => $itemId,
-                'ItemName' => $item->ItemName ?? $item->itemName ?? null,
-                'ItemDescription' => $item->ItemDescription ?? $item->itemDescription ?? null,
-                'ItemUnit' => $item->ItemUnit ?? $item->itemUnit ?? null,
-                'ItemQty' => $item->ItemQty ?? $item->itemQty ?? 0,
-                'ActualReceived' => $actualReceived,
-                'CurrencyCode' => $item->CurrencyCode ?? $item->currencyCode ?? null,
-                'UnitPrice' => $unitPrice,
-                'Amount' => $amount,
-                'Remark' => $remark,
-                'TanggalTerima' => $tanggalTerima,
-            ];
-
-            $existing = TrxInventoryGoodReceiveNote::query()
-                ->where('trxPROPurchaseOrderNumber', $poNumber)
-                ->where('mstPROPurchaseItemInventoryItemID', $itemId)
-                ->first();
-
-            if ($existing) {
-                $this->grnService->update($existing, $data, $userId);
-            } else {
-                $this->grnService->create($data, $userId);
-            }
+                return [$header, $savedLineCount];
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'Failed to save Good Receive Note.'], 500);
         }
 
         try {
@@ -118,7 +143,77 @@ class GoodReceiveNotesController extends Controller
             report($e);
         }
 
-        return response()->json(['success' => true, 'message' => 'Good Receive Note saved.']);
+        return response()->json([
+            'success' => true,
+            'message' => $action === 'submit' ? 'Good Receive Note submitted.' : 'Good Receive Note saved.',
+            'goodReceiveNoteNumber' => $header->GoodReceiveNoteNumber ?? null,
+            'savedLines' => $savedLineCount,
+        ]);
+    }
+
+    public function headersGrid(Request $request)
+    {
+        if (!Schema::hasTable(self::HEADER_TABLE_NAME)) {
+            return response()->json([
+                'draw' => (int) $request->input('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
+
+        $draw = (int) $request->input('draw', 0);
+        $start = (int) ($request->input('start', 0));
+        $length = (int) ($request->input('length', 10));
+
+        $baseQuery = DB::table(self::HEADER_TABLE_NAME . ' as h')
+            ->select([
+                'h.ID as id',
+                'h.GoodReceiveNoteNumber as goodReceiveNoteNumber',
+                'h.trxPROPurchaseOrderNumber as poNumber',
+                'h.Remark as remark',
+                'h.CreatedBy as createdBy',
+                'h.CreatedDate as createdDate',
+                'h.UpdatedBy as updatedBy',
+                'h.UpdatedDate as updatedDate',
+            ]);
+
+        if (Schema::hasColumn(self::HEADER_TABLE_NAME, 'IsActive')) {
+            $baseQuery->where('h.IsActive', true);
+        }
+
+        $recordsTotal = (clone $baseQuery)->count('h.ID');
+
+        $filteredQuery = $this->applyHeaderGridFilters($baseQuery, $request);
+        $recordsFiltered = (clone $filteredQuery)->count('h.ID');
+
+        $order = $request->input('order.0', []);
+        $columns = $request->input('columns', []);
+        $orderColumnIndex = $order['column'] ?? null;
+        $orderDir = strtolower((string) ($order['dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($orderColumnIndex !== null && isset($columns[$orderColumnIndex]['data'])) {
+            $orderColumn = $this->mapHeaderOrderColumn((string) $columns[$orderColumnIndex]['data']);
+            if ($orderColumn !== null) {
+                $filteredQuery->orderBy($orderColumn, $orderDir);
+            } else {
+                $filteredQuery->orderBy('h.CreatedDate', 'desc');
+            }
+        } else {
+            $filteredQuery->orderBy('h.CreatedDate', 'desc');
+        }
+
+        $rows = $filteredQuery
+            ->skip($start)
+            ->take($length > 0 ? $length : $recordsFiltered)
+            ->get();
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $rows,
+        ]);
     }
 
     /**
@@ -252,6 +347,95 @@ class GoodReceiveNotesController extends Controller
         return response()->json(['items' => $data, 'source' => 'po']);
     }
 
+    private function createOrUpdateHeader(string $poNumber, string $headerRemark, array $lines, string $userId): TrxInventoryGoodReceiveNoteHeader
+    {
+        $existingHeader = TrxInventoryGoodReceiveNoteHeader::query()
+            ->where('trxPROPurchaseOrderNumber', $poNumber)
+            ->where('IsActive', true)
+            ->first();
+
+        $remark = $headerRemark !== '' ? $headerRemark : $this->extractHeaderRemarkFromLines($lines);
+
+        if ($existingHeader) {
+            $this->grnHeaderService->update($existingHeader, [
+                'Remark' => $remark !== '' ? $remark : ($existingHeader->Remark ?? null),
+            ], $userId);
+            return $existingHeader->refresh();
+        }
+
+        $companyCode = $this->resolveCompanyCodeFromPO($poNumber);
+        $grNumber = $this->documentCounter->generateNumber('GR', [
+            'COMPANY' => $companyCode,
+        ]);
+
+        /** @var TrxInventoryGoodReceiveNoteHeader $created */
+        $created = $this->grnHeaderService->create([
+            'GoodReceiveNoteNumber' => $grNumber,
+            'trxPROPurchaseOrderNumber' => $poNumber,
+            'Remark' => $remark !== '' ? $remark : null,
+            'IsActive' => true,
+        ], $userId);
+
+        return $created;
+    }
+
+    private function extractHeaderRemarkFromLines(array $lines): string
+    {
+        foreach ($lines as $line) {
+            $remark = trim((string) ($line['remark'] ?? $line['Remark'] ?? ''));
+            if ($remark !== '') {
+                return $remark;
+            }
+        }
+
+        return '';
+    }
+
+    private function resolveCompanyCodeFromPO(string $poNumber): string
+    {
+        $poTable = 'trxPROPurchaseOrder';
+        if (!Schema::hasTable($poTable)) {
+            return 'IDI';
+        }
+
+        $poNumberColumn = $this->resolveExistingColumn($poTable, [
+            'PurchaseOrderNumber',
+            'trxPROPurchaseOrderNumber',
+            'PurchOrderID',
+        ]);
+        if ($poNumberColumn === null) {
+            return 'IDI';
+        }
+
+        $companyColumn = $this->resolveExistingColumn($poTable, [
+            'Company',
+            'CompanyID',
+            'CompanyCode',
+            'CompanyId',
+        ]);
+        if ($companyColumn === null) {
+            return 'IDI';
+        }
+
+        $poRow = DB::table($poTable)
+            ->where($poNumberColumn, $poNumber)
+            ->first([$companyColumn]);
+
+        $companyCode = trim((string) ($poRow->{$companyColumn} ?? ''));
+        return $companyCode !== '' ? $companyCode : 'IDI';
+    }
+
+    private function resolveExistingColumn(string $table, array $candidates): ?string
+    {
+        foreach ($candidates as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                return $column;
+            }
+        }
+
+        return null;
+    }
+
     private function getPOItems(string $poNumber): array
     {
         $table = 'trxPROPurchaseOrderItem';
@@ -265,6 +449,47 @@ class GoodReceiveNotesController extends Controller
         }
 
         return $query->orderBy('ID')->get()->all();
+    }
+
+    private function applyHeaderGridFilters($query, Request $request)
+    {
+        $grNumber = trim((string) $request->input('grNumber', ''));
+        $poNumber = trim((string) $request->input('poNumber', ''));
+        $createdBy = trim((string) $request->input('createdBy', ''));
+        $createdStartDate = trim((string) $request->input('createdStartDate', ''));
+        $createdEndDate = trim((string) $request->input('createdEndDate', ''));
+
+        if ($grNumber !== '') {
+            $query->where('h.GoodReceiveNoteNumber', 'like', '%' . $grNumber . '%');
+        }
+        if ($poNumber !== '') {
+            $query->where('h.trxPROPurchaseOrderNumber', 'like', '%' . $poNumber . '%');
+        }
+        if ($createdBy !== '') {
+            $query->where('h.CreatedBy', 'like', '%' . $createdBy . '%');
+        }
+        if ($createdStartDate !== '') {
+            $query->whereDate('h.CreatedDate', '>=', $createdStartDate);
+        }
+        if ($createdEndDate !== '') {
+            $query->whereDate('h.CreatedDate', '<=', $createdEndDate);
+        }
+
+        return $query;
+    }
+
+    private function mapHeaderOrderColumn(string $columnKey): ?string
+    {
+        return match ($columnKey) {
+            'goodReceiveNoteNumber' => 'h.GoodReceiveNoteNumber',
+            'poNumber' => 'h.trxPROPurchaseOrderNumber',
+            'remark' => 'h.Remark',
+            'createdBy' => 'h.CreatedBy',
+            'createdDate' => 'h.CreatedDate',
+            'updatedBy' => 'h.UpdatedBy',
+            'updatedDate' => 'h.UpdatedDate',
+            default => null,
+        };
     }
 
     /**
