@@ -93,6 +93,10 @@ Route::get('/Inventory/GoodReceiveNotes/List', function () {
     return view('inventory.good_receive_notes.list.index');
 })->middleware('auth')->name('inventory.good_receive_notes.list');
 
+Route::get('/Inventory/GoodReceiveNotes/Approval', function () {
+    return view('inventory.good_receive_notes.approval.index');
+})->middleware('auth')->name('inventory.good_receive_notes.approval');
+
 Route::get('/Procurement/PurchaseOrder/Document/DownloadDocument', [PurchaseOrderController::class, 'downloadDocument'])
     ->middleware('auth')
     ->name('procurement.purchase_order.document.download');

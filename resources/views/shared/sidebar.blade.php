@@ -154,6 +154,11 @@
                         <div data-i18n="List GR">List GR</div>
                     </a>
                 </li>
+                <li class="menu-item">
+                    <a href="/Inventory/GoodReceiveNotes/Approval" class="menu-link">
+                        <div data-i18n="Approval GR">Approval GR</div>
+                    </a>
+                </li>
             </ul>
         </li>
 

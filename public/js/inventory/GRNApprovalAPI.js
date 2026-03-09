@@ -1,7 +1,4 @@
-/**
- * GRN List API - list PO status 11 (Fully Approved), PO detail & items via Procurement, save via Inventory.
- */
-class GRNListAPI {
+class GRNApprovalAPI {
     constructor() {
         this.sharedCache = window.procurementSharedCache || null;
         this.cache = new Map();
@@ -41,35 +38,7 @@ class GRNListAPI {
         }
     }
 
-    async getPRDetails(prNumber) {
-        if (this.sharedCache && typeof this.sharedCache.getCachedData === 'function') {
-            const cacheKey = `prDetails_${prNumber}`;
-            return await this.sharedCache.getCachedData(cacheKey, async () => {
-                const res = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'GET');
-                return res.data || res;
-            });
-        }
-        const key = `prDetails_${prNumber}`;
-        return this.getCachedData(key, async () => {
-            const res = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequests/${encodeURIComponent(prNumber)}`, 'GET');
-            return res.data || res;
-        });
-    }
-
     async getPRAdditional(prNumber) {
-        if (this.sharedCache && typeof this.sharedCache.getCachedData === 'function') {
-            const cacheKey = `prAdditional_${prNumber}`;
-            return await this.sharedCache.getCachedData(cacheKey, async () => {
-                try {
-                    const res = await apiCall('Procurement', `/Procurement/PurchaseRequest/PurchaseRequestAdditional/${encodeURIComponent(prNumber)}`, 'GET');
-                    return res.data || res;
-                } catch (e) {
-                    const msg = (e.message || e.toString() || '').toLowerCase();
-                    if (msg.includes('not found') || msg.includes('404')) return null;
-                    throw e;
-                }
-            });
-        }
         const key = `prAdditional_${prNumber}`;
         return this.getCachedData(key, async () => {
             try {
@@ -81,18 +50,6 @@ class GRNListAPI {
                 throw e;
             }
         });
-    }
-
-    async saveGRN(poNumber, lines, action = 'save', documents = []) {
-        const formData = new FormData();
-        formData.append('poNumber', poNumber || '');
-        formData.append('action', action || 'save');
-        formData.append('lines', JSON.stringify(Array.isArray(lines) ? lines : []));
-        (documents || []).forEach(file => {
-            if (file) formData.append('documents[]', file);
-        });
-        const res = await apiCall('Inventory', '/Inventory/GoodReceiveNotes/Save', 'POST', formData);
-        return res;
     }
 
     async getPurchaseTypes() {
@@ -110,6 +67,27 @@ class GRNListAPI {
         const res = await apiCall('Procurement', `/Procurement/Master/PurchaseTypes/SubTypes?isActive=true&mstPROPurchaseTypeID=${typeId}`, 'GET');
         return Array.isArray(res) ? res : (res?.data || []);
     }
+
+    async submitApproval(grNumber, decision, remark) {
+        return apiCall(
+            'Inventory',
+            `/Inventory/GoodReceiveNotes/Headers/${encodeURIComponent(grNumber)}/Approval`,
+            'PUT',
+            { decision, remark }
+        );
+    }
+
+    async getGRDocuments(grNumber) {
+        const key = `grDocuments_${grNumber}`;
+        return this.getCachedData(key, async () => {
+            const res = await apiCall(
+                'Inventory',
+                `/Inventory/GoodReceiveNotes/Documents/${encodeURIComponent(grNumber)}/documents`,
+                'GET'
+            );
+            return Array.isArray(res) ? res : (res.data || res || []);
+        });
+    }
 }
 
-if (typeof window !== 'undefined') window.GRNListAPI = GRNListAPI;
+if (typeof window !== 'undefined') window.GRNApprovalAPI = GRNApprovalAPI;

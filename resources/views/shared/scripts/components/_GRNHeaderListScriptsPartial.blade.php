@@ -4,6 +4,7 @@
 <script src="{{ asset('js/inventory/GRNHeaderListFilter.js') }}"></script>
 <script src="{{ asset('js/inventory/GRNHeaderListTable.js') }}"></script>
 <script src="{{ asset('js/inventory/GRNListView.js') }}"></script>
+<script src="{{ asset('js/inventory/GRNHeaderView.js') }}"></script>
 <script>
 'use strict';
 
@@ -25,7 +26,7 @@ class GRNHeaderManager {
         this.apiModule = typeof GRNHeaderListAPI !== 'undefined' ? new GRNHeaderListAPI() : null;
         this.filterModule = typeof GRNHeaderListFilter !== 'undefined' ? new GRNHeaderListFilter(this) : null;
         this.tableModule = typeof GRNHeaderListTable !== 'undefined' ? new GRNHeaderListTable(this) : null;
-        this.viewModule = typeof GRNListView !== 'undefined' ? new GRNListView(this) : null;
+        this.viewModule = typeof GRNHeaderView !== 'undefined' ? new GRNHeaderView(this) : null;
         this.init();
     }
 
@@ -48,17 +49,21 @@ class GRNHeaderManager {
     backToList() {
         if (this.viewModule && this.viewModule.backToList) this.viewModule.backToList();
     }
-
-    saveGRN() {
-        if (this.viewModule && this.viewModule.submitGRN) this.viewModule.submitGRN('save');
-    }
-
-    submitFinalGRN() {
-        if (this.viewModule && this.viewModule.submitGRN) this.viewModule.submitGRN('submit');
-    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     window.grnManager = new GRNHeaderManager();
+    window.grnHeaderManager = window.grnManager;
+    window.grnHeaderDownloadDocumentFromModal = function() {
+        const info = window.__grnReadOnlyDocumentPreview;
+        if (!info || !info.downloadUrl) return;
+        const link = document.createElement('a');
+        link.href = info.downloadUrl;
+        link.download = info.fileName || 'document';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 });
 </script>

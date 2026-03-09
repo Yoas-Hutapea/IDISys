@@ -1,7 +1,4 @@
-/**
- * GR Header List Table - source from trxInventoryGoodReceiveNoteHeader.
- */
-class GRNHeaderListTable {
+class GRNApprovalTable {
     constructor(manager) {
         this.manager = manager;
         this.dataTable = null;
@@ -9,7 +6,7 @@ class GRNHeaderListTable {
 
     async initializeDataTable() {
         if (typeof CreateTable === 'undefined' || typeof ColumnBuilder === 'undefined') {
-            console.error('CreateTable or ColumnBuilder not found. Load DataTableHelper.js.');
+            console.error('CreateTable or ColumnBuilder not found.');
             return;
         }
 
@@ -23,14 +20,18 @@ class GRNHeaderListTable {
 
         this.dataTable = CreateTable({
             apiType: 'Inventory',
-            endpoint: '/Inventory/GoodReceiveNotes/Headers/Grid',
-            tableId: '#grnHeaderTable',
+            endpoint: '/Inventory/GoodReceiveNotes/Headers/ApprovalGrid',
+            tableId: '#grnApprovalTable',
             columns: ColumnBuilder([
-                { type: 'actions', buttons: [
-                    { label: 'View', icon: '<i class="bx bx-pointer"></i>', className: 'btn-primary', title: 'View', showIf: () => true }
-                ]},
+                {
+                    type: 'actions',
+                    buttons: [
+                        { label: 'View', icon: '<i class="bx bx-pointer"></i>', className: 'btn-primary', title: 'View', showIf: () => true }
+                    ]
+                },
                 { data: 'goodReceiveNoteNumber', title: 'GR Number' },
                 { data: 'poNumber', title: 'PO Number' },
+                { data: 'approvalStatus', title: 'Status' },
                 { data: 'remark', title: 'Remark' },
                 { data: 'createdBy', title: 'Created By' },
                 { data: 'createdDate', title: 'Created Date', type: 'datetime' },
@@ -38,21 +39,19 @@ class GRNHeaderListTable {
                 { data: 'updatedDate', title: 'Updated Date', type: 'datetime' }
             ]),
             filter: buildFilter.bind(this),
-            order: [[5, 'desc']],
+            order: [[6, 'desc']],
             serverSide: true,
             leftColumns: 2
         });
 
-        $(document).off('click', '#grnHeaderTable .action-btn').on('click', '#grnHeaderTable .action-btn', function() {
+        $(document).off('click', '#grnApprovalTable .action-btn').on('click', '#grnApprovalTable .action-btn', function () {
             const action = $(this).data('action');
             const row = self.dataTable.row($(this).closest('tr')).data();
-            const grNumber = row && (row.goodReceiveNoteNumber || row.GoodReceiveNoteNumber);
-            const poNumber = row && (row.poNumber || row.trxPROPurchaseOrderNumber);
-            if (action === 'view' && poNumber && self.manager && self.manager.viewModule && self.manager.viewModule.viewGRN) {
-                self.manager.viewModule.viewGRN(grNumber, poNumber);
+            if (action === 'view' && row && self.manager && self.manager.viewApproval) {
+                self.manager.viewApproval(row.goodReceiveNoteNumber, row.poNumber, row.approvalStatus);
             }
         });
     }
 }
 
-if (typeof window !== 'undefined') window.GRNHeaderListTable = GRNHeaderListTable;
+if (typeof window !== 'undefined') window.GRNApprovalTable = GRNApprovalTable;

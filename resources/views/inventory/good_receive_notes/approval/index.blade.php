@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'List GR')
+@section('title', 'Approval GR')
 
 @section('styles')
     <style>
-        .grn-list-container { contain: layout style; }
+        .grn-approval-container { contain: layout style; }
         .filter-section {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -57,55 +57,55 @@
 @endsection
 
 @section('content')
-    <div class="container-xxl flex-grow-1 container-p-y grn-list-container">
+    <div class="container-xxl flex-grow-1 container-p-y grn-approval-container">
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center py-3 mb-4">
                     <h5 class="fw-bold mb-0">
-                        <span class="text-muted fw-light">Inventory /</span> List GR
+                        <span class="text-muted fw-light">Inventory /</span> Approval GR
                     </h5>
                 </div>
             </div>
         </div>
 
-        <section class="filter-section mb-4" aria-labelledby="grn-filter-heading">
-            <header class="filter-header" onclick="toggleGRNFilter()" role="button" tabindex="0">
-                <span id="grn-filter-heading"><i class="icon-base bx bx-filter me-2"></i>Filter</span>
-                <i class="icon-base bx bx-chevron-down" id="grn-filter-chevron"></i>
+        <section class="filter-section mb-4" aria-labelledby="grn-approval-filter-heading">
+            <header class="filter-header" onclick="toggleGRNApprovalFilter()" role="button" tabindex="0">
+                <span id="grn-approval-filter-heading"><i class="icon-base bx bx-filter me-2"></i>Filter</span>
+                <i class="icon-base bx bx-chevron-down" id="grn-approval-filter-chevron"></i>
             </header>
-            <div class="filter-content" id="grn-filter-content">
-                @include('inventory.good_receive_notes.list.partials._FilterPartial')
+            <div class="filter-content" id="grn-approval-filter-content">
+                @include('inventory.good_receive_notes.approval.partials._FilterPartial')
             </div>
         </section>
 
         <section class="list-section" id="grnListSection">
             <header class="list-header">
-                <h5 id="grn-list-heading" class="fw-semibold mb-0">List Good Receive Note Header</h5>
+                <h5 class="fw-semibold mb-0">List Approval Good Receive Notes</h5>
                 <div class="d-flex align-items-center gap-3">
-                    <button class="btn btn-success" id="grnHeaderExportExcelBtn" onclick="exportExcel('#grnHeaderTable')" title="Export to Excel">
+                    <button class="btn btn-success" onclick="exportExcel('#grnApprovalTable')" title="Export to Excel">
                         <i class="icon-base bx bx-file me-1"></i>Excel
                     </button>
                 </div>
             </header>
-            @include('inventory.good_receive_notes.list.partials._ListPartial')
+            @include('inventory.good_receive_notes.approval.partials._ListPartial')
         </section>
 
-        <section class="list-section" id="viewGRNSection" style="display: none;">
+        <section class="list-section" id="viewGRNSection" style="display:none;">
             <header class="list-header">
-                <h5 class="fw-semibold mb-0">Good Receive Note</h5>
+                <h5 class="fw-semibold mb-0">View Approval GR</h5>
                 <div class="d-flex align-items-center gap-3">
-                    <button class="btn btn-secondary" onclick="grnManager.backToList()">
+                    <button class="btn btn-secondary" onclick="grnApprovalManager.backToList()">
                         <i class="icon-base bx bx-arrow-back me-1"></i>Back to List
                     </button>
                 </div>
             </header>
-            <div id="viewGRNContainer">
-                @include('inventory.good_receive_notes.view._ViewGRNHeader')
+            <div id="grnApprovalViewContainer">
+                @include('inventory.good_receive_notes.view._ViewGRN', ['grnViewMode' => 'approval'])
             </div>
         </section>
     </div>
 @endsection
 
 @section('scripts')
-    @include('shared.scripts.components._GRNHeaderListScriptsPartial')
+    @include('shared.scripts.components._GRNApprovalScriptsPartial')
 @endsection

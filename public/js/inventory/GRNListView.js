@@ -6,11 +6,97 @@ class GRNListView {
         this.manager = manager;
         this.currentPONumber = null;
         this.viewPOAdditional = null;
+        this.documentFiles = new Map();
+        this.bindDocumentEvents();
+    }
+
+    bindDocumentEvents() {
+        document.addEventListener('click', (e) => {
+            const addBtn = e.target.closest('#grnAddDocumentBtn');
+            if (addBtn) {
+                const input = document.getElementById('grn-supporting-documents');
+                if (input) input.click();
+                return;
+            }
+
+            const removeBtn = e.target.closest('.grn-remove-document-btn');
+            if (removeBtn) {
+                const fileName = decodeURIComponent(removeBtn.getAttribute('data-file-name') || '');
+                if (fileName) {
+                    this.documentFiles.delete(fileName);
+                    this.renderDocumentTable();
+                }
+                return;
+            }
+
+            const downloadBtn = e.target.closest('.grn-download-document-btn');
+            if (downloadBtn) {
+                const fileName = decodeURIComponent(downloadBtn.getAttribute('data-file-name') || '');
+                const file = this.documentFiles.get(fileName);
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = file.name || fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(url);
+                }
+            }
+        });
+
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'grn-supporting-documents') {
+                const files = Array.from(e.target.files || []);
+                files.forEach(file => {
+                    if (file && file.name) {
+                        this.documentFiles.set(file.name, file);
+                    }
+                });
+                e.target.value = '';
+                this.renderDocumentTable();
+            }
+        });
+    }
+
+    renderDocumentTable() {
+        const tbody = document.getElementById('grnDocumentTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (this.documentFiles.size === 0) {
+            tbody.innerHTML = '<tr id="grnDocumentEmptyRow"><td colspan="3" class="text-center text-muted py-3">No documents selected</td></tr>';
+            return;
+        }
+
+        this.documentFiles.forEach((file, fileName) => {
+            const sizeKb = Math.max(1, Math.round((file.size || 0) / 1024));
+            const fileKey = encodeURIComponent(fileName);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary grn-download-document-btn" data-file-name="${fileKey}" title="Download">
+                            <i class="bx bx-download"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger grn-remove-document-btn" data-file-name="${fileKey}" title="Remove">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>${this.escapeHtml(fileName)}</td>
+                <td>${sizeKb}</td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
 
     async viewGRN(poNumber) {
         this.currentPONumber = poNumber;
         this.viewPOAdditional = null;
+        this.documentFiles.clear();
+        this.renderDocumentTable();
         document.getElementById('grnListSection').style.display = 'none';
         document.getElementById('viewGRNSection').style.display = 'block';
         document.getElementById('viewGRNLoading').style.display = 'block';
@@ -93,7 +179,7 @@ class GRNListView {
                 }
             }
 
-            this.populatePurchaseInfo(po);
+            await this.populatePurchaseInfo(po);
             this.populateVendorInfo(po);
             const lineMap = {};
             (grnLines || []).forEach(l => { lineMap[l.mstPROPurchaseItemInventoryItemID || l.itemId] = l; });
@@ -272,14 +358,17 @@ class GRNListView {
         return summaryHTML;
     }
 
-    populatePurchaseInfo(po) {
+    async populatePurchaseInfo(po) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
         const fmtDate = v => !v ? '' : (new Date(v)).toLocaleDateString('en-GB');
         const fmtCur = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(v) || 0);
+        const poAuthorId = po.poAuthor || po.PurchaseOrderAuthor || '';
+        const requestorId = po.prRequestor || po.PurchaseRequestRequestor || '';
+        const employeeNames = await this.resolveEmployeeNames([poAuthorId, requestorId]);
         set('grn-po-number', po.purchOrderID || po.PurchOrderID);
         set('grn-po-date', fmtDate(po.poDate || po.PurchaseOrderDate));
         set('grn-po-name', po.purchOrderName || po.PurchaseOrderName);
-        set('grn-po-author', po.poAuthor || po.PurchaseOrderAuthor);
+        set('grn-po-author', employeeNames.get(String(poAuthorId).trim().toLowerCase()) || poAuthorId);
         const purchTypeDisplay = this.getPurchaseTypeDisplayName(po.purchType || po.PurchaseType, po.purchSubType || po.PurchaseSubType);
         const purchSubTypeDisplay = this.getPurchaseSubTypeDisplayName(po.purchSubType || po.PurchaseSubType, po);
         set('grn-purch-type', purchTypeDisplay);
@@ -288,7 +377,7 @@ class GRNListView {
         set('grn-status', po.approvalStatus || po.ApprovalStatus);
         set('grn-pr-number', po.prNumber || po.trxPROPurchaseRequestNumber);
         set('grn-company', po.companyName || po.CompanyName);
-        set('grn-pr-requestor', po.prRequestor || po.PurchaseRequestRequestor);
+        set('grn-pr-requestor', employeeNames.get(String(requestorId).trim().toLowerCase()) || requestorId);
     }
 
     getPurchaseTypeDisplayName(purchType, purchSubType) {
@@ -296,7 +385,8 @@ class GRNListView {
         if (this.manager && this.manager.tableModule && typeof this.manager.tableModule.formatPurchaseType === 'function') {
             return this.manager.tableModule.formatPurchaseType(purchType, {}, false) || '';
         }
-        return String(purchType ?? '');
+        const fromMaster = this.formatPurchaseTypeFromMaster(purchType);
+        return fromMaster || String(purchType ?? '');
     }
 
     getPurchaseSubTypeDisplayName(purchSubType, po) {
@@ -304,7 +394,82 @@ class GRNListView {
         if (this.manager && this.manager.tableModule && typeof this.manager.tableModule.formatPurchaseSubType === 'function') {
             return this.manager.tableModule.formatPurchaseSubType(purchSubType, po || {}, false) || '';
         }
-        return String(purchSubType ?? '');
+        const fromMaster = this.formatPurchaseSubTypeFromMaster(purchSubType);
+        return fromMaster || String(purchSubType ?? '');
+    }
+
+    formatPurchaseTypeFromMaster(purchType) {
+        const s = String(purchType ?? '').trim();
+        if (!s) return '';
+        const allTypes = this.manager?.tableModule?.allPurchaseTypes;
+        if (!Array.isArray(allTypes) || allTypes.length === 0) return '';
+        let type = null;
+        const typeId = parseInt(s, 10);
+        if (!isNaN(typeId) && typeId > 0) {
+            type = allTypes.find(t => parseInt(t.ID || t.id || '0', 10) === typeId);
+        } else {
+            type = allTypes.find(t => {
+                const typeValue = t.PurchaseRequestType || t.purchaseRequestType || '';
+                const category = t.Category || t.category || '';
+                const formattedDisplay = category && typeValue !== category ? `${typeValue} ${category}` : typeValue;
+                return s === typeValue || s === formattedDisplay;
+            });
+        }
+        if (!type) return '';
+        const typeValue = type.PurchaseRequestType || type.purchaseRequestType || '';
+        const category = type.Category || type.category || '';
+        return category && typeValue !== category ? `${typeValue} ${category}` : typeValue;
+    }
+
+    formatPurchaseSubTypeFromMaster(purchSubType) {
+        const s = String(purchSubType ?? '').trim();
+        if (!s) return '';
+        const subTypeId = parseInt(s, 10);
+        const allSubTypes = this.manager?.tableModule?.allPurchaseSubTypes;
+        if (!allSubTypes) return '';
+
+        const extractName = (subType) => subType?.PurchaseRequestSubType || subType?.purchaseRequestSubType || '';
+        if (!isNaN(subTypeId) && subTypeId > 0) {
+            if (allSubTypes instanceof Map) {
+                for (const subTypes of allSubTypes.values()) {
+                    if (!Array.isArray(subTypes)) continue;
+                    const found = subTypes.find(st => parseInt(st.ID || st.id || '0', 10) === subTypeId);
+                    if (found) return extractName(found);
+                }
+            } else if (Array.isArray(allSubTypes)) {
+                const found = allSubTypes.find(st => parseInt(st.ID || st.id || '0', 10) === subTypeId);
+                if (found) return extractName(found);
+            }
+            return '';
+        }
+
+        if (allSubTypes instanceof Map) {
+            for (const subTypes of allSubTypes.values()) {
+                if (!Array.isArray(subTypes)) continue;
+                const found = subTypes.find(st => (st.PurchaseRequestSubType || st.purchaseRequestSubType || '') === s);
+                if (found) return extractName(found);
+            }
+        } else if (Array.isArray(allSubTypes)) {
+            const found = allSubTypes.find(st => (st.PurchaseRequestSubType || st.purchaseRequestSubType || '') === s);
+            if (found) return extractName(found);
+        }
+        return '';
+    }
+
+    async resolveEmployeeNames(employeeIds) {
+        const names = new Map();
+        const ids = Array.isArray(employeeIds) ? employeeIds.filter(Boolean) : [];
+        if (ids.length === 0) return names;
+
+        const cacheModule = window.procurementSharedCache;
+        if (cacheModule && typeof cacheModule.batchGetEmployeeNames === 'function') {
+            try {
+                return await cacheModule.batchGetEmployeeNames(ids);
+            } catch (_) {
+                return names;
+            }
+        }
+        return names;
     }
 
     populateVendorInfo(po) {
@@ -346,6 +511,9 @@ class GRNListView {
                 receiveDate = receiveDate.substring(0, 10);
             } else if (receiveDate) {
                 try { receiveDate = new Date(receiveDate).toISOString().slice(0, 10); } catch (_) {}
+            } else {
+                // Default receive date to today to speed up GR input.
+                receiveDate = new Date().toISOString().slice(0, 10);
             }
 
             const qtyRemain = Math.max(0, qty - actualReceived);
@@ -421,6 +589,16 @@ class GRNListView {
                 return;
             }
             actualInput.classList.remove('is-invalid');
+
+            const remarkInput = tr.querySelector('.grn-remark');
+            const remark = remarkInput ? String(remarkInput.value || '').trim() : '';
+            const qtyRemain = Math.max(0, itemQty - actual);
+            if (qtyRemain > 0 && remark === '') {
+                if (remarkInput) remarkInput.classList.add('is-invalid');
+                this.showError(`Remark is required when Qty Remain is not zero (item ${tr.dataset.itemId || '-'}).`);
+                return;
+            }
+            if (remarkInput) remarkInput.classList.remove('is-invalid');
         }
         const lines = [];
         tbody.querySelectorAll('tr').forEach(tr => {
@@ -435,9 +613,10 @@ class GRNListView {
                 tanggalTerima: tanggalInput && tanggalInput.value ? tanggalInput.value : null
             });
         });
+        const documents = Array.from(this.documentFiles.values());
 
         try {
-            const res = await this.manager.apiModule.saveGRN(this.currentPONumber, lines, action);
+            const res = await this.manager.apiModule.saveGRN(this.currentPONumber, lines, action, documents);
             if (res && res.success !== false) {
                 const isSubmit = String(action).toLowerCase() === 'submit';
                 const title = isSubmit ? 'Submitted' : 'Saved';
@@ -462,6 +641,12 @@ class GRNListView {
     backToList() {
         document.getElementById('viewGRNSection').style.display = 'none';
         document.getElementById('grnListSection').style.display = 'block';
+        const documentsInput = document.getElementById('grn-supporting-documents');
+        if (documentsInput) {
+            documentsInput.value = '';
+        }
+        this.documentFiles.clear();
+        this.renderDocumentTable();
         this.currentPONumber = null;
         if (this.manager.dataTable) this.manager.dataTable.ajax.reload();
     }

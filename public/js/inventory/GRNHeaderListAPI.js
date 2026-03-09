@@ -68,8 +68,27 @@ class GRNHeaderListAPI {
         });
     }
 
-    async saveGRN(poNumber, lines, action = 'save') {
-        const res = await apiCall('Inventory', '/Inventory/GoodReceiveNotes/Save', 'POST', { poNumber, lines, action });
+    async getGRDocuments(grNumber) {
+        const key = `grDocuments_${grNumber}`;
+        return this.getCachedData(key, async () => {
+            const res = await apiCall(
+                'Inventory',
+                `/Inventory/GoodReceiveNotes/Documents/${encodeURIComponent(grNumber)}/documents`,
+                'GET'
+            );
+            return Array.isArray(res) ? res : (res.data || res || []);
+        });
+    }
+
+    async saveGRN(poNumber, lines, action = 'save', documents = []) {
+        const formData = new FormData();
+        formData.append('poNumber', poNumber || '');
+        formData.append('action', action || 'save');
+        formData.append('lines', JSON.stringify(Array.isArray(lines) ? lines : []));
+        (documents || []).forEach(file => {
+            if (file) formData.append('documents[]', file);
+        });
+        const res = await apiCall('Inventory', '/Inventory/GoodReceiveNotes/Save', 'POST', formData);
         return res;
     }
 
