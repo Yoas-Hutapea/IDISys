@@ -23,7 +23,7 @@ class GRNListTable {
             if (this.manager && this.manager.filterModule && this.manager.filterModule.buildFilter) {
                 return this.manager.filterModule.buildFilter();
             }
-            return { mstApprovalStatusID: 11 };
+            return { mstApprovalStatusID: 11, forCreateGR: true };
         };
 
         this.dataTable = CreateTable({

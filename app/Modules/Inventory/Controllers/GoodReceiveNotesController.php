@@ -218,6 +218,14 @@ class GoodReceiveNotesController extends Controller
             $baseQuery->where('h.IsActive', true);
         }
 
+        // List GR: only show GRs created by the logged-in user
+        $currentUserIds = $this->getCurrentUserIdentifiers();
+        if (!empty($currentUserIds)) {
+            $baseQuery->whereIn('h.CreatedBy', $currentUserIds);
+        } else {
+            $baseQuery->whereRaw('1 = 0');
+        }
+
         $recordsTotal = (clone $baseQuery)->count('h.ID');
 
         $filteredQuery = $this->applyHeaderGridFilters($baseQuery, $request);
@@ -287,6 +295,14 @@ class GoodReceiveNotesController extends Controller
 
         if (Schema::hasColumn(self::HEADER_TABLE_NAME, 'IsActive')) {
             $baseQuery->where('h.IsActive', true);
+        }
+
+        // Approval GR: only show GRs created by subordinates of the logged-in user (atasan sees GR from bawahan)
+        $subordinateIds = $this->getApprovalGRSubordinateIds();
+        if (!empty($subordinateIds)) {
+            $baseQuery->whereIn('h.CreatedBy', $subordinateIds);
+        } else {
+            $baseQuery->whereRaw('1 = 0');
         }
 
         $recordsTotal = (clone $baseQuery)->count('h.ID');
@@ -730,7 +746,7 @@ class GoodReceiveNotesController extends Controller
         if ($poNumber !== '') {
             $query->where('h.trxPROPurchaseOrderNumber', 'like', '%' . $poNumber . '%');
         }
-        if ($approvalStatus !== '') {
+        if ($approvalStatus !== '' && strtolower($approvalStatus) !== 'all') {
             if (strtolower($approvalStatus) === 'approved') {
                 $query->where('h.IsApproved', true);
             } elseif (strtolower($approvalStatus) === 'rejected') {
@@ -738,9 +754,8 @@ class GoodReceiveNotesController extends Controller
             } elseif (strtolower($approvalStatus) === 'waiting') {
                 $query->where('h.IsApproved', false)->whereNull('h.UpdatedDate');
             }
-        } else {
-            $query->where('h.IsApproved', false)->whereNull('h.UpdatedDate');
         }
+        // when approvalStatus is empty or 'all', do not add status filter so all GRs (waiting/approved/rejected) are shown
         if ($createdStartDate !== '') {
             $query->whereDate('h.CreatedDate', '>=', $createdStartDate);
         }
@@ -870,6 +885,102 @@ class GoodReceiveNotesController extends Controller
             return $employee->EmployeeID;
         }
         return null;
+    }
+
+    /**
+     * Get current user identifiers (Employ_Id, Employ_Id_TBGSYS, Username) for filtering List GR by CreatedBy.
+     */
+    private function getCurrentUserIdentifiers(): array
+    {
+        $employee = session('employee');
+        $ids = [];
+
+        if ($employee) {
+            if (!empty($employee->Employ_Id)) {
+                $ids[] = (string) $employee->Employ_Id;
+            }
+            if (!empty($employee->Employ_Id_TBGSYS)) {
+                $ids[] = (string) $employee->Employ_Id_TBGSYS;
+            }
+            if (!empty($employee->ID)) {
+                $ids[] = (string) $employee->ID;
+            }
+            if (!empty($employee->EmployeeID)) {
+                $ids[] = (string) $employee->EmployeeID;
+            }
+        }
+
+        $username = (string) (optional(Auth::user())->Username ?? '');
+        if ($username !== '') {
+            $ids[] = $username;
+        }
+
+        return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
+    }
+
+    /**
+     * Get subordinate employee IDs (direct + recursive) for Approval GR: atasan sees GRs created by bawahan.
+     * Returns IDs of employees who report to the current user (Report_Code chain), excluding the current user.
+     */
+    private function getApprovalGRSubordinateIds(): array
+    {
+        $currentIds = $this->getCurrentUserIdentifiers();
+        if (empty($currentIds)) {
+            return [];
+        }
+        $allScopeIds = $this->getRecursiveSubordinateIds($currentIds);
+        $currentKeys = array_flip(array_map('strtolower', $currentIds));
+        return array_values(array_filter($allScopeIds, function ($id) use ($currentKeys) {
+            return !isset($currentKeys[strtolower((string) $id)]);
+        }));
+    }
+
+    /**
+     * Get current user + all subordinate IDs (recursive by Report_Code). Used to derive subordinate-only list.
+     */
+    private function getRecursiveSubordinateIds(array $seedIds): array
+    {
+        $result = [];
+        $queue = [];
+        $visited = [];
+
+        foreach ($seedIds as $id) {
+            $normalized = trim((string) $id);
+            if ($normalized === '') {
+                continue;
+            }
+            $key = strtolower($normalized);
+            if (!isset($visited[$key])) {
+                $visited[$key] = true;
+                $queue[] = $normalized;
+                $result[] = $normalized;
+            }
+        }
+
+        while (!empty($queue)) {
+            $batch = array_splice($queue, 0, 50);
+            $subs = MstEmployee::query()
+                ->whereIn('Report_Code', $batch)
+                ->get(['Employ_Id', 'Employ_Id_TBGSYS']);
+
+            foreach ($subs as $sub) {
+                foreach ([$sub->Employ_Id ?? null, $sub->Employ_Id_TBGSYS ?? null] as $candidate) {
+                    $candidate = trim((string) $candidate);
+                    if ($candidate === '') {
+                        continue;
+                    }
+                    $key = strtolower($candidate);
+                    if (isset($visited[$key])) {
+                        continue;
+                    }
+                    $visited[$key] = true;
+                    $result[] = $candidate;
+                    $queue[] = $candidate;
+                }
+            }
+        }
+
+        return array_values(array_unique($result));
     }
 
     private function resolveEmployeeDisplayName(?string $employeeId): ?string

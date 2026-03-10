@@ -11,7 +11,7 @@
         <div class="col-md-4">
             <label class="form-label fw-semibold text-body">Status</label>
             <select class="form-select bg-body text-body" id="approvalStatus" name="approvalStatus">
-                <option value="">All</option>
+                <option value="" selected>All</option>
                 <option value="waiting">Waiting Approval</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>

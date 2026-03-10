@@ -24,7 +24,7 @@ class GRNListFilter {
     buildFilter() {
         const form = document.getElementById('filterForm');
         const fd = form ? new FormData(form) : new FormData();
-        const filter = { mstApprovalStatusID: 11 };
+        const filter = { mstApprovalStatusID: 11, forCreateGR: true };
         if (fd.get('poNumber') && fd.get('poNumber').trim()) filter.poNumber = fd.get('poNumber').trim();
         if (fd.get('prNumber') && fd.get('prNumber').trim()) filter.prNumber = fd.get('prNumber').trim();
         if (fd.get('purchType') && fd.get('purchType').trim()) filter.purchType = fd.get('purchType').trim();

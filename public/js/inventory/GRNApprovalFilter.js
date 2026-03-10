@@ -6,8 +6,6 @@ class GRNApprovalFilter {
     init() {
         const form = document.getElementById('grnApprovalFilterForm');
         if (!form) return;
-        const status = document.getElementById('approvalStatus');
-        if (status && !status.value) status.value = 'waiting';
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (this.manager) this.manager.search();
@@ -30,7 +28,7 @@ class GRNApprovalFilter {
         const form = document.getElementById('grnApprovalFilterForm');
         if (form) form.reset();
         const status = document.getElementById('approvalStatus');
-        if (status) status.value = 'waiting';
+        if (status) status.value = '';
         if (this.manager && this.manager.dataTable) this.manager.dataTable.ajax.reload();
     }
 }

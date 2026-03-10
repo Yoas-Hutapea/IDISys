@@ -1530,14 +1530,24 @@ class PurchaseOrderController extends Controller
 
     private function applyFilters($query, Request $request)
     {
-        $allowedUserIds = $this->getCurrentUserScopeIds();
-        if (empty($allowedUserIds)) {
-            return $query->whereRaw('1 = 0');
+        $forCreateGR = $request->boolean('forCreateGR');
+        if ($forCreateGR) {
+            // Create GR list: only POs where PR Requestor = logged-in user (mstApprovalStatusID 11 already sent by frontend)
+            $currentUserIds = $this->getCurrentUserIdentifiers();
+            if (empty($currentUserIds)) {
+                return $query->whereRaw('1 = 0');
+            }
+            $query->whereIn('po.PurchaseRequestRequestor', $currentUserIds);
+        } else {
+            $allowedUserIds = $this->getCurrentUserScopeIds();
+            if (empty($allowedUserIds)) {
+                return $query->whereRaw('1 = 0');
+            }
+            $query->where(function ($scopeQuery) use ($allowedUserIds) {
+                $scopeQuery->whereIn('po.CreatedBy', $allowedUserIds)
+                    ->orWhereIn('po.PurchaseRequestRequestor', $allowedUserIds);
+            });
         }
-        $query->where(function ($scopeQuery) use ($allowedUserIds) {
-            $scopeQuery->whereIn('po.CreatedBy', $allowedUserIds)
-                ->orWhereIn('po.PurchaseRequestRequestor', $allowedUserIds);
-        });
 
         $poNumber = $request->input('poNumber');
         $prNumber = $request->input('prNumber');
