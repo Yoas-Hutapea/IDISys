@@ -112,6 +112,18 @@ class InvoiceCreateAPI {
     }
 
     /**
+     * Preload master data in background so cache is warm when user selects a PO (faster first load).
+     * Call when Create Invoice page loads or when Choose PO modal opens. Fire-and-forget.
+     */
+    preloadMasterDataForInvoiceCreate() {
+        Promise.allSettled([
+            this.getPurchaseTypes(),
+            this.getWorkTypeMappings(),
+            this.getBillingTypes()
+        ]).catch(() => {});
+    }
+
+    /**
      * Invalidate cached items for a PO (call when selecting a PO so fresh GRN/PO items are loaded).
      */
     invalidatePOItemsCache(poNumber) {

@@ -77,6 +77,10 @@ class InvoiceCreatePO {
      */
     async openChoosePOModal() {
         await this.loadPOList();
+        // Preload master data in background so selecting a PO is faster (cache warm)
+        if (this.manager && this.manager.apiModule && typeof this.manager.apiModule.preloadMasterDataForInvoiceCreate === 'function') {
+            this.manager.apiModule.preloadMasterDataForInvoiceCreate();
+        }
         const modalElement = document.getElementById('modalChoosePO');
         if (!modalElement) {
             return;
@@ -226,16 +230,6 @@ class InvoiceCreatePO {
             this.populateCurrencyFromPOItems(this.poDetailItems);
 
             const existingInvoices = existingInvoicesResult.status === 'fulfilled' ? existingInvoicesResult.value : null;
-            if (this.poDetailItems.length > 0) {
-                await this.loadPODetailOptimized(poNumber, existingInvoices, this.poDetailItems).catch(err => console.error('Error loading PO detail:', err));
-            } else {
-                const tbody = document.getElementById('tblPODetailBody');
-                if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No items found</td></tr>';
-                    const qtyReceiveHeader = document.querySelector('#tblPODetail thead th:nth-child(6)');
-                    if (qtyReceiveHeader) qtyReceiveHeader.textContent = 'Qty Receive';
-                }
-            }
 
             // Process Vendor result
             if (vendorResult.status === 'fulfilled' && vendorResult.value) {
@@ -257,42 +251,59 @@ class InvoiceCreatePO {
             // Populate PO Information (with PO Author and PR Requestor as employee names)
             await this.populatePOInformation(poData);
 
-            // PHASE 3: Load PR-dependent data (if PR Number exists)
+            // PHASE 2b: Load PR Additional and Recalc amortization (when GRN) in parallel to reduce wait time
             let prAdditionalResult = null;
             let hasPeriodPayment = false;
 
-            if (prNumber) {
+            const prPromise = prNumber ? this.manager.apiModule.getPRAdditional(prNumber).catch(err => {
+                console.warn('Failed to load PR Additional:', err);
+                return null;
+            }) : Promise.resolve(null);
+            const recalcPromise = (this.itemsSource === 'grn' && poNumber && this.manager.apiModule && this.manager.apiModule.recalcAmortizationFromGRN)
+                ? this.manager.apiModule.recalcAmortizationFromGRN(poNumber) : Promise.resolve();
+
+            const [prRes] = await Promise.allSettled([prPromise, recalcPromise]);
+            prAdditionalResult = prRes.status === 'fulfilled' ? prRes.value : null;
+            this.purchaseRequestAdditional = prAdditionalResult;
+
+            // Resolve final amortizations (after recalc when GRN)
+            let amortizationsData = amortizationsResult.status === 'fulfilled' && amortizationsResult.value ? amortizationsResult.value : null;
+            if (this.itemsSource === 'grn' && poNumber && this.manager.apiModule) {
                 try {
-                    // Get PR Additional (needed for STIP and Period Payment)
-                    prAdditionalResult = await this.manager.apiModule.getPRAdditional(prNumber);
-                    this.purchaseRequestAdditional = prAdditionalResult;
-                } catch (error) {
-                    console.warn('Failed to load PR Additional:', error);
-                    prAdditionalResult = null;
+                    amortizationsData = await this.manager.apiModule.getAmortizations(poNumber);
+                } catch (e) {
+                    console.warn('Refetch amortizations after GRN recalc:', e);
                 }
+            }
 
-                // PHASE 4: Load STIP and Period Payment in parallel (after PR Additional)
-                if (prAdditionalResult) {
-                    const sonumb = prAdditionalResult.sonumb || prAdditionalResult.Sonumb || '';
+            // Load PO detail table (with amortizations to avoid duplicate getAmortizations call inside)
+            if (this.poDetailItems.length > 0) {
+                await this.loadPODetailOptimized(poNumber, existingInvoices, this.poDetailItems, amortizationsData).catch(err => console.error('Error loading PO detail:', err));
+            } else {
+                const tbody = document.getElementById('tblPODetailBody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No items found</td></tr>';
+                    const qtyReceiveHeader = document.querySelector('#tblPODetail thead th:nth-child(6)');
+                    if (qtyReceiveHeader) qtyReceiveHeader.textContent = 'Qty Receive';
+                }
+            }
 
-                    const [stipSites, periodPaymentResult] = await Promise.allSettled([
-                        // Load STIP Sites if sonumb exists
-                        sonumb ? this.manager.apiModule.getSTIPSites(sonumb).catch(() => null) : Promise.resolve(null),
-                        // Check Period of Payment
-                        this.manager.termModule && this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized
-                            ? this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized(prAdditionalResult, billingTypesResult.status === 'fulfilled' ? billingTypesResult.value : null)
-                            : Promise.resolve(false)
-                    ]);
+            // PHASE 3: Load STIP and Period Payment in parallel (after PR Additional)
+            if (prNumber && prAdditionalResult) {
+                const sonumb = prAdditionalResult.sonumb || prAdditionalResult.Sonumb || '';
 
-                    // Process STIP result
-                    if (stipSites.status === 'fulfilled' && stipSites.value && sonumb) {
-                        this.populateSTIPData(sonumb, stipSites.value);
-                    }
+                const [stipSites, periodPaymentResult] = await Promise.allSettled([
+                    sonumb ? this.manager.apiModule.getSTIPSites(sonumb).catch(() => null) : Promise.resolve(null),
+                    this.manager.termModule && this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized
+                        ? this.manager.termModule.checkAndLoadPeriodOfPaymentOptimized(prAdditionalResult, billingTypesResult.status === 'fulfilled' ? billingTypesResult.value : null)
+                        : Promise.resolve(false)
+                ]);
 
-                    // Process Period Payment result
-                    if (periodPaymentResult.status === 'fulfilled') {
-                        hasPeriodPayment = periodPaymentResult.value || false;
-                    }
+                if (stipSites.status === 'fulfilled' && stipSites.value && sonumb) {
+                    this.populateSTIPData(sonumb, stipSites.value);
+                }
+                if (periodPaymentResult.status === 'fulfilled') {
+                    hasPeriodPayment = periodPaymentResult.value || false;
                 }
             }
 
@@ -302,21 +313,6 @@ class InvoiceCreatePO {
                 $('#invoiceInformationSection').hide();
                 $('#documentChecklistSection').hide();
                 $('#submitButtonsSection').hide();
-            }
-
-            // When items are from GRN, recalc amortization so Term/Period amounts use GRN total (e.g. 27M) not PR (32.4M)
-            if (this.itemsSource === 'grn' && poNumber && this.manager.apiModule && this.manager.apiModule.recalcAmortizationFromGRN) {
-                await this.manager.apiModule.recalcAmortizationFromGRN(poNumber);
-            }
-
-            // Show/hide Term or Period of Payment sections from amortization data (same logic as Cancel Period)
-            let amortizationsData = amortizationsResult.status === 'fulfilled' && amortizationsResult.value ? amortizationsResult.value : null;
-            if (this.itemsSource === 'grn' && poNumber && this.manager.apiModule) {
-                try {
-                    amortizationsData = await this.manager.apiModule.getAmortizations(poNumber);
-                } catch (e) {
-                    console.warn('Refetch amortizations after GRN recalc:', e);
-                }
             }
             const dataPayload = amortizationsData && typeof amortizationsData === 'object' ? (amortizationsData.data || amortizationsData) : null;
             const periodList = (dataPayload && Array.isArray(dataPayload.periodOfPayment)) ? dataPayload.periodOfPayment : [];
@@ -426,20 +422,27 @@ class InvoiceCreatePO {
         let poAuthorName = poData.poAuthor || poData.POAuthor || '-';
         let prRequestorName = poData.prRequestor || poData.PRRequestor || '-';
 
-        const employeeCache = (typeof window !== 'undefined' && window.procurementSharedCache && window.procurementSharedCache.getEmployeeNameByEmployId)
+        const employeeCache = (typeof window !== 'undefined' && window.procurementSharedCache)
             ? window.procurementSharedCache
             : null;
 
         if (employeeCache) {
-            const poAuthorId = poData.poAuthor || poData.POAuthor || '';
-            const prRequestorId = poData.prRequestor || poData.PRRequestor || '';
+            const poAuthorId = (poData.poAuthor || poData.POAuthor || '').trim();
+            const prRequestorId = (poData.prRequestor || poData.PRRequestor || '').trim();
+            const ids = [poAuthorId, prRequestorId].filter(id => id && id !== '-');
             try {
-                const [authorName, requestorName] = await Promise.all([
-                    poAuthorId && poAuthorId !== '-' ? employeeCache.getEmployeeNameByEmployId(poAuthorId) : Promise.resolve(poAuthorName),
-                    prRequestorId && prRequestorId !== '-' ? employeeCache.getEmployeeNameByEmployId(prRequestorId) : Promise.resolve(prRequestorName)
-                ]);
-                if (authorName) poAuthorName = authorName;
-                if (requestorName) prRequestorName = requestorName;
+                if (ids.length > 0 && employeeCache.batchGetEmployeeNames) {
+                    const nameMap = await employeeCache.batchGetEmployeeNames(ids);
+                    if (poAuthorId) poAuthorName = nameMap.get(poAuthorId.toLowerCase()) || poAuthorName;
+                    if (prRequestorId) prRequestorName = nameMap.get(prRequestorId.toLowerCase()) || prRequestorName;
+                } else if (employeeCache.getEmployeeNameByEmployId) {
+                    const [authorName, requestorName] = await Promise.all([
+                        poAuthorId && poAuthorId !== '-' ? employeeCache.getEmployeeNameByEmployId(poAuthorId) : Promise.resolve(poAuthorName),
+                        prRequestorId && prRequestorId !== '-' ? employeeCache.getEmployeeNameByEmployId(prRequestorId) : Promise.resolve(prRequestorName)
+                    ]);
+                    if (authorName) poAuthorName = authorName;
+                    if (requestorName) prRequestorName = requestorName;
+                }
             } catch (e) {
                 console.warn('Resolve employee names for PO Author / PR Requestor:', e);
             }
@@ -1151,12 +1154,13 @@ class InvoiceCreatePO {
     }
 
     /**
-     * Load PO Detail Items (Optimized - uses pre-fetched existingInvoices).
+     * Load PO Detail Items (Optimized - uses pre-fetched existingInvoices and optional amortizations to avoid duplicate API call).
      * @param {string} poNumber
      * @param {Array|null} existingInvoices
      * @param {Array|null} itemsOverride - if provided, use for rendering and set this.poDetailItems (avoids race)
+     * @param {Object|null} amortizationsOverride - optional amortizations response; when provided, used for effectiveTermRatio instead of calling getAmortizations again
      */
-    async loadPODetailOptimized(poNumber, existingInvoices = null, itemsOverride = null) {
+    async loadPODetailOptimized(poNumber, existingInvoices = null, itemsOverride = null, amortizationsOverride = null) {
         try {
             if (!this.manager || !this.manager.apiModule) {
                 throw new Error('API module not available');
@@ -1194,10 +1198,14 @@ class InvoiceCreatePO {
                 // Full total from items (untuk hitung remainingToPay dan effectiveTermRatio)
                 const fullTotal = itemsToRender.reduce((sum, it) => sum + (parseFloat(it.amount || it.Amount || 0) || 0), 0);
                 let effectiveTermRatio = null;
-                if (this.currentTermValue !== null && this.currentTermValue > 0 && fullTotal > 0 && invoices && invoices.length > 0 && this.manager.apiModule) {
+                const amortPayload = amortizationsOverride && typeof amortizationsOverride === 'object' ? (amortizationsOverride.data || amortizationsOverride) : null;
+                if (this.currentTermValue !== null && this.currentTermValue > 0 && fullTotal > 0 && invoices && invoices.length > 0) {
                     try {
-                        const amortRes = await this.manager.apiModule.getAmortizations(poNumber);
-                        const payload = amortRes && typeof amortRes === 'object' ? (amortRes.data || amortRes) : null;
+                        let payload = amortPayload;
+                        if (!payload && this.manager.apiModule) {
+                            const amortRes = await this.manager.apiModule.getAmortizations(poNumber);
+                            payload = amortRes && typeof amortRes === 'object' ? (amortRes.data || amortRes) : null;
+                        }
                         const termList = (payload && Array.isArray(payload.termOfPayment)) ? payload.termOfPayment : [];
                         const getAmortInvoiceAmount = (a) => parseFloat(a.invoiceAmount ?? a.InvoiceAmount ?? 0) || 0;
                         const submittedTerms = new Set((invoices || []).map(inv => inv.termPosition || inv.TermPosition).filter(Boolean));

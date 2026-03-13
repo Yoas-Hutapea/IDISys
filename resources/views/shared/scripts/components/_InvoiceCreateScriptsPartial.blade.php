@@ -191,5 +191,9 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         window.invoiceCreateManager = new InvoiceCreateManager();
+        // Preload master data in background so choosing a PO is faster
+        if (window.invoiceCreateManager.apiModule && typeof window.invoiceCreateManager.apiModule.preloadMasterDataForInvoiceCreate === 'function') {
+            window.invoiceCreateManager.apiModule.preloadMasterDataForInvoiceCreate();
+        }
     });
 </script>
