@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use App\Modules\Auth\Controllers\ChangePasswordController;
 use App\Modules\Procurement\Controllers\PurchaseOrderController;
 
 Route::get('/', function () {
@@ -12,6 +13,13 @@ Route::get('/', function () {
 Route::get('/profile', function () {
     return view('account.profile');
 })->middleware('auth')->name('profile');
+
+Route::get('/change-password', [ChangePasswordController::class, 'show'])
+    ->middleware('auth')
+    ->name('account.password.change');
+Route::post('/change-password', [ChangePasswordController::class, 'update'])
+    ->middleware('auth')
+    ->name('account.password.change.submit');
 
 Route::get('/procurement/purchase-request/create', function () {
     return view('procurement.purchase_request.create.index');

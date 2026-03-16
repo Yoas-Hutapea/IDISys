@@ -74,6 +74,14 @@
 
                 <!-- Content wrapper -->
                 <div class="content-wrapper">
+                    @if (session('success'))
+                        <div class="container-xxl flex-grow-1 container-p-y">
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="bx bx-check-circle me-2"></i>{{ session('success') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        </div>
+                    @endif
                     @yield('content')
 
                     <!-- Footer -->

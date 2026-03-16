@@ -23,7 +23,7 @@
                         @if (session('expired'))
                             <div class="alert alert-warning alert-dismissible fade show" role="alert">
                                 <i class="fas fa-exclamation-triangle me-2"></i>
-                                Sesi login Anda telah berakhir. Silakan login kembali.
+                                Your login session has expired. Please log in again.
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                             </div>
                         @endif
@@ -35,7 +35,7 @@
                             </label>
                             <input id="UserId" name="UserId" class="form-control form-control-lg"
                                    autocomplete="username" aria-required="true"
-                                   placeholder="Masukkan User ID Anda"
+                                   placeholder="Enter your User ID"
                                    value="{{ old('UserId') }}"
                                    required />
                             @error('UserId')
@@ -51,7 +51,7 @@
                             <div class="input-group">
                                 <input id="Password" name="Password" type="password" class="form-control form-control-lg"
                                        autocomplete="current-password" aria-required="true"
-                                       placeholder="Masukkan Password Anda"
+                                       placeholder="Enter your password"
                                        required />
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword" style="border-left: none; z-index: 10;">
                                     <i class="fas fa-eye-slash"></i>
@@ -83,7 +83,7 @@
                     <div class="text-center mt-4">
                         <small class="text-muted">
                             <i class="fas fa-building me-1"></i>
-                            PT. Infrastructure Digital Indonesia
+                            PT. Infrastruktur Digital Indonesia
                         </small>
                     </div>
                 </div>

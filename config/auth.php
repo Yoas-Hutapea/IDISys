@@ -112,4 +112,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default / Temporary Password Hash (Force Change on First Login)
+    |--------------------------------------------------------------------------
+    |
+    | Same initial password hash for all users (for account distribution).
+    | If mstAccount PasswordHash equals this, the user must change password
+    | before they can use the system.
+    |
+    */
+    'default_password_hash' => env('AUTH_DEFAULT_PASSWORD_HASH', '$2y$10$n7PkfGyrvL7/TZsqvZppCeD/.c4q6MtHhxYT0XjS4FmduaFhsyz5C'),
+
 ];

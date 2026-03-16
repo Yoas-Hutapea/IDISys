@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Modules\Auth\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ChangePasswordRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'new_password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'new_password.required' => 'The new password is required.',
+            'new_password.confirmed' => 'The password confirmation does not match.',
+            'new_password.min' => 'The password must be at least 8 characters.',
+        ];
+    }
+}

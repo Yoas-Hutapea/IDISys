@@ -29,7 +29,7 @@ class LoginController extends Controller
         if (!$account) {
             return back()
                 ->withErrors([
-                    'UserId' => 'User ID atau password salah.',
+                    'UserId' => 'Invalid User ID or password.',
                 ])
                 ->withInput();
         }
@@ -38,6 +38,12 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         $request->session()->put('employee', $account->employee);
+
+        $defaultHash = config('auth.default_password_hash', '');
+        if ($defaultHash !== '' && (string) $account->PasswordHash === $defaultHash) {
+            $request->session()->put('must_change_password', true);
+            return redirect()->route('account.password.change');
+        }
 
         return redirect()->intended('/');
     }
