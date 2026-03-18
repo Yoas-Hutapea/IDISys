@@ -40,7 +40,10 @@ class LoginController extends Controller
         $request->session()->put('employee', $account->employee);
 
         $defaultHash = config('auth.default_password_hash', '');
-        if ($defaultHash !== '' && (string) $account->PasswordHash === $defaultHash) {
+        $forceChangeOnLocalhost = config('auth.force_change_password_on_localhost', false);
+        $isLocalhost = in_array($request->getHost(), ['localhost', '127.0.0.1'], true);
+
+        if ($defaultHash !== '' && (string) $account->PasswordHash === $defaultHash && ($forceChangeOnLocalhost || ! $isLocalhost)) {
             $request->session()->put('must_change_password', true);
             return redirect()->route('account.password.change');
         }

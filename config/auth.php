@@ -124,4 +124,16 @@ return [
     */
     'default_password_hash' => env('AUTH_DEFAULT_PASSWORD_HASH', '$2y$10$n7PkfGyrvL7/TZsqvZppCeD/.c4q6MtHhxYT0XjS4FmduaFhsyz5C'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Force Change Default Password on Localhost
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), the "must change default password" flow is disabled
+    | when the app is accessed via localhost or 127.0.0.1. Set to true to
+    | enforce it locally as well (e.g. for testing).
+    |
+    */
+    'force_change_password_on_localhost' => env('AUTH_FORCE_CHANGE_PASSWORD_ON_LOCALHOST', false),
+
 ];

@@ -19,6 +19,12 @@ class ForceChangePassword
             return $next($request);
         }
 
+        $isLocalhost = in_array($request->getHost(), ['localhost', '127.0.0.1'], true);
+        $forceChangeOnLocalhost = config('auth.force_change_password_on_localhost', false);
+        if ($isLocalhost && ! $forceChangeOnLocalhost) {
+            return $next($request);
+        }
+
         if (! $request->session()->get('must_change_password', false)) {
             return $next($request);
         }
