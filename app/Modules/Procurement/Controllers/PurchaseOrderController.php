@@ -56,6 +56,10 @@ class PurchaseOrderController extends Controller
             return response('Purchase Order not found', 404);
         }
 
+        if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+            return response('Purchase Order not found', 404);
+        }
+
         $poNumber = trim((string) ($po->PurchaseOrderNumber ?? ''));
 
         // Jika format=pdf atau download=1: return PDF dengan Content-Disposition attachment agar langsung terdownload
@@ -325,6 +329,10 @@ class PurchaseOrderController extends Controller
             return response()->json(['message' => 'Purchase Order not found'], 404);
         }
 
+        if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
+
         $approvalStatus = null;
         if (!empty($po->mstApprovalStatusID)) {
             $approvalStatus = DB::table('mstApprovalStatus')
@@ -466,6 +474,19 @@ class PurchaseOrderController extends Controller
     {
         $decodedNumber = urldecode($poNumber);
 
+        $po = DB::table('trxPROPurchaseOrder')
+            ->where('PurchaseOrderNumber', $decodedNumber)
+            ->where('IsActive', true)
+            ->first();
+
+        if (!$po) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
+
+        if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
+
         $itemsQuery = DB::table('trxPROPurchaseOrderItem')
             ->where('trxPROPurchaseOrderNumber', $decodedNumber);
 
@@ -507,6 +528,14 @@ class PurchaseOrderController extends Controller
         $po = DB::table('trxPROPurchaseOrder')
             ->where('PurchaseOrderNumber', $decodedNumber)
             ->first();
+
+        if (!$po) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
+
+        if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
 
         $prNumber = $po?->trxPROPurchaseRequestNumber;
         if (!$prNumber) {
@@ -570,6 +599,15 @@ class PurchaseOrderController extends Controller
     public function cancelPeriodAmortizations(string $poNumber)
     {
         $decodedNumber = urldecode($poNumber);
+
+        $po = DB::table('trxPROPurchaseOrder')
+            ->where('PurchaseOrderNumber', $decodedNumber)
+            ->where('IsActive', true)
+            ->first();
+
+        if (!$po || !$this->canCurrentUserViewPurchaseOrder($po)) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
+        }
 
         if (!Schema::hasTable('trxPROPurchaseOrderAmortization')) {
             return response()->json([
@@ -652,6 +690,15 @@ class PurchaseOrderController extends Controller
 
         if ($purchOrderId === '') {
             return response()->json(['message' => 'Purchase Order ID is required'], 422);
+        }
+
+        $poForAccess = DB::table('trxPROPurchaseOrder')
+            ->where('PurchaseOrderNumber', $purchOrderId)
+            ->where('IsActive', true)
+            ->first();
+
+        if (!$poForAccess || !$this->canCurrentUserViewPurchaseOrder($poForAccess)) {
+            return response()->json(['message' => 'Purchase Order not found'], 404);
         }
 
         if ((empty($termPositions) || !is_array($termPositions)) && (empty($periodNumbers) || !is_array($periodNumbers))) {
@@ -833,6 +880,10 @@ class PurchaseOrderController extends Controller
                 return response()->json(['message' => 'Purchase Order not found'], 404);
             }
 
+            if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+                return response()->json(['message' => 'Purchase Order not found'], 404);
+            }
+
             $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
             if ($prNumber === '') {
                 return response()->json(['message' => 'Purchase Request number not found for PO'], 422);
@@ -1010,6 +1061,10 @@ class PurchaseOrderController extends Controller
                         throw new \RuntimeException('Purchase Order not found');
                     }
 
+                    if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+                        throw new \RuntimeException('Purchase Order not found');
+                    }
+
                     $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
                     if ($prNumber === '') {
                         throw new \RuntimeException('Purchase Request number not found for PO');
@@ -1124,6 +1179,16 @@ class PurchaseOrderController extends Controller
                 ->unique()
                 ->values();
 
+            foreach ($affectedPONumbers as $checkPoNumber) {
+                $poRow = DB::table('trxPROPurchaseOrder')
+                    ->where('PurchaseOrderNumber', $checkPoNumber)
+                    ->where('IsActive', true)
+                    ->first();
+                if (!$poRow || !$this->canCurrentUserViewPurchaseOrder($poRow)) {
+                    return response()->json(['message' => 'Purchase Order not found'], 404);
+                }
+            }
+
             foreach ($items as $itemDto) {
                 $itemId = $itemDto['Id'] ?? $itemDto['ID'] ?? $itemDto['id'] ?? null;
                 if (!$itemId || !$itemsById->has((int) $itemId)) {
@@ -1179,6 +1244,10 @@ class PurchaseOrderController extends Controller
                 ->first();
 
             if (!$po) {
+                return response()->json(['message' => 'Purchase Order not found'], 404);
+            }
+
+            if (!$this->canCurrentUserViewPurchaseOrder($po)) {
                 return response()->json(['message' => 'Purchase Order not found'], 404);
             }
 
@@ -1285,6 +1354,10 @@ class PurchaseOrderController extends Controller
                         throw new \RuntimeException('Purchase Order not found');
                     }
 
+                    if (!$this->canCurrentUserViewPurchaseOrder($po)) {
+                        throw new \RuntimeException('Purchase Order not found');
+                    }
+
                     if (!in_array((int) ($po->mstApprovalStatusID ?? 0), [9, 10], true)) {
                         throw new \RuntimeException('Purchase Order status is not eligible for approval');
                     }
@@ -1371,10 +1444,29 @@ class PurchaseOrderController extends Controller
         $start = (int) ($startInput ?? 0);
         $length = (int) ($lengthInput ?? 10);
 
+        $poNumberForAccess = trim((string) ($request->input('poNumber') ?? $request->input('poNumberFilter') ?? ''));
+        if ($poNumberForAccess !== '') {
+            $poGate = DB::table('trxPROPurchaseOrder')
+                ->where('PurchaseOrderNumber', $poNumberForAccess)
+                ->where('IsActive', true)
+                ->first();
+            if (!$poGate || !$this->canCurrentUserViewPurchaseOrder($poGate)) {
+                return response()->json([
+                    'draw' => $draw,
+                    'recordsTotal' => 0,
+                    'recordsFiltered' => 0,
+                    'data' => [],
+                ]);
+            }
+        }
+
         $baseQuery = $this->basePurchaseOrderItemsQuery($request);
-        $recordsTotal = (clone $baseQuery)->count('item.ID');
+        if ($poNumberForAccess === '') {
+            $this->restrictPurchaseOrderItemsQueryToVisiblePos($baseQuery);
+        }
 
         $filteredQuery = $this->applyPurchaseOrderItemsFilters($baseQuery, $request);
+        $recordsTotal = (clone $filteredQuery)->count('item.ID');
         $recordsFiltered = (clone $filteredQuery)->count('item.ID');
 
         $order = $request->input('order.0', []);
@@ -1435,9 +1527,9 @@ class PurchaseOrderController extends Controller
         $length = (int) ($lengthInput ?? 10);
 
         $baseQuery = $this->applyStatusFilters($this->baseQuery(), $request);
-        $recordsTotal = (clone $baseQuery)->count('po.ID');
 
         $filteredQuery = $this->applyFilters($baseQuery, $request);
+        $recordsTotal = (clone $filteredQuery)->count('po.ID');
         $recordsFiltered = (clone $filteredQuery)->count('po.ID');
 
         $order = $request->input('order.0', []);
@@ -1512,17 +1604,6 @@ class PurchaseOrderController extends Controller
             }
 
             $query->whereIn('po.mstApprovalStatusID', $allowedStatuses);
-
-            if (in_array(8, $allowedStatuses, true) || in_array(12, $allowedStatuses, true)) {
-                $userIds = $this->getCurrentUserScopeIds();
-                if (empty($userIds)) {
-                    return $query->whereRaw('1 = 0');
-                }
-                $query->where(function ($scopeQuery) use ($userIds) {
-                    $scopeQuery->whereIn('po.CreatedBy', $userIds)
-                        ->orWhereIn('po.PurchaseRequestRequestor', $userIds);
-                });
-            }
         }
 
         return $query;
@@ -1539,14 +1620,7 @@ class PurchaseOrderController extends Controller
             }
             $query->whereIn('po.PurchaseRequestRequestor', $currentUserIds);
         } else {
-            $allowedUserIds = $this->getCurrentUserScopeIds();
-            if (empty($allowedUserIds)) {
-                return $query->whereRaw('1 = 0');
-            }
-            $query->where(function ($scopeQuery) use ($allowedUserIds) {
-                $scopeQuery->whereIn('po.CreatedBy', $allowedUserIds)
-                    ->orWhereIn('po.PurchaseRequestRequestor', $allowedUserIds);
-            });
+            $this->restrictPoQueryToVisiblePurchaseOrders($query);
         }
 
         $poNumber = $request->input('poNumber');
@@ -1791,14 +1865,178 @@ class PurchaseOrderController extends Controller
         return array_values(array_unique(array_filter($ids, fn ($id) => $id !== '')));
     }
 
-    private function getCurrentUserScopeIds(): array
+    private function employeePositionNameContainsProcurement(): bool
     {
-        $seedIds = $this->getCurrentUserIdentifiers();
-        if (empty($seedIds)) {
+        $employee = session('employee');
+        if (!$employee) {
+            return false;
+        }
+
+        $name = trim((string) ($employee->PositionName ?? ''));
+        if ($name === '') {
+            return false;
+        }
+
+        return stripos($name, 'Procurement') !== false;
+    }
+
+    /**
+     * Limit PO rows to those whose linked PR's CreatedBy is in the current user's subtree
+     * (self + recursive subordinates via Report_Code), unless session PositionName contains "Procurement".
+     */
+    private function restrictPoQueryToVisiblePurchaseOrders($query): void
+    {
+        $this->applyVisiblePrCreatorScopeToPoQuery($query, 'po.trxPROPurchaseRequestNumber');
+    }
+
+    private function restrictPurchaseOrderItemsQueryToVisiblePos($query): void
+    {
+        $this->applyVisiblePrCreatorScopeToPoQuery($query, 'po.trxPROPurchaseRequestNumber');
+    }
+
+    private function applyVisiblePrCreatorScopeToPoQuery($query, string $prNumberColumn): void
+    {
+        if ($this->employeePositionNameContainsProcurement()) {
+            return;
+        }
+
+        $ids = $this->getCurrentUserIdentifiers();
+        if (empty($ids)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $creatorScope = $this->getRecursiveSubordinateIds($ids);
+        if (empty($creatorScope)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereIn($prNumberColumn, function ($sub) use ($creatorScope) {
+            $sub->select('PurchaseRequestNumber')
+                ->from('trxPROPurchaseRequest')
+                ->whereIn('CreatedBy', $creatorScope);
+            if (Schema::hasColumn('trxPROPurchaseRequest', 'IsActive')) {
+                $sub->where('IsActive', true);
+            }
+        });
+    }
+
+    private function getCreatedByForPurchaseRequestNumber(string $prNumber): ?string
+    {
+        if (!Schema::hasTable('trxPROPurchaseRequest')) {
+            return null;
+        }
+
+        $q = DB::table('trxPROPurchaseRequest')->where('PurchaseRequestNumber', $prNumber);
+        if (Schema::hasColumn('trxPROPurchaseRequest', 'IsActive')) {
+            $q->where('IsActive', true);
+        }
+
+        $raw = $q->value('CreatedBy');
+        if ($raw === null) {
+            return null;
+        }
+
+        $t = trim((string) $raw);
+
+        return $t !== '' ? $t : null;
+    }
+
+    /**
+     * Walk upward from an employee ID via mstEmployee.Report_Code (manager chain).
+     *
+     * @return list<string>
+     */
+    private function getReportCodeAncestorIds(string $startEmployeeId): array
+    {
+        $startEmployeeId = trim($startEmployeeId);
+        if ($startEmployeeId === '') {
             return [];
         }
 
-        return $this->getRecursiveSubordinateIds($seedIds);
+        $result = [];
+        $visited = [];
+        $current = $startEmployeeId;
+        $maxHops = 50;
+
+        while ($current !== '' && $maxHops-- > 0) {
+            $key = strtolower($current);
+            if (isset($visited[$key])) {
+                break;
+            }
+            $visited[$key] = true;
+            $result[] = $current;
+
+            $row = MstEmployee::query()
+                ->where('Employ_Id', $current)
+                ->orWhere('Employ_Id_TBGSYS', $current)
+                ->first(['Report_Code']);
+
+            if (!$row) {
+                break;
+            }
+
+            $next = trim((string) ($row->Report_Code ?? ''));
+            if ($next === '' || $next === '-') {
+                break;
+            }
+            $current = $next;
+        }
+
+        return $result;
+    }
+
+    private function identifierSetsIntersect(array $a, array $b): bool
+    {
+        $normalize = static fn ($id) => strtolower(trim((string) $id));
+        $setB = [];
+        foreach ($b as $id) {
+            $k = $normalize($id);
+            if ($k !== '') {
+                $setB[$k] = true;
+            }
+        }
+        foreach ($a as $id) {
+            $k = $normalize($id);
+            if ($k !== '' && isset($setB[$k])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function canCurrentUserViewPurchaseOrder(?object $po): bool
+    {
+        if (!$po) {
+            return false;
+        }
+
+        if ($this->employeePositionNameContainsProcurement()) {
+            return true;
+        }
+
+        $prNumber = trim((string) ($po->trxPROPurchaseRequestNumber ?? ''));
+        if ($prNumber === '') {
+            return false;
+        }
+
+        $createdBy = $this->getCreatedByForPurchaseRequestNumber($prNumber);
+        if ($createdBy === null || $createdBy === '') {
+            return false;
+        }
+
+        $userIds = $this->getCurrentUserIdentifiers();
+        if (empty($userIds)) {
+            return false;
+        }
+
+        $ancestors = $this->getReportCodeAncestorIds($createdBy);
+
+        return $this->identifierSetsIntersect($userIds, $ancestors);
     }
 
     private function getRecursiveSubordinateIds(array $seedIds): array

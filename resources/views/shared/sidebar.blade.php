@@ -107,6 +107,11 @@
                         </li>
                     </ul>
                 </li>
+                @php
+                    $sidebarEmployee = session('employee');
+                    $sidebarPoFullMenu = $sidebarEmployee
+                        && stripos(trim((string) ($sidebarEmployee->PositionName ?? '')), 'Procurement') !== false;
+                @endphp
                 <li class="menu-item">
                     <a href="javascript:void(0)" class="menu-link menu-toggle">
                         <div data-i18n="Purchase Order">Purchase Order</div>
@@ -117,6 +122,7 @@
                                 <div data-i18n="PO List">PO List</div>
                             </a>
                         </li>
+                        @if ($sidebarPoFullMenu)
                         <li class="menu-item">
                             <a href="/Procurement/PurchaseOrder/Confirm" class="menu-link">
                                 <div data-i18n="Confirm PO">Confirm PO</div>
@@ -132,6 +138,7 @@
                                 <div data-i18n="Cancel Period">Cancel Period</div>
                             </a>
                         </li>
+                        @endif
                     </ul>
                 </li>
             </ul>

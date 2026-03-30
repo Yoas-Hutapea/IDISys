@@ -62,6 +62,9 @@ class PurchaseRequestsController extends Controller
     public function update(string $prNumber, Request $request)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $payload = $this->normalizePayload($request->all());
         $now = now();
         $updatedBy = $payload['Requestor'] ?: (string) optional(Auth::user())->Username ?: 'System';
@@ -141,9 +144,8 @@ class PurchaseRequestsController extends Controller
             $filteredQuery = $this->applyApprovalFilters($approvalBaseQuery, $request);
             $recordsFiltered = (clone $filteredQuery)->count('pr.ID');
         } else {
-            $recordsTotal = (clone $baseQuery)->count('pr.ID');
-
             $filteredQuery = $this->applyFilters($baseQuery, $request);
+            $recordsTotal = (clone $filteredQuery)->count('pr.ID');
             $recordsFiltered = (clone $filteredQuery)->count('pr.ID');
         }
 
@@ -190,6 +192,9 @@ class PurchaseRequestsController extends Controller
     public function show(string $prNumber)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $row = $this->baseQuery()
             ->where('pr.PurchaseRequestNumber', $decodedNumber)
             ->first();
@@ -212,6 +217,9 @@ class PurchaseRequestsController extends Controller
     public function items(string $prNumber)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $items = DB::table('trxPROPurchaseRequestItem')
             ->where('trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('IsActive', true)
@@ -234,6 +242,9 @@ class PurchaseRequestsController extends Controller
     public function documents(string $prNumber)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $documents = DB::table('trxPROPurchaseRequestDocument')
             ->where('trxPROPurchaseRequestNumber', $decodedNumber)
             ->where('IsActive', true)
@@ -251,6 +262,9 @@ class PurchaseRequestsController extends Controller
     public function additional(string $prNumber)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $additional = DB::table('trxPROPurchaseRequestAdditional as add')
             ->leftJoin('mstPROPurchaseRequestBillingType as billing', 'add.BillingTypeID', '=', 'billing.ID')
             ->where('add.trxPROPurchaseRequestNumber', $decodedNumber)
@@ -286,6 +300,9 @@ class PurchaseRequestsController extends Controller
     public function saveItemsBulk(string $prNumber, Request $request)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $items = $request->input('Items', []);
         $now = now();
         $userId = (string) optional(Auth::user())->Username ?: 'System';
@@ -338,6 +355,9 @@ class PurchaseRequestsController extends Controller
     public function saveDocumentsBulk(string $prNumber, Request $request)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         $documents = $request->input('Documents', []);
         $now = now();
         $userId = (string) optional(Auth::user())->Username ?: 'System';
@@ -384,6 +404,9 @@ class PurchaseRequestsController extends Controller
     public function uploadDocument(string $prNumber, Request $request)
     {
         $decodedNumber = urldecode($prNumber);
+        if ($response = $this->purchaseRequestDetailForbiddenResponse($decodedNumber)) {
+            return $response;
+        }
         if (!$request->hasFile('file')) {
             return response()->json(['message' => 'File not found'], 400);
         }
@@ -438,6 +461,11 @@ class PurchaseRequestsController extends Controller
 
         if (!$document) {
             return response()->json(['message' => 'Document not found'], 404);
+        }
+
+        $prNumber = (string) ($document->trxPROPurchaseRequestNumber ?? '');
+        if ($prNumber !== '' && ($response = $this->purchaseRequestDetailForbiddenResponse($prNumber))) {
+            return $response;
         }
 
         $fileName = (string) ($document->FileName ?? 'document');
@@ -519,6 +547,10 @@ class PurchaseRequestsController extends Controller
         $prNumber = $request->input('PurchaseRequestNumber');
         if (!$prNumber) {
             return response()->json(['message' => 'PurchaseRequestNumber is required'], 400);
+        }
+
+        if ($response = $this->purchaseRequestDetailForbiddenResponse((string) $prNumber)) {
+            return $response;
         }
 
         $now = now();
@@ -630,20 +662,14 @@ class PurchaseRequestsController extends Controller
             $query->where('pr.Company', strtoupper(trim((string) $source)));
         }
 
-        $allowedCreatedBy = $this->getAllowedCreatedByIds();
-        if ($allowedCreatedBy === null) {
-            return $query;
-        }
-        if (empty($allowedCreatedBy)) {
+        // Non-procurement: creator + managers up Report_Code (same as CreatedBy ∈ self ∪ bawahan).
+        // Procurement: only PRs they authored (CreatedBy = their identifiers).
+        $visibleCreatorIds = $this->getVisibleCreatorIdsForCurrentUser();
+        if (empty($visibleCreatorIds)) {
             return $query->whereRaw('1 = 0');
         }
 
-        // Allow PRs where CreatedBy OR Requestor OR Applicant matches allowed IDs.
-        $query->where(function ($createdQuery) use ($allowedCreatedBy) {
-            $createdQuery->whereIn('pr.CreatedBy', $allowedCreatedBy)
-                ->orWhereIn('pr.Requestor', $allowedCreatedBy)
-                ->orWhereIn('pr.Applicant', $allowedCreatedBy);
-        });
+        $query->whereIn('pr.CreatedBy', $visibleCreatorIds);
 
         return $query;
     }
@@ -902,18 +928,129 @@ class PurchaseRequestsController extends Controller
         return $currentEmployee->Employ_Id ?? $currentEmployee->Employ_Id_TBGSYS;
     }
 
-    private function getAllowedCreatedByIds(): ?array
+    /**
+     * Creator IDs allowed for PR list: for procurement staff, only own identifiers (author-only).
+     * For others, self plus all subordinates (recursive Report_Code), matching the
+     * ancestor-chain visibility from CreatedBy.
+     *
+     * @return list<string>
+     */
+    private function getVisibleCreatorIdsForCurrentUser(): array
     {
-        if ($this->isProcurementUser()) {
-            return null;
-        }
-
         $currentIds = $this->getCurrentUserIdentifiers();
         if (empty($currentIds)) {
             return [];
         }
 
+        if ($this->isProcurementUser()) {
+            return array_values(array_unique(array_filter($currentIds, fn ($id) => trim((string) $id) !== '')));
+        }
+
         return $this->getRecursiveSubordinateIds($currentIds);
+    }
+
+    /**
+     * Walk upward from an employee ID: self, Report_Code(self), Report_Code(manager), …
+     * Report_Code on mstEmployee is the direct manager's employee ID.
+     *
+     * @return non-empty list starting with $startEmployeeId when non-empty
+     */
+    private function getReportCodeAncestorIds(string $startEmployeeId): array
+    {
+        $startEmployeeId = trim($startEmployeeId);
+        if ($startEmployeeId === '') {
+            return [];
+        }
+
+        $result = [];
+        $visited = [];
+        $current = $startEmployeeId;
+        $maxHops = 50;
+
+        while ($current !== '' && $maxHops-- > 0) {
+            $key = strtolower($current);
+            if (isset($visited[$key])) {
+                break;
+            }
+            $visited[$key] = true;
+            $result[] = $current;
+
+            $row = MstEmployee::query()
+                ->where('Employ_Id', $current)
+                ->orWhere('Employ_Id_TBGSYS', $current)
+                ->first(['Report_Code']);
+
+            if (!$row) {
+                break;
+            }
+
+            $next = trim((string) ($row->Report_Code ?? ''));
+            if ($next === '' || $next === '-') {
+                break;
+            }
+            $current = $next;
+        }
+
+        return $result;
+    }
+
+    private function identifierSetsIntersect(array $a, array $b): bool
+    {
+        $normalize = static fn ($id) => strtolower(trim((string) $id));
+        $setB = [];
+        foreach ($b as $id) {
+            $k = $normalize($id);
+            if ($k !== '') {
+                $setB[$k] = true;
+            }
+        }
+        foreach ($a as $id) {
+            $k = $normalize($id);
+            if ($k !== '' && isset($setB[$k])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function canCurrentUserViewPurchaseRequestByCreatedBy(?string $createdBy): bool
+    {
+        $createdBy = $createdBy !== null ? trim((string) $createdBy) : '';
+        if ($createdBy === '') {
+            return false;
+        }
+
+        $userIds = $this->getCurrentUserIdentifiers();
+        if (empty($userIds)) {
+            return false;
+        }
+
+        if ($this->isProcurementUser()) {
+            return $this->identifierSetsIntersect($userIds, [$createdBy]);
+        }
+
+        $ancestors = $this->getReportCodeAncestorIds($createdBy);
+
+        return $this->identifierSetsIntersect($userIds, $ancestors);
+    }
+
+    private function purchaseRequestDetailForbiddenResponse(string $decodedPrNumber): ?\Illuminate\Http\JsonResponse
+    {
+        $row = DB::table('trxPROPurchaseRequest')
+            ->where('PurchaseRequestNumber', $decodedPrNumber)
+            ->first(['CreatedBy']);
+
+        if (!$row) {
+            return response()->json(['message' => 'Purchase Request not found'], 404);
+        }
+
+        $createdBy = trim((string) ($row->CreatedBy ?? ''));
+        if ($this->canCurrentUserViewPurchaseRequestByCreatedBy($createdBy !== '' ? $createdBy : null)) {
+            return null;
+        }
+
+        return response()->json(['message' => 'Purchase Request not found'], 404);
     }
 
     private function getRecursiveSubordinateIds(array $seedIds): array
